@@ -1,0 +1,24 @@
+{
+  "api": [
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/empresas/09103055000100"
+    }
+  ],
+  "consoleErrors": [],
+  "httpErrors": [],
+  "screen": {
+    "file": "screenshots/full-data-external-20260722/empresa360-quatro-verticais.png",
+    "bytes": 174904,
+    "dimensions": [
+      1152,
+      703
+    ],
+    "sha256": "fec2b990a21f8abe0bf11718c8ebcef6d9c65942a8ce85abc50f6dbbf2598e1d",
+    "timestamp": "2026-07-22T14:01:26.107992+00:00",
+    "url": "https://winshubcomercial.com.br:18443/demo/empresas/09103055000100",
+    "selector": ".engineering-page",
+    "agroOccurrenceVisible": true
+  },
+  "verdict": "PASS"
+}

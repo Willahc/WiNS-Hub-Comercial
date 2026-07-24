@@ -1,0 +1,38 @@
+[
+  {
+    "label": "1920x1080",
+    "width": 1920,
+    "height": 1080,
+    "total_pixels": 2073600,
+    "diff_pixels": 1761250,
+    "diff_percentage": 84.94,
+    "baseline": "/tmp/wins-screenshots-pre-fixture-gate-20260722T1215Z/full/visao-geral_1920x1080.png",
+    "current": "/root/wins_hub_unificado/scratch/screenshots_visual_audit/visao_geral_1920x1080_zoom100.png",
+    "overlay": "/root/wins_hub_unificado/scratch/visual_diff_artifacts/1920x1080_overlay_50pct.png",
+    "diff": "/root/wins_hub_unificado/scratch/visual_diff_artifacts/1920x1080_pixel_diff.png"
+  },
+  {
+    "label": "1366x768",
+    "width": 1366,
+    "height": 768,
+    "total_pixels": 1049088,
+    "diff_pixels": 844302,
+    "diff_percentage": 80.48,
+    "baseline": "/tmp/wins-screenshots-pre-fixture-gate-20260722T1215Z/full/visao-geral_dark_1366x768.png",
+    "current": "/root/wins_hub_unificado/scratch/screenshots_visual_audit/visao_geral_1366x768_zoom100.png",
+    "overlay": "/root/wins_hub_unificado/scratch/visual_diff_artifacts/1366x768_overlay_50pct.png",
+    "diff": "/root/wins_hub_unificado/scratch/visual_diff_artifacts/1366x768_pixel_diff.png"
+  },
+  {
+    "label": "390x844",
+    "width": 390,
+    "height": 3237,
+    "total_pixels": 1262430,
+    "diff_pixels": 872143,
+    "diff_percentage": 69.08,
+    "baseline": "/tmp/wins-screenshots-pre-fixture-gate-20260722T1215Z/full/visao-geral_dark_390x844.png",
+    "current": "/root/wins_hub_unificado/scratch/screenshots_visual_audit/visao_geral_390x844_zoom100.png",
+    "overlay": "/root/wins_hub_unificado/scratch/visual_diff_artifacts/390x844_overlay_50pct.png",
+    "diff": "/root/wins_hub_unificado/scratch/visual_diff_artifacts/390x844_pixel_diff.png"
+  }
+]

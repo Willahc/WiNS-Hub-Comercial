@@ -1,0 +1,79 @@
+:root {
+  /* ── Backgrounds ── */
+  --bg-base: #08111F;
+  --bg-sidebar: #091525;
+  --bg-surface: #101C2D;
+  --bg-surface-elevated: #142239;
+  --bg-surface-hover: #1A2A40;
+  --bg-input: #0E1929;
+
+  /* ── Borders ── */
+  --border-default: #253650;
+  --border-subtle: #1E2D42;
+
+  /* ── Text ── */
+  --text-primary: #F4F7FB;
+  --text-secondary: #9EACC4;
+  --text-tertiary: #8498B2;
+  --text-disabled: #7587A0;
+
+  /* ── Accent ── */
+  --accent-blue: #4F7CFF;
+  --accent-blue-hover: #6B90FF;
+  --accent-blue-bg: rgba(79, 124, 255, 0.12);
+
+  /* ── Verticals ── */
+  --vert-engenharia: #3B82F6;
+  --vert-agro: #22C55E;
+  --vert-logistica: #F59E0B;
+  --vert-saude: #EC4899;
+  --vert-oportunidades: #8B5CF6;
+
+  /* ── Status ── */
+  --status-confirmado: #22C55E;
+  --status-provavel: #F59E0B;
+  --status-potencial: #3B82F6;
+  --status-incompleto: #6B7280;
+
+  /* ── Spacing ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ── Sidebar ── */
+  --sidebar-w: 248px;
+  --sidebar-w-collapsed: 72px;
+
+  /* ── Topbar ── */
+  --topbar-h: 60px;
+
+  /* ── Border Radius ── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  /* ── Typography ── */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-title: 600 20px/1.3 var(--font-family);
+  --font-subtitle: 400 13px/1.5 var(--font-family);
+  --font-body: 400 13px/1.5 var(--font-family);
+  --font-small: 400 11px/1.4 var(--font-family);
+  --font-kpi-value: 700 24px/1 var(--font-family);
+  --font-kpi-label: 500 11px/1.4 var(--font-family);
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+  /* ── Transitions ── */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+}

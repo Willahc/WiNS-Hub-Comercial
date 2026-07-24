@@ -1,0 +1,759 @@
+{
+  "startedAt": "2026-07-22T14:32:22.571443+00:00",
+  "host": "winshubcomercial.com.br:18443",
+  "screens": [
+    {
+      "file": "screenshots/full-data-external-20260722/agro--imoveis.png",
+      "bytes": 150886,
+      "dimensions": [
+        1152,
+        2871
+      ],
+      "sha256": "07047e5b871e5f0b95e187f4f60bc054a83247d789b3cd6055cfe1421f590270",
+      "timestamp": "2026-07-22T14:32:33.355303+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/imoveis",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/imoveis",
+      "visibleText": "8.291.331 registrosSICAR / prospeccao.imovel_rural · atualização não informada na fonte",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/imoveis/7757351",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--produtores.png",
+      "bytes": 163260,
+      "dimensions": [
+        1152,
+        3066
+      ],
+      "sha256": "ff45eb9e9ad431742d7dfeca48c37b3d32e93f0525a50fc9aad14492c8668aba",
+      "timestamp": "2026-07-22T14:32:35.671727+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/produtores",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/produtores",
+      "visibleText": "25.849 registrosRFB + evidência rural / prospeccao.holding_lead_ui · atualização não informada na fonte",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/produtores/09103055000100",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--fazendas.png",
+      "bytes": 210975,
+      "dimensions": [
+        1152,
+        3277
+      ],
+      "sha256": "20be454fd4ce372a06e81627bb370b4fa5b8f034b32e0537d6b6bc9526aae9a0",
+      "timestamp": "2026-07-22T14:32:38.792680+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/fazendas",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/fazendas",
+      "visibleText": "6.072.499 registrosSICAR / prospeccao.fazenda_area · atualização não informada na fonte",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/fazendas/BA-2911709-39F4DEFF3C6C42D2BFCFEA1EB85E2492",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--holdings.png",
+      "bytes": 151815,
+      "dimensions": [
+        1152,
+        3034
+      ],
+      "sha256": "b5ff2a082f20d7ad322c43f2f86d6f348715f1e939611615c88c91c9c44a7c69",
+      "timestamp": "2026-07-22T14:32:40.794375+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/holdings",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/holdings",
+      "visibleText": "25.849 registrosRFB / prospeccao.holding_lead_ui · atualização não informada na fonte",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/holdings/09103055000100",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--agronomos.png",
+      "bytes": 179203,
+      "dimensions": [
+        1152,
+        3277
+      ],
+      "sha256": "5576cbd28f35f363abfa512238e05a119055cf01f0dbb65ddf1570e55ec54f0f",
+      "timestamp": "2026-07-22T14:32:43.161730+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/agronomos",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/agronomos",
+      "visibleText": "6.934 registrosCREA / prospeccao.tecnico_crea · atualização 14/06/2026, 00:17:44",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/agronomos/6773",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--zootecnistas.png",
+      "bytes": 148574,
+      "dimensions": [
+        1152,
+        2904
+      ],
+      "sha256": "46729df662fd1f5800f84fa4e509a6c87b44a6e9c207f4e4583d5a4d7456a5a2",
+      "timestamp": "2026-07-22T14:32:45.875037+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/zootecnistas",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/zootecnistas",
+      "visibleText": "476 registrosprospeccao.v_tecnico_full · atualização não informada na fonte",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/zootecnistas/64677145000104",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--veterinarios-nominais.png",
+      "bytes": 166495,
+      "dimensions": [
+        1152,
+        2855
+      ],
+      "sha256": "68d3c1a2b6663bffbb94f0e002f5e094453d42f162d25bf6187cdd57eef51fcc",
+      "timestamp": "2026-07-22T14:32:48.074578+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/veterinarios-nominais",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/veterinarios-nominais",
+      "visibleText": "48.299 registrosRFB / prospeccao.vet_nome · atualização não informada na fonte",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/veterinarios-nominais/41277257",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--empresas-veterinarias.png",
+      "bytes": 156645,
+      "dimensions": [
+        1152,
+        3017
+      ],
+      "sha256": "512ac1564c38e1de28290c1736751a8e76720655a9cfd76e7b2a656046c4840c",
+      "timestamp": "2026-07-22T14:32:50.568457+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/empresas-veterinarias",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/empresas-veterinarias",
+      "visibleText": "50.861 registrosRFB / cnpj.empresa_vet · atualização não informada na fonte",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/empresas-veterinarias/41277257",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--estabelecimentos-veterinarios.png",
+      "bytes": 150322,
+      "dimensions": [
+        1152,
+        2920
+      ],
+      "sha256": "0f34bfe64da625b5ab5702fff19e4a7b30cb19e469172c24bb7c8a92ace3e001",
+      "timestamp": "2026-07-22T14:32:53.194011+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/estabelecimentos-veterinarios",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/estabelecimentos-veterinarios",
+      "visibleText": "77.740 registrosRFB / cnpj.estabelecimento_vet · atualização não informada na fonte",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/estabelecimentos-veterinarios/42771116",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--reprodutores.png",
+      "bytes": 149746,
+      "dimensions": [
+        1152,
+        2871
+      ],
+      "sha256": "4f35a399bfa378d298e348ab48b7c004747599a0c44513a4f75d6bf8f84f4f16",
+      "timestamp": "2026-07-22T14:32:56.875302+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/reprodutores",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/reprodutores",
+      "visibleText": "118.793 registrosprogramas genéticos / mercado.reprodutor · atualização 13/06/2026, 20:38:44",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/reprodutores/315426",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--touros-central.png",
+      "bytes": 165886,
+      "dimensions": [
+        1152,
+        2871
+      ],
+      "sha256": "c59e9d981edc450f41bf4970428a60dc4625783194b3741822bee6461c3c2e6c",
+      "timestamp": "2026-07-22T14:32:59.575255+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/touros-central",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/touros-central",
+      "visibleText": "3.338 registrosprogramas genéticos / mercado.reprodutor · atualização 04/05/2026, 12:27:47",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/touros-central/49018",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--doadoras.png",
+      "bytes": 154497,
+      "dimensions": [
+        1152,
+        1027
+      ],
+      "sha256": "004f9b35d1432cd18d5b76a6349d7c007859afd1bb59a4d15efbace6e550c20b",
+      "timestamp": "2026-07-22T14:33:01.577220+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/doadoras",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/doadoras",
+      "visibleText": "6 registrosmercado.doadora · atualização 13/06/2026, 20:27:46",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/doadoras/15",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--embrioes.png",
+      "bytes": 125635,
+      "dimensions": [
+        1152,
+        2871
+      ],
+      "sha256": "651b0d5bbe9617d7122c430e43e6c8c87677f62781d73331df3a971b4494b89a",
+      "timestamp": "2026-07-22T14:33:03.560708+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/embrioes",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/embrioes",
+      "visibleText": "34 registrosmercado.oferta_embriao · atualização 13/06/2026, 20:27:50",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/embrioes/34",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/agro--avaliacoes-geneticas.png",
+      "bytes": 138395,
+      "dimensions": [
+        1152,
+        2871
+      ],
+      "sha256": "5bbb235cffdc2762cc71dc603b2aa221ada6c978f23a614b65a5298e08a2cf85",
+      "timestamp": "2026-07-22T14:33:09.157055+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/avaliacoes-geneticas",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "agro/avaliacoes-geneticas",
+      "visibleText": "1.195.971 registrosprogramas genéticos / mercado.avaliacao · atualização 02/07/2026, 08:27:54",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/avaliacoes-geneticas/312467",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/logistica--transportadores.png",
+      "bytes": 161779,
+      "dimensions": [
+        1152,
+        2888
+      ],
+      "sha256": "84368f9cbe3eafc7f5e45a6102195ea7164ef4c07956b47c7aabcb0fe37b8515",
+      "timestamp": "2026-07-22T14:33:13.670150+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/transportadores",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "logistica/transportadores",
+      "visibleText": "1.124.684 registrosANTT RNTRC · atualização 31/12/2025",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/transportadores/58367755",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/logistica--agregados-municipais.png",
+      "bytes": 149059,
+      "dimensions": [
+        1152,
+        2465
+      ],
+      "sha256": "f0c425228389f5e7c337f7ab54f58428aef48425ec0bf95dcc6a4b6420c7ca7d",
+      "timestamp": "2026-07-22T14:33:15.876286+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/agregados-municipais",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "logistica/agregados-municipais",
+      "visibleText": "10.743 registrosANTT RNTRC agregado municipal · atualização não informada na fonte",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/agregados-municipais/ACREL%C3%82NDIA",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/logistica--empresas.png",
+      "bytes": 134191,
+      "dimensions": [
+        1152,
+        2871
+      ],
+      "sha256": "562cb8ab8f2dc992b74e796c09d1937fa0ef0480f0c9f315e9263e9c9851a3ed",
+      "timestamp": "2026-07-22T14:33:18.776581+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/empresas",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "logistica/empresas",
+      "visibleText": "1.739.732 registrosRFB agregado municipal logístico · atualização não informada na fonte",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/empresas/105",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/logistica--postos.png",
+      "bytes": 174424,
+      "dimensions": [
+        1152,
+        3017
+      ],
+      "sha256": "2a0b8d076ca830bbc4b82ec033b5300a56463febe91a5517a9866f64726e4180",
+      "timestamp": "2026-07-22T14:33:21.566550+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/postos",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "logistica/postos",
+      "visibleText": "45.892 registrosANP postos autorizados · atualização 31/12/2025",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/postos/1315603",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/logistica--bases-apoio.png",
+      "bytes": 166386,
+      "dimensions": [
+        1152,
+        2465
+      ],
+      "sha256": "0a6cd9b9cd5beb19c972004de426c0238bb16c2f02c25fa26b538eb93f62479c",
+      "timestamp": "2026-07-22T14:33:23.872131+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/bases-apoio",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "logistica/bases-apoio",
+      "visibleText": "4.598 registrosANTT bases de apoio · atualização 12/2025",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/bases-apoio/AUTOPISTA%20PLANALTO%20SUL",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/logistica--pedagios.png",
+      "bytes": 155811,
+      "dimensions": [
+        1152,
+        2888
+      ],
+      "sha256": "b530cf22d5d9b2c4b55e4653e4f224be017aff7f64d5800758646a2e1d95fbbe",
+      "timestamp": "2026-07-22T14:33:26.751723+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/pedagios",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "logistica/pedagios",
+      "visibleText": "282 registrosANTT praças de pedágio · atualização não informada na fonte",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/pedagios/3%20(Cambu%C3%AD)",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/logistica--rodovias.png",
+      "bytes": 139812,
+      "dimensions": [
+        1152,
+        2871
+      ],
+      "sha256": "317d8f514a17a48012b7f965b15410a34a2b88829c23e9f5eec84c1566ec351e",
+      "timestamp": "2026-07-22T14:33:28.681524+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/rodovias",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "logistica/rodovias",
+      "visibleText": "243 registrosANTT rodovias concedidas · atualização não informada na fonte",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/rodovias/BR-381",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/logistica--riscos-rota.png",
+      "bytes": 112392,
+      "dimensions": [
+        1152,
+        2871
+      ],
+      "sha256": "28fa7dd2e880a8686dc19d83b1d98511a0a859a3e8647707fe6ad5c16a716984",
+      "timestamp": "2026-07-22T14:33:31.194670+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/riscos-rota",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "logistica/riscos-rota",
+      "visibleText": "145.898 registrosPRF risco de rota · atualização 01/01/1999, 00:00:00",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/riscos-rota/5",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/saude--estabelecimentos.png",
+      "bytes": 177701,
+      "dimensions": [
+        1152,
+        3050
+      ],
+      "sha256": "da4b8cefe084ce6f1357954839d8ed6e27607f1ef6b88eba1ba7f5c23ed6419f",
+      "timestamp": "2026-07-22T14:33:34.779289+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/estabelecimentos",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "saude/estabelecimentos",
+      "visibleText": "623.208 registrosDATASUS CNES · atualização 18/04/2027, 00:00:00",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/estabelecimentos/2475057",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/saude--mantenedoras.png",
+      "bytes": 168794,
+      "dimensions": [
+        1152,
+        2482
+      ],
+      "sha256": "2e4663c673c3c24eb3462566e386d5ac28a46e697d4dd398c306684920be2089",
+      "timestamp": "2026-07-22T14:33:38.452944+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/mantenedoras",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "saude/mantenedoras",
+      "visibleText": "121.283 registrosDATASUS CNES · atualização 18/04/2027, 00:00:00",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/mantenedoras/08079915000146",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/saude--medicos.png",
+      "bytes": 140230,
+      "dimensions": [
+        1152,
+        2888
+      ],
+      "sha256": "132312b8414b252a05fac8e7638cdbfffc7ee80b3a7b7735f6bfbd89809d8ab2",
+      "timestamp": "2026-07-22T14:33:40.457368+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/medicos",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "saude/medicos",
+      "visibleText": "26.613 registrosCNES / cadastro médico · atualização 16/06/2026, 12:35:24",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/medicos/2",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/saude--operadoras.png",
+      "bytes": 167866,
+      "dimensions": [
+        1152,
+        3180
+      ],
+      "sha256": "c13736c216a54bef0630248f272fe44a4927b3439746ed3be93eb4e194a249a2",
+      "timestamp": "2026-07-22T14:33:42.666930+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/operadoras",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "saude/operadoras",
+      "visibleText": "1.112 registrosANS operadoras · atualização 16/06/2026, 12:35:24",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/operadoras/335657",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/saude--capacidade-municipal.png",
+      "bytes": 135551,
+      "dimensions": [
+        1152,
+        2871
+      ],
+      "sha256": "6effd436fc8b69ee90259a401c7e4db253b73c362aeae7d6553da7e869be8bae",
+      "timestamp": "2026-07-22T14:33:45.168475+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/capacidade-municipal",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "saude/capacidade-municipal",
+      "visibleText": "5.570 registrosDATASUS capacidade municipal · atualização 22/06/2026, 20:39:04",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/capacidade-municipal/211400",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/saude--desertos-medicos.png",
+      "bytes": 129259,
+      "dimensions": [
+        1152,
+        2871
+      ],
+      "sha256": "0b9df00960900e0e1472654aa38e09d497f0aa07ceaf06482b3d9bb2e8185b52",
+      "timestamp": "2026-07-22T14:33:47.182055+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/desertos-medicos",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "saude/desertos-medicos",
+      "visibleText": "5.570 registrosDATASUS desertos médicos · atualização 16/06/2026, 18:27:17",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/desertos-medicos/667",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/saude--mercado.png",
+      "bytes": 132727,
+      "dimensions": [
+        1152,
+        2871
+      ],
+      "sha256": "5a4868332f9d0b9bee3bc11113c7452179f033c468c6a950abf140dfa45d3b3f",
+      "timestamp": "2026-07-22T14:33:49.475948+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/mercado",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "saude/mercado",
+      "visibleText": "5.570 registrosANS mercado de saúde · atualização 16/06/2026, 20:06:35",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/mercado/211400",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/saude--oportunidades.png",
+      "bytes": 154933,
+      "dimensions": [
+        1152,
+        2871
+      ],
+      "sha256": "c9d906fa6ee540687275b86533563789eca17903ce6fca20a656f5b8f6b0b2d3",
+      "timestamp": "2026-07-22T14:33:51.472778+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/oportunidades",
+      "selector": "[data-testid=\"real-directory\"]",
+      "entity": "saude/oportunidades",
+      "visibleText": "5.570 registrosDATASUS / ANS oportunidade de investimento · atualização 13/07/2026, 07:36:56",
+      "detailValidatedUrl": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/oportunidades/251455",
+      "detailSelector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/busca-global.png",
+      "bytes": 127253,
+      "dimensions": [
+        1152,
+        3403
+      ],
+      "sha256": "98196691b89b3bf0c6265f5ac34a4a924266a00d58807ac3a7d6c6a4abdae59a",
+      "timestamp": "2026-07-22T14:34:02.184001+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/busca?q=Campinas",
+      "selector": "[data-testid=\"global-search\"]",
+      "entity": "busca-global"
+    },
+    {
+      "file": "screenshots/full-data-external-20260722/territorial-campinas.png",
+      "bytes": 229064,
+      "dimensions": [
+        1152,
+        2303
+      ],
+      "sha256": "eebd0d2f08301bdf8fdb0413224493fa5a644bdb3b75427ab0a76a7c177fc615",
+      "timestamp": "2026-07-22T14:34:11.073401+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/territorial?municipality=Campinas&uf=SP",
+      "selector": "[data-testid=\"territorial-real\"]",
+      "entity": "inteligencia-territorial"
+    }
+  ],
+  "api": [
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/imoveis?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/imoveis/7757351"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/produtores?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/produtores/09103055000100"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/fazendas?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/fazendas/BA-2911709-39F4DEFF3C6C42D2BFCFEA1EB85E2492"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/holdings?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/holdings/09103055000100"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/agronomos?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/agronomos/6773"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/zootecnistas?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/veterinarios-nominais?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/veterinarios-nominais/41277257"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/empresas-veterinarias?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/empresas-veterinarias/41277257"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/estabelecimentos-veterinarios?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/estabelecimentos-veterinarios/42771116"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/reprodutores?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/reprodutores/315426"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/touros-central?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/doadoras?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/doadoras/15"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/embrioes?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/embrioes/34"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/avaliacoes-geneticas?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/transportadores?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/agregados-municipais?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/agregados-municipais/ACREL%C3%82NDIA"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/empresas?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/empresas/105"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/postos?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/postos/1315603"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/bases-apoio?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/bases-apoio/AUTOPISTA%20PLANALTO%20SUL"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/pedagios?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/pedagios/3%20(Cambu%C3%AD)"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/rodovias?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/riscos-rota?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/estabelecimentos?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/estabelecimentos/2475057"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/mantenedoras?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/mantenedoras/08079915000146"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/medicos?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/medicos/2"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/operadoras?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/operadoras/335657"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/capacidade-municipal?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/desertos-medicos?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/desertos-medicos/667"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/mercado?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/mercado/211400"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/oportunidades?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/oportunidades/251455"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/busca-global?q=Campinas"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/empresas-veterinarias/45441031"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/medicos?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/medicos?page=1&page_size=25&search=MARIA&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/medicos?page=1&page_size=25&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/territorios/municipio?municipality=Campinas&uf=SP"
+    }
+  ],
+  "consoleErrors": [],
+  "httpErrors": [],
+  "globalSearchOpenedUrl": "https://winshubcomercial.com.br:18443/demo/agro/diretorios/empresas-veterinarias/45441031",
+  "serverSideSearchValidated": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/medicos?page=1&search=MARIA",
+  "paginationValidated": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/medicos?page=2",
+  "endedAt": "2026-07-22T14:34:11.073420+00:00",
+  "uniqueHashes": true,
+  "invalidStatuses": [],
+  "verdict": "PASS"
+}

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revisão — WiNS Hub Mockups v2</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1a1a1a; color: #e0e0e0;
+    padding: 24px; transition: background 0.3s, color 0.3s;
+  }
+  body.light { background: #f0f0f0; color: #222; }
+  body.light .card { background: #fff; border-color: #ccc; }
+  body.light .card-title { color: #111; }
+  body.light .card-desc { color: #555; }
+  body.light .badge { background: #ddd; color: #333; }
+
+  .controls { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; }
+  .controls button {
+    padding: 8px 18px; border-radius: 6px; border: 1px solid #444;
+    background: #2a2a2a; color: #e0e0e0; cursor: pointer; font-size: 13px;
+  }
+  body.light .controls button { background: #ddd; color: #222; border-color: #bbb; }
+  .controls button:hover { opacity: 0.85; }
+
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 28px 0 12px; color: #aaa; }
+  body.light h2 { color: #555; }
+  .sub { font-size: 13px; color: #888; margin-bottom: 20px; }
+  body.light .sub { color: #666; }
+
+  .page-section { margin-bottom: 40px; }
+  .page-title { font-size: 18px; font-weight: 600; color: #4F7CFF; margin-bottom: 8px; }
+
+  .gallery { display: flex; flex-direction: column; gap: 16px; }
+
+  .card {
+    background: #222; border: 1px solid #333; border-radius: 12px;
+    padding: 20px; transition: background 0.3s, border-color 0.3s;
+  }
+  .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .card-title { font-size: 18px; font-weight: 600; color: #eee; }
+  .card-desc { font-size: 13px; color: #999; }
+
+  .img-wrapper {
+    display: flex; justify-content: center; align-items: center;
+    background: #0a0a0a; border-radius: 8px; padding: 16px;
+    min-height: 200px; cursor: zoom-in; overflow: hidden;
+    transition: background 0.3s;
+  }
+  body.light .img-wrapper { background: #e0e0e0; }
+  .img-wrapper img {
+    max-width: 100%; max-height: 75vh;
+    object-fit: contain; display: block;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    transition: transform 0.2s;
+  }
+  .img-wrapper.zoomed { cursor: zoom-out; }
+  .img-wrapper.zoomed img {
+    max-width: none; max-height: none;
+    width: 100%; height: auto;
+  }
+
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+  th, td { border: 1px solid #333; padding: 6px 10px; text-align: left; }
+  th { background: #2a2a2a; font-weight: 600; }
+  body.light th { background: #e8e8e8; }
+  body.light td { border-color: #ccc; }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .pass { color: #22C55E; } .fail { color: #EF4444; }
+
+  .wcag-table { margin-top: 8px; }
+  .wcag-table th { font-size: 11px; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    background: #333; font-size: 11px; color: #ccc;
+  }
+
+  @media (max-width: 768px) {
+    body { padding: 12px; }
+    .card { padding: 12px; }
+    .img-wrapper { padding: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>WiNS Hub — Revisão dos Mockups v2</h1>
+<p class="sub">Artefato visual para validação · Projeto isolado (sem alteração na aplicação real)</p>
+
+<div class="controls">
+  <button onclick="document.body.classList.toggle('light')">Alternar fundo claro/escuro</button>
+  <span class="badge" id="zoomBadge">Clique na imagem para aplicar zoom</span>
+</div>
+
+<!-- Page 01: Login -->
+<div class="page-section">
+  <div class="page-title">Página 01 — Login</div>
+  <div class="gallery">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Desktop</span>
+        <span class="card-desc">1920 × 1080</span>
+      </div>
+      <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+        <img src="../screenshots/01-login-desktop.png" alt="Login Desktop">
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Laptop</span>
+        <span class="card-desc">1440 × 900</span>
+      </div>
+      <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+        <img src="../screenshots/01-login-laptop.png" alt="Login Laptop">
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Mobile</span>
+        <span class="card-desc">390 × 844</span>
+      </div>
+      <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+        <img src="../screenshots/01-login-mobile.png" alt="Login Mobile">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Page 02: Visão Geral -->
+<div class="page-section">
+  <div class="page-title">Página 02 — Visão Geral</div>
+  <div class="gallery">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Desktop</span>
+        <span class="card-desc">1920 × 1080</span>
+      </div>
+      <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+        <img src="../screenshots/02-visao-geral-desktop.png" alt="Visão Geral Desktop">
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Laptop</span>
+        <span class="card-desc">1440 × 900</span>
+      </div>
+      <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+        <img src="../screenshots/02-visao-geral-laptop.png" alt="Visão Geral Laptop">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.img-wrapper').forEach(w => {
+    w.addEventListener('click', () => {
+      const zoomed = w.classList.contains('zoomed');
+      document.getElementById('zoomBadge').textContent = zoomed
+        ? 'Zoom ativado (role para navegar)'
+        : 'Clique na imagem para aplicar zoom';
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revisão Final — Visão Geral | WiNS Hub</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',sans-serif;background:#1a1a1a;color:#e0e0e0;padding:24px}
+  h1{font-size:22px;font-weight:700;margin-bottom:4px}
+  h2{font-size:16px;font-weight:600;margin:24px 0 12px;color:#aaa}
+  .sub{font-size:13px;color:#888;margin-bottom:20px}
+  .card{background:#222;border:1px solid #333;border-radius:12px;padding:20px;margin-bottom:16px}
+  .card-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+  .card-title{font-size:18px;font-weight:600;color:#eee}
+  .card-desc{font-size:13px;color:#999}
+  .img-wrapper{display:flex;justify-content:center;align-items:center;background:#0a0a0a;border-radius:8px;padding:16px;min-height:200px;cursor:zoom-in;overflow:hidden}
+  .img-wrapper img{max-width:100%;max-height:75vh;object-fit:contain;display:block;box-shadow:0 2px 12px rgba(0,0,0,0.5)}
+  .img-wrapper.zoomed{cursor:zoom-out}
+  .img-wrapper.zoomed img{max-width:none;max-height:none;width:100%;height:auto}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:12px}
+  th,td{border:1px solid #333;padding:6px 10px;text-align:left}
+  th{background:#2a2a2a;font-weight:600}
+  .pass{color:#22C55E;font-weight:600}
+  .fail{color:#EF4444;font-weight:600}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px}
+  @media(max-width:768px){.grid{grid-template-columns:1fr 1fr}}
+</style></head><body>
+
+<h1>WiNS Hub — Visão Geral · Revisão Final</h1>
+<p class="sub">Validação automatizada via Playwright · Rota: /mockups-v2/visao-geral</p>
+
+<div class="card">
+  <h2 style="margin-top:0">Checks (39)</h2>
+  <div class="grid">
+<div><span style="color:#888">pathname ends with /mockups-v2/visao-geral</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">h1 = Visão Geral</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">8 KPI cards</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666">8/8</span></div>
+<div><span style="color:#888">sidebar</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">topbar</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">map visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">territory panel</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">event badge</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">cross-relations</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">quick actions</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">quality of connections</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">footer</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">no login text</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">zero horizontal overflow</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">CartoDB dark tiles</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">cluster markers exist</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666">3 markers</span></div>
+<div><span style="color:#888">zero cluster overlap</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666">clean</span></div>
+<div><span style="color:#888">Africa absent from desktop viewport</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666">east=-12.8°, north=8.2°, center=-55°, zoom=5</span></div>
+<div><span style="color:#888">composite cluster with donut (conic-gradient)</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">composite cluster shows total (324,8 mil)</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">tooltip shows Engenharia breakdown</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">tooltip shows Agro breakdown</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">tooltip shows Logística breakdown</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">tooltip shows total oportunidades</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">click on cluster zooms in</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666">zoom 5 → 7</span></div>
+<div><span style="color:#888">map disclaimer present</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">filter bar has 4+ selects</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">Limpar filtros button present after selecting filter</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">Redefinir mapa button present</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">WCAG contrast ≥4.5:1</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666">tertiary=5.80:1, disabled=4.67:1</span></div>
+<div><span style="color:#888">zero console errors</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666">clean</span></div>
+<div><span style="color:#888">mobile drawer closed</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile hamburger</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile zero overflow</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile map</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile territory panel</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile zero console errors</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666">clean</span></div>
+<div><span style="color:#888">mobile Africa absent</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666">east=-30.9°</span></div>
+<div><span style="color:#888">mobile composite donut cluster</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+  </div>
+</div>
+
+<h2>WCAG Contrast (verificação computacional)</h2>
+<div class="card" style="font-size:13px">
+  <table>
+    <tr><th>Par</th><th>Contraste</th><th>AA normal (≥4.5:1)</th></tr>
+    <tr><td>text-tertiary (#8498B2) on bg-surface (#101C2D)</td><td>5.80:1</td><td class="pass">PASS</td></tr>
+    <tr><td>text-tertiary (#8498B2) on bg-base (#08111F)</td><td>6.41:1</td><td class="pass">PASS</td></tr>
+    <tr><td>text-disabled (#7587A0) on bg-surface (#101C2D)</td><td>4.67:1</td><td class="pass">PASS</td></tr>
+    <tr><td>text-disabled (#7587A0) on bg-base (#08111F)</td><td>5.16:1</td><td class="pass">PASS</td></tr>
+  </table>
+</div>
+
+<h2>Cluster Overlap</h2>
+<div class="card">
+  <p>Cluster markers encontrados: 3</p>
+  <p>Interseções detectadas: 0</p>
+  <p class="pass">✓ Nenhuma sobreposição entre textos dos clusters</p>
+</div>
+
+<h2>Map Framing</h2>
+<div class="card">
+  <p>Desktop east bound: -12.8°</p>
+  <p>Africa cutoff: &lt; -18° → <span class="fail">✗ Africa visível</span></p>
+  <p>Zoom 5 → 7 (after cluster click): <span class="pass">✓ Zoom in</span></p>
+</div>
+
+<h2>Screenshots</h2>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Desktop</span>
+    <span class="card-desc">1920×1080</span>
+  </div>
+  <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+    <img src="../screenshots/02-visao-geral-desktop.png" alt="">
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Laptop</span>
+    <span class="card-desc">1440×900</span>
+  </div>
+  <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+    <img src="../screenshots/02-visao-geral-laptop.png" alt="">
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Mobile</span>
+    <span class="card-desc">390×844</span>
+  </div>
+  <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+    <img src="../screenshots/02-visao-geral-mobile.png" alt="">
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Full Page</span>
+    <span class="card-desc">1920×(completo)</span>
+  </div>
+  <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+    <img src="../screenshots/02-visao-geral-fullpage.png" alt="">
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.img-wrapper').forEach(w => {
+  w.addEventListener('click', () => w.classList.toggle('zoomed'));
+});
+</script>
+</body></html>

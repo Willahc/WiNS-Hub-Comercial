@@ -1,0 +1,1666 @@
+[
+  {
+    "label": "1920x1080_sidebar_collapsed_zoom100",
+    "res": "1920x1080",
+    "sidebar": "sidebar_collapsed",
+    "zoom": "100%",
+    "vw": 1920,
+    "doc_scroll": 1920,
+    "doc_client": 1920,
+    "page_rect": {
+      "left": 24,
+      "right": 1896,
+      "width": 1872
+    },
+    "filter_rect": {
+      "left": 24,
+      "right": 1896,
+      "width": 1872
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 39,
+        "right": 645,
+        "width": 606
+      },
+      "#filter-status": {
+        "left": 657,
+        "right": 954,
+        "width": 297
+      },
+      "#filter-phase": {
+        "left": 966,
+        "right": 1263,
+        "width": 297
+      },
+      "#filter-uf": {
+        "left": 1275,
+        "right": 1572,
+        "width": 297
+      },
+      "#filter-municipality": {
+        "left": 1584,
+        "right": 1881,
+        "width": 297
+      },
+      "#filter-sector": {
+        "left": 39,
+        "right": 258.75,
+        "width": 219.75
+      },
+      "#filter-company": {
+        "left": 270.75,
+        "right": 490.5,
+        "width": 219.75
+      },
+      "#filter-inv-min": {
+        "left": 502.5,
+        "right": 722.25,
+        "width": 219.75
+      },
+      "#filter-inv-max": {
+        "left": 734.25,
+        "right": 954,
+        "width": 219.75
+      },
+      "#filter-period-start": {
+        "left": 966,
+        "right": 1185.75,
+        "width": 219.75
+      },
+      "#filter-period-end": {
+        "left": 1197.75,
+        "right": 1417.5,
+        "width": 219.75
+      },
+      "#filter-has-supplier": {
+        "left": 1429.5,
+        "right": 1649.25,
+        "width": 219.75
+      },
+      "#filter-has-decisionmaker": {
+        "left": 1661.25,
+        "right": 1881,
+        "width": 219.75
+      },
+      "#filter-has-opportunity": {
+        "left": 39,
+        "right": 258.75,
+        "width": 219.75
+      },
+      "#filter-capex-homologado": {
+        "left": 270.75,
+        "right": 490.5,
+        "width": 219.75
+      },
+      ".filter-actions": {
+        "left": 39,
+        "right": 1881,
+        "width": 1842
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1920x1080_sidebar_collapsed_zoom100.png"
+  },
+  {
+    "label": "1920x1080_sidebar_collapsed_zoom125",
+    "res": "1920x1080",
+    "sidebar": "sidebar_collapsed",
+    "zoom": "125%",
+    "vw": 1920,
+    "doc_scroll": 1920,
+    "doc_client": 1920,
+    "page_rect": {
+      "left": 24,
+      "right": 1896,
+      "width": 1872
+    },
+    "filter_rect": {
+      "left": 24,
+      "right": 1896,
+      "width": 1872
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 39,
+        "right": 645,
+        "width": 606
+      },
+      "#filter-status": {
+        "left": 657,
+        "right": 954,
+        "width": 297
+      },
+      "#filter-phase": {
+        "left": 966,
+        "right": 1263,
+        "width": 297
+      },
+      "#filter-uf": {
+        "left": 1275,
+        "right": 1572,
+        "width": 297
+      },
+      "#filter-municipality": {
+        "left": 1584,
+        "right": 1881,
+        "width": 297
+      },
+      "#filter-sector": {
+        "left": 39,
+        "right": 258.75,
+        "width": 219.75
+      },
+      "#filter-company": {
+        "left": 270.75,
+        "right": 490.5,
+        "width": 219.75
+      },
+      "#filter-inv-min": {
+        "left": 502.5,
+        "right": 722.25,
+        "width": 219.75
+      },
+      "#filter-inv-max": {
+        "left": 734.25,
+        "right": 954,
+        "width": 219.75
+      },
+      "#filter-period-start": {
+        "left": 966,
+        "right": 1185.75,
+        "width": 219.75
+      },
+      "#filter-period-end": {
+        "left": 1197.75,
+        "right": 1417.5,
+        "width": 219.75
+      },
+      "#filter-has-supplier": {
+        "left": 1429.5,
+        "right": 1649.25,
+        "width": 219.75
+      },
+      "#filter-has-decisionmaker": {
+        "left": 1661.25,
+        "right": 1881,
+        "width": 219.75
+      },
+      "#filter-has-opportunity": {
+        "left": 39,
+        "right": 258.75,
+        "width": 219.75
+      },
+      "#filter-capex-homologado": {
+        "left": 270.75,
+        "right": 490.5,
+        "width": 219.75
+      },
+      ".filter-actions": {
+        "left": 39,
+        "right": 1881,
+        "width": 1842
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1920x1080_sidebar_collapsed_zoom125.png"
+  },
+  {
+    "label": "1536x864_sidebar_collapsed_zoom100",
+    "res": "1536x864",
+    "sidebar": "sidebar_collapsed",
+    "zoom": "100%",
+    "vw": 1536,
+    "doc_scroll": 1536,
+    "doc_client": 1536,
+    "page_rect": {
+      "left": 24,
+      "right": 1512,
+      "width": 1488
+    },
+    "filter_rect": {
+      "left": 24,
+      "right": 1512,
+      "width": 1488
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 39,
+        "right": 517,
+        "width": 478
+      },
+      "#filter-status": {
+        "left": 529,
+        "right": 762,
+        "width": 233
+      },
+      "#filter-phase": {
+        "left": 774,
+        "right": 1007,
+        "width": 233
+      },
+      "#filter-uf": {
+        "left": 1019,
+        "right": 1252,
+        "width": 233
+      },
+      "#filter-municipality": {
+        "left": 1264,
+        "right": 1497,
+        "width": 233
+      },
+      "#filter-sector": {
+        "left": 39,
+        "right": 272,
+        "width": 233
+      },
+      "#filter-company": {
+        "left": 284,
+        "right": 517,
+        "width": 233
+      },
+      "#filter-inv-min": {
+        "left": 529,
+        "right": 762,
+        "width": 233
+      },
+      "#filter-inv-max": {
+        "left": 774,
+        "right": 1007,
+        "width": 233
+      },
+      "#filter-period-start": {
+        "left": 1019,
+        "right": 1252,
+        "width": 233
+      },
+      "#filter-period-end": {
+        "left": 1264,
+        "right": 1497,
+        "width": 233
+      },
+      "#filter-has-supplier": {
+        "left": 39,
+        "right": 272,
+        "width": 233
+      },
+      "#filter-has-decisionmaker": {
+        "left": 284,
+        "right": 517,
+        "width": 233
+      },
+      "#filter-has-opportunity": {
+        "left": 529,
+        "right": 762,
+        "width": 233
+      },
+      "#filter-capex-homologado": {
+        "left": 774,
+        "right": 1007,
+        "width": 233
+      },
+      ".filter-actions": {
+        "left": 39,
+        "right": 1497,
+        "width": 1458
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1536x864_sidebar_collapsed_zoom100.png"
+  },
+  {
+    "label": "1536x864_sidebar_collapsed_zoom125",
+    "res": "1536x864",
+    "sidebar": "sidebar_collapsed",
+    "zoom": "125%",
+    "vw": 1536,
+    "doc_scroll": 1536,
+    "doc_client": 1536,
+    "page_rect": {
+      "left": 24,
+      "right": 1512,
+      "width": 1488
+    },
+    "filter_rect": {
+      "left": 24,
+      "right": 1512,
+      "width": 1488
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 39,
+        "right": 517,
+        "width": 478
+      },
+      "#filter-status": {
+        "left": 529,
+        "right": 762,
+        "width": 233
+      },
+      "#filter-phase": {
+        "left": 774,
+        "right": 1007,
+        "width": 233
+      },
+      "#filter-uf": {
+        "left": 1019,
+        "right": 1252,
+        "width": 233
+      },
+      "#filter-municipality": {
+        "left": 1264,
+        "right": 1497,
+        "width": 233
+      },
+      "#filter-sector": {
+        "left": 39,
+        "right": 272,
+        "width": 233
+      },
+      "#filter-company": {
+        "left": 284,
+        "right": 517,
+        "width": 233
+      },
+      "#filter-inv-min": {
+        "left": 529,
+        "right": 762,
+        "width": 233
+      },
+      "#filter-inv-max": {
+        "left": 774,
+        "right": 1007,
+        "width": 233
+      },
+      "#filter-period-start": {
+        "left": 1019,
+        "right": 1252,
+        "width": 233
+      },
+      "#filter-period-end": {
+        "left": 1264,
+        "right": 1497,
+        "width": 233
+      },
+      "#filter-has-supplier": {
+        "left": 39,
+        "right": 272,
+        "width": 233
+      },
+      "#filter-has-decisionmaker": {
+        "left": 284,
+        "right": 517,
+        "width": 233
+      },
+      "#filter-has-opportunity": {
+        "left": 529,
+        "right": 762,
+        "width": 233
+      },
+      "#filter-capex-homologado": {
+        "left": 774,
+        "right": 1007,
+        "width": 233
+      },
+      ".filter-actions": {
+        "left": 39,
+        "right": 1497,
+        "width": 1458
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1536x864_sidebar_collapsed_zoom125.png"
+  },
+  {
+    "label": "1366x768_sidebar_collapsed_zoom100",
+    "res": "1366x768",
+    "sidebar": "sidebar_collapsed",
+    "zoom": "100%",
+    "vw": 1366,
+    "doc_scroll": 1366,
+    "doc_client": 1366,
+    "page_rect": {
+      "left": 24,
+      "right": 1342,
+      "width": 1318
+    },
+    "filter_rect": {
+      "left": 24,
+      "right": 1342,
+      "width": 1318
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 39,
+        "right": 460.328125,
+        "width": 421.328125
+      },
+      "#filter-status": {
+        "left": 472.328125,
+        "right": 677,
+        "width": 204.671875
+      },
+      "#filter-phase": {
+        "left": 689,
+        "right": 893.65625,
+        "width": 204.65625
+      },
+      "#filter-uf": {
+        "left": 905.65625,
+        "right": 1110.328125,
+        "width": 204.671875
+      },
+      "#filter-municipality": {
+        "left": 1122.328125,
+        "right": 1327,
+        "width": 204.671875
+      },
+      "#filter-sector": {
+        "left": 39,
+        "right": 243.65625,
+        "width": 204.65625
+      },
+      "#filter-company": {
+        "left": 255.65625,
+        "right": 460.328125,
+        "width": 204.671875
+      },
+      "#filter-inv-min": {
+        "left": 472.328125,
+        "right": 677,
+        "width": 204.671875
+      },
+      "#filter-inv-max": {
+        "left": 689,
+        "right": 893.65625,
+        "width": 204.65625
+      },
+      "#filter-period-start": {
+        "left": 905.65625,
+        "right": 1110.328125,
+        "width": 204.671875
+      },
+      "#filter-period-end": {
+        "left": 1122.328125,
+        "right": 1327,
+        "width": 204.671875
+      },
+      "#filter-has-supplier": {
+        "left": 39,
+        "right": 243.65625,
+        "width": 204.65625
+      },
+      "#filter-has-decisionmaker": {
+        "left": 255.65625,
+        "right": 460.328125,
+        "width": 204.671875
+      },
+      "#filter-has-opportunity": {
+        "left": 472.328125,
+        "right": 677,
+        "width": 204.671875
+      },
+      "#filter-capex-homologado": {
+        "left": 689,
+        "right": 893.65625,
+        "width": 204.65625
+      },
+      ".filter-actions": {
+        "left": 39,
+        "right": 1327,
+        "width": 1288
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1366x768_sidebar_collapsed_zoom100.png"
+  },
+  {
+    "label": "1366x768_sidebar_collapsed_zoom125",
+    "res": "1366x768",
+    "sidebar": "sidebar_collapsed",
+    "zoom": "125%",
+    "vw": 1366,
+    "doc_scroll": 1366,
+    "doc_client": 1366,
+    "page_rect": {
+      "left": 24,
+      "right": 1342,
+      "width": 1318
+    },
+    "filter_rect": {
+      "left": 24,
+      "right": 1342,
+      "width": 1318
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 39,
+        "right": 460.328125,
+        "width": 421.328125
+      },
+      "#filter-status": {
+        "left": 472.328125,
+        "right": 677,
+        "width": 204.671875
+      },
+      "#filter-phase": {
+        "left": 689,
+        "right": 893.65625,
+        "width": 204.65625
+      },
+      "#filter-uf": {
+        "left": 905.65625,
+        "right": 1110.328125,
+        "width": 204.671875
+      },
+      "#filter-municipality": {
+        "left": 1122.328125,
+        "right": 1327,
+        "width": 204.671875
+      },
+      "#filter-sector": {
+        "left": 39,
+        "right": 243.65625,
+        "width": 204.65625
+      },
+      "#filter-company": {
+        "left": 255.65625,
+        "right": 460.328125,
+        "width": 204.671875
+      },
+      "#filter-inv-min": {
+        "left": 472.328125,
+        "right": 677,
+        "width": 204.671875
+      },
+      "#filter-inv-max": {
+        "left": 689,
+        "right": 893.65625,
+        "width": 204.65625
+      },
+      "#filter-period-start": {
+        "left": 905.65625,
+        "right": 1110.328125,
+        "width": 204.671875
+      },
+      "#filter-period-end": {
+        "left": 1122.328125,
+        "right": 1327,
+        "width": 204.671875
+      },
+      "#filter-has-supplier": {
+        "left": 39,
+        "right": 243.65625,
+        "width": 204.65625
+      },
+      "#filter-has-decisionmaker": {
+        "left": 255.65625,
+        "right": 460.328125,
+        "width": 204.671875
+      },
+      "#filter-has-opportunity": {
+        "left": 472.328125,
+        "right": 677,
+        "width": 204.671875
+      },
+      "#filter-capex-homologado": {
+        "left": 689,
+        "right": 893.65625,
+        "width": 204.65625
+      },
+      ".filter-actions": {
+        "left": 39,
+        "right": 1327,
+        "width": 1288
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1366x768_sidebar_collapsed_zoom125.png"
+  },
+  {
+    "label": "1280x720_sidebar_collapsed_zoom100",
+    "res": "1280x720",
+    "sidebar": "sidebar_collapsed",
+    "zoom": "100%",
+    "vw": 1280,
+    "doc_scroll": 1280,
+    "doc_client": 1280,
+    "page_rect": {
+      "left": 24,
+      "right": 1256,
+      "width": 1232
+    },
+    "filter_rect": {
+      "left": 24,
+      "right": 1256,
+      "width": 1232
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 39,
+        "right": 512.59375,
+        "width": 473.59375
+      },
+      "#filter-status": {
+        "left": 524.59375,
+        "right": 755.390625,
+        "width": 230.796875
+      },
+      "#filter-phase": {
+        "left": 767.390625,
+        "right": 998.1875,
+        "width": 230.796875
+      },
+      "#filter-uf": {
+        "left": 1010.1875,
+        "right": 1241,
+        "width": 230.8125
+      },
+      "#filter-municipality": {
+        "left": 39,
+        "right": 269.796875,
+        "width": 230.796875
+      },
+      "#filter-sector": {
+        "left": 39,
+        "right": 269.796875,
+        "width": 230.796875
+      },
+      "#filter-company": {
+        "left": 281.796875,
+        "right": 512.59375,
+        "width": 230.796875
+      },
+      "#filter-inv-min": {
+        "left": 524.59375,
+        "right": 755.390625,
+        "width": 230.796875
+      },
+      "#filter-inv-max": {
+        "left": 767.390625,
+        "right": 998.1875,
+        "width": 230.796875
+      },
+      "#filter-period-start": {
+        "left": 1010.1875,
+        "right": 1241,
+        "width": 230.8125
+      },
+      "#filter-period-end": {
+        "left": 39,
+        "right": 269.796875,
+        "width": 230.796875
+      },
+      "#filter-has-supplier": {
+        "left": 281.796875,
+        "right": 512.59375,
+        "width": 230.796875
+      },
+      "#filter-has-decisionmaker": {
+        "left": 524.59375,
+        "right": 755.390625,
+        "width": 230.796875
+      },
+      "#filter-has-opportunity": {
+        "left": 767.390625,
+        "right": 998.1875,
+        "width": 230.796875
+      },
+      "#filter-capex-homologado": {
+        "left": 1010.1875,
+        "right": 1241,
+        "width": 230.8125
+      },
+      ".filter-actions": {
+        "left": 39,
+        "right": 1241,
+        "width": 1202
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1280x720_sidebar_collapsed_zoom100.png"
+  },
+  {
+    "label": "1280x720_sidebar_collapsed_zoom125",
+    "res": "1280x720",
+    "sidebar": "sidebar_collapsed",
+    "zoom": "125%",
+    "vw": 1280,
+    "doc_scroll": 1280,
+    "doc_client": 1280,
+    "page_rect": {
+      "left": 24,
+      "right": 1256,
+      "width": 1232
+    },
+    "filter_rect": {
+      "left": 24,
+      "right": 1256,
+      "width": 1232
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 39,
+        "right": 512.59375,
+        "width": 473.59375
+      },
+      "#filter-status": {
+        "left": 524.59375,
+        "right": 755.390625,
+        "width": 230.796875
+      },
+      "#filter-phase": {
+        "left": 767.390625,
+        "right": 998.1875,
+        "width": 230.796875
+      },
+      "#filter-uf": {
+        "left": 1010.1875,
+        "right": 1241,
+        "width": 230.8125
+      },
+      "#filter-municipality": {
+        "left": 39,
+        "right": 269.796875,
+        "width": 230.796875
+      },
+      "#filter-sector": {
+        "left": 39,
+        "right": 269.796875,
+        "width": 230.796875
+      },
+      "#filter-company": {
+        "left": 281.796875,
+        "right": 512.59375,
+        "width": 230.796875
+      },
+      "#filter-inv-min": {
+        "left": 524.59375,
+        "right": 755.390625,
+        "width": 230.796875
+      },
+      "#filter-inv-max": {
+        "left": 767.390625,
+        "right": 998.1875,
+        "width": 230.796875
+      },
+      "#filter-period-start": {
+        "left": 1010.1875,
+        "right": 1241,
+        "width": 230.8125
+      },
+      "#filter-period-end": {
+        "left": 39,
+        "right": 269.796875,
+        "width": 230.796875
+      },
+      "#filter-has-supplier": {
+        "left": 281.796875,
+        "right": 512.59375,
+        "width": 230.796875
+      },
+      "#filter-has-decisionmaker": {
+        "left": 524.59375,
+        "right": 755.390625,
+        "width": 230.796875
+      },
+      "#filter-has-opportunity": {
+        "left": 767.390625,
+        "right": 998.1875,
+        "width": 230.796875
+      },
+      "#filter-capex-homologado": {
+        "left": 1010.1875,
+        "right": 1241,
+        "width": 230.8125
+      },
+      ".filter-actions": {
+        "left": 39,
+        "right": 1241,
+        "width": 1202
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1280x720_sidebar_collapsed_zoom125.png"
+  },
+  {
+    "label": "1920x1080_sidebar_open_zoom100",
+    "res": "1920x1080",
+    "sidebar": "sidebar_open",
+    "zoom": "100%",
+    "vw": 1920,
+    "doc_scroll": 1920,
+    "doc_client": 1920,
+    "page_rect": {
+      "left": 264,
+      "right": 1896,
+      "width": 1632
+    },
+    "filter_rect": {
+      "left": 264,
+      "right": 1896,
+      "width": 1632
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 279,
+        "right": 805,
+        "width": 526
+      },
+      "#filter-status": {
+        "left": 817,
+        "right": 1074,
+        "width": 257
+      },
+      "#filter-phase": {
+        "left": 1086,
+        "right": 1343,
+        "width": 257
+      },
+      "#filter-uf": {
+        "left": 1355,
+        "right": 1612,
+        "width": 257
+      },
+      "#filter-municipality": {
+        "left": 1624,
+        "right": 1881,
+        "width": 257
+      },
+      "#filter-sector": {
+        "left": 279,
+        "right": 497.5625,
+        "width": 218.5625
+      },
+      "#filter-company": {
+        "left": 509.5625,
+        "right": 728.140625,
+        "width": 218.578125
+      },
+      "#filter-inv-min": {
+        "left": 740.140625,
+        "right": 958.703125,
+        "width": 218.5625
+      },
+      "#filter-inv-max": {
+        "left": 970.703125,
+        "right": 1189.28125,
+        "width": 218.578125
+      },
+      "#filter-period-start": {
+        "left": 1201.28125,
+        "right": 1419.84375,
+        "width": 218.5625
+      },
+      "#filter-period-end": {
+        "left": 1431.84375,
+        "right": 1650.421875,
+        "width": 218.578125
+      },
+      "#filter-has-supplier": {
+        "left": 1662.421875,
+        "right": 1880.984375,
+        "width": 218.5625
+      },
+      "#filter-has-decisionmaker": {
+        "left": 279,
+        "right": 497.5625,
+        "width": 218.5625
+      },
+      "#filter-has-opportunity": {
+        "left": 509.5625,
+        "right": 728.140625,
+        "width": 218.578125
+      },
+      "#filter-capex-homologado": {
+        "left": 740.140625,
+        "right": 958.703125,
+        "width": 218.5625
+      },
+      ".filter-actions": {
+        "left": 279,
+        "right": 1881,
+        "width": 1602
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1920x1080_sidebar_open_zoom100.png"
+  },
+  {
+    "label": "1920x1080_sidebar_open_zoom125",
+    "res": "1920x1080",
+    "sidebar": "sidebar_open",
+    "zoom": "125%",
+    "vw": 1920,
+    "doc_scroll": 1920,
+    "doc_client": 1920,
+    "page_rect": {
+      "left": 264,
+      "right": 1896,
+      "width": 1632
+    },
+    "filter_rect": {
+      "left": 264,
+      "right": 1896,
+      "width": 1632
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 279,
+        "right": 805,
+        "width": 526
+      },
+      "#filter-status": {
+        "left": 817,
+        "right": 1074,
+        "width": 257
+      },
+      "#filter-phase": {
+        "left": 1086,
+        "right": 1343,
+        "width": 257
+      },
+      "#filter-uf": {
+        "left": 1355,
+        "right": 1612,
+        "width": 257
+      },
+      "#filter-municipality": {
+        "left": 1624,
+        "right": 1881,
+        "width": 257
+      },
+      "#filter-sector": {
+        "left": 279,
+        "right": 497.5625,
+        "width": 218.5625
+      },
+      "#filter-company": {
+        "left": 509.5625,
+        "right": 728.140625,
+        "width": 218.578125
+      },
+      "#filter-inv-min": {
+        "left": 740.140625,
+        "right": 958.703125,
+        "width": 218.5625
+      },
+      "#filter-inv-max": {
+        "left": 970.703125,
+        "right": 1189.28125,
+        "width": 218.578125
+      },
+      "#filter-period-start": {
+        "left": 1201.28125,
+        "right": 1419.84375,
+        "width": 218.5625
+      },
+      "#filter-period-end": {
+        "left": 1431.84375,
+        "right": 1650.421875,
+        "width": 218.578125
+      },
+      "#filter-has-supplier": {
+        "left": 1662.421875,
+        "right": 1880.984375,
+        "width": 218.5625
+      },
+      "#filter-has-decisionmaker": {
+        "left": 279,
+        "right": 497.5625,
+        "width": 218.5625
+      },
+      "#filter-has-opportunity": {
+        "left": 509.5625,
+        "right": 728.140625,
+        "width": 218.578125
+      },
+      "#filter-capex-homologado": {
+        "left": 740.140625,
+        "right": 958.703125,
+        "width": 218.5625
+      },
+      ".filter-actions": {
+        "left": 279,
+        "right": 1881,
+        "width": 1602
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1920x1080_sidebar_open_zoom125.png"
+  },
+  {
+    "label": "1536x864_sidebar_open_zoom100",
+    "res": "1536x864",
+    "sidebar": "sidebar_open",
+    "zoom": "100%",
+    "vw": 1536,
+    "doc_scroll": 1536,
+    "doc_client": 1536,
+    "page_rect": {
+      "left": 264,
+      "right": 1512,
+      "width": 1248
+    },
+    "filter_rect": {
+      "left": 264,
+      "right": 1512,
+      "width": 1248
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 279,
+        "right": 759,
+        "width": 480
+      },
+      "#filter-status": {
+        "left": 771,
+        "right": 1005,
+        "width": 234
+      },
+      "#filter-phase": {
+        "left": 1017,
+        "right": 1251,
+        "width": 234
+      },
+      "#filter-uf": {
+        "left": 1263,
+        "right": 1497,
+        "width": 234
+      },
+      "#filter-municipality": {
+        "left": 279,
+        "right": 513,
+        "width": 234
+      },
+      "#filter-sector": {
+        "left": 279,
+        "right": 513,
+        "width": 234
+      },
+      "#filter-company": {
+        "left": 525,
+        "right": 759,
+        "width": 234
+      },
+      "#filter-inv-min": {
+        "left": 771,
+        "right": 1005,
+        "width": 234
+      },
+      "#filter-inv-max": {
+        "left": 1017,
+        "right": 1251,
+        "width": 234
+      },
+      "#filter-period-start": {
+        "left": 1263,
+        "right": 1497,
+        "width": 234
+      },
+      "#filter-period-end": {
+        "left": 279,
+        "right": 513,
+        "width": 234
+      },
+      "#filter-has-supplier": {
+        "left": 525,
+        "right": 759,
+        "width": 234
+      },
+      "#filter-has-decisionmaker": {
+        "left": 771,
+        "right": 1005,
+        "width": 234
+      },
+      "#filter-has-opportunity": {
+        "left": 1017,
+        "right": 1251,
+        "width": 234
+      },
+      "#filter-capex-homologado": {
+        "left": 1263,
+        "right": 1497,
+        "width": 234
+      },
+      ".filter-actions": {
+        "left": 279,
+        "right": 1497,
+        "width": 1218
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1536x864_sidebar_open_zoom100.png"
+  },
+  {
+    "label": "1536x864_sidebar_open_zoom125",
+    "res": "1536x864",
+    "sidebar": "sidebar_open",
+    "zoom": "125%",
+    "vw": 1536,
+    "doc_scroll": 1536,
+    "doc_client": 1536,
+    "page_rect": {
+      "left": 264,
+      "right": 1512,
+      "width": 1248
+    },
+    "filter_rect": {
+      "left": 264,
+      "right": 1512,
+      "width": 1248
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 279,
+        "right": 759,
+        "width": 480
+      },
+      "#filter-status": {
+        "left": 771,
+        "right": 1005,
+        "width": 234
+      },
+      "#filter-phase": {
+        "left": 1017,
+        "right": 1251,
+        "width": 234
+      },
+      "#filter-uf": {
+        "left": 1263,
+        "right": 1497,
+        "width": 234
+      },
+      "#filter-municipality": {
+        "left": 279,
+        "right": 513,
+        "width": 234
+      },
+      "#filter-sector": {
+        "left": 279,
+        "right": 513,
+        "width": 234
+      },
+      "#filter-company": {
+        "left": 525,
+        "right": 759,
+        "width": 234
+      },
+      "#filter-inv-min": {
+        "left": 771,
+        "right": 1005,
+        "width": 234
+      },
+      "#filter-inv-max": {
+        "left": 1017,
+        "right": 1251,
+        "width": 234
+      },
+      "#filter-period-start": {
+        "left": 1263,
+        "right": 1497,
+        "width": 234
+      },
+      "#filter-period-end": {
+        "left": 279,
+        "right": 513,
+        "width": 234
+      },
+      "#filter-has-supplier": {
+        "left": 525,
+        "right": 759,
+        "width": 234
+      },
+      "#filter-has-decisionmaker": {
+        "left": 771,
+        "right": 1005,
+        "width": 234
+      },
+      "#filter-has-opportunity": {
+        "left": 1017,
+        "right": 1251,
+        "width": 234
+      },
+      "#filter-capex-homologado": {
+        "left": 1263,
+        "right": 1497,
+        "width": 234
+      },
+      ".filter-actions": {
+        "left": 279,
+        "right": 1497,
+        "width": 1218
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1536x864_sidebar_open_zoom125.png"
+  },
+  {
+    "label": "1366x768_sidebar_open_zoom100",
+    "res": "1366x768",
+    "sidebar": "sidebar_open",
+    "zoom": "100%",
+    "vw": 1366,
+    "doc_scroll": 1366,
+    "doc_client": 1366,
+    "page_rect": {
+      "left": 264,
+      "right": 1342,
+      "width": 1078
+    },
+    "filter_rect": {
+      "left": 264,
+      "right": 1342,
+      "width": 1078
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 279,
+        "right": 691,
+        "width": 412
+      },
+      "#filter-status": {
+        "left": 703,
+        "right": 903,
+        "width": 200
+      },
+      "#filter-phase": {
+        "left": 915,
+        "right": 1115,
+        "width": 200
+      },
+      "#filter-uf": {
+        "left": 1127,
+        "right": 1327,
+        "width": 200
+      },
+      "#filter-municipality": {
+        "left": 279,
+        "right": 479,
+        "width": 200
+      },
+      "#filter-sector": {
+        "left": 279,
+        "right": 479,
+        "width": 200
+      },
+      "#filter-company": {
+        "left": 491,
+        "right": 691,
+        "width": 200
+      },
+      "#filter-inv-min": {
+        "left": 703,
+        "right": 903,
+        "width": 200
+      },
+      "#filter-inv-max": {
+        "left": 915,
+        "right": 1115,
+        "width": 200
+      },
+      "#filter-period-start": {
+        "left": 1127,
+        "right": 1327,
+        "width": 200
+      },
+      "#filter-period-end": {
+        "left": 279,
+        "right": 479,
+        "width": 200
+      },
+      "#filter-has-supplier": {
+        "left": 491,
+        "right": 691,
+        "width": 200
+      },
+      "#filter-has-decisionmaker": {
+        "left": 703,
+        "right": 903,
+        "width": 200
+      },
+      "#filter-has-opportunity": {
+        "left": 915,
+        "right": 1115,
+        "width": 200
+      },
+      "#filter-capex-homologado": {
+        "left": 1127,
+        "right": 1327,
+        "width": 200
+      },
+      ".filter-actions": {
+        "left": 279,
+        "right": 1327,
+        "width": 1048
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1366x768_sidebar_open_zoom100.png"
+  },
+  {
+    "label": "1366x768_sidebar_open_zoom125",
+    "res": "1366x768",
+    "sidebar": "sidebar_open",
+    "zoom": "125%",
+    "vw": 1366,
+    "doc_scroll": 1366,
+    "doc_client": 1366,
+    "page_rect": {
+      "left": 264,
+      "right": 1342,
+      "width": 1078
+    },
+    "filter_rect": {
+      "left": 264,
+      "right": 1342,
+      "width": 1078
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 279,
+        "right": 691,
+        "width": 412
+      },
+      "#filter-status": {
+        "left": 703,
+        "right": 903,
+        "width": 200
+      },
+      "#filter-phase": {
+        "left": 915,
+        "right": 1115,
+        "width": 200
+      },
+      "#filter-uf": {
+        "left": 1127,
+        "right": 1327,
+        "width": 200
+      },
+      "#filter-municipality": {
+        "left": 279,
+        "right": 479,
+        "width": 200
+      },
+      "#filter-sector": {
+        "left": 279,
+        "right": 479,
+        "width": 200
+      },
+      "#filter-company": {
+        "left": 491,
+        "right": 691,
+        "width": 200
+      },
+      "#filter-inv-min": {
+        "left": 703,
+        "right": 903,
+        "width": 200
+      },
+      "#filter-inv-max": {
+        "left": 915,
+        "right": 1115,
+        "width": 200
+      },
+      "#filter-period-start": {
+        "left": 1127,
+        "right": 1327,
+        "width": 200
+      },
+      "#filter-period-end": {
+        "left": 279,
+        "right": 479,
+        "width": 200
+      },
+      "#filter-has-supplier": {
+        "left": 491,
+        "right": 691,
+        "width": 200
+      },
+      "#filter-has-decisionmaker": {
+        "left": 703,
+        "right": 903,
+        "width": 200
+      },
+      "#filter-has-opportunity": {
+        "left": 915,
+        "right": 1115,
+        "width": 200
+      },
+      "#filter-capex-homologado": {
+        "left": 1127,
+        "right": 1327,
+        "width": 200
+      },
+      ".filter-actions": {
+        "left": 279,
+        "right": 1327,
+        "width": 1048
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1366x768_sidebar_open_zoom125.png"
+  },
+  {
+    "label": "1280x720_sidebar_open_zoom100",
+    "res": "1280x720",
+    "sidebar": "sidebar_open",
+    "zoom": "100%",
+    "vw": 1280,
+    "doc_scroll": 1280,
+    "doc_client": 1280,
+    "page_rect": {
+      "left": 264,
+      "right": 1256,
+      "width": 992
+    },
+    "filter_rect": {
+      "left": 264,
+      "right": 1256,
+      "width": 992
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 279,
+        "right": 754,
+        "width": 475
+      },
+      "#filter-status": {
+        "left": 766,
+        "right": 997.5,
+        "width": 231.5
+      },
+      "#filter-phase": {
+        "left": 1009.5,
+        "right": 1241,
+        "width": 231.5
+      },
+      "#filter-uf": {
+        "left": 279,
+        "right": 510.5,
+        "width": 231.5
+      },
+      "#filter-municipality": {
+        "left": 522.5,
+        "right": 754,
+        "width": 231.5
+      },
+      "#filter-sector": {
+        "left": 279,
+        "right": 510.5,
+        "width": 231.5
+      },
+      "#filter-company": {
+        "left": 522.5,
+        "right": 754,
+        "width": 231.5
+      },
+      "#filter-inv-min": {
+        "left": 766,
+        "right": 997.5,
+        "width": 231.5
+      },
+      "#filter-inv-max": {
+        "left": 1009.5,
+        "right": 1241,
+        "width": 231.5
+      },
+      "#filter-period-start": {
+        "left": 279,
+        "right": 510.5,
+        "width": 231.5
+      },
+      "#filter-period-end": {
+        "left": 522.5,
+        "right": 754,
+        "width": 231.5
+      },
+      "#filter-has-supplier": {
+        "left": 766,
+        "right": 997.5,
+        "width": 231.5
+      },
+      "#filter-has-decisionmaker": {
+        "left": 1009.5,
+        "right": 1241,
+        "width": 231.5
+      },
+      "#filter-has-opportunity": {
+        "left": 279,
+        "right": 510.5,
+        "width": 231.5
+      },
+      "#filter-capex-homologado": {
+        "left": 522.5,
+        "right": 754,
+        "width": 231.5
+      },
+      ".filter-actions": {
+        "left": 279,
+        "right": 1241,
+        "width": 962
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1280x720_sidebar_open_zoom100.png"
+  },
+  {
+    "label": "1280x720_sidebar_open_zoom125",
+    "res": "1280x720",
+    "sidebar": "sidebar_open",
+    "zoom": "125%",
+    "vw": 1280,
+    "doc_scroll": 1280,
+    "doc_client": 1280,
+    "page_rect": {
+      "left": 264,
+      "right": 1256,
+      "width": 992
+    },
+    "filter_rect": {
+      "left": 264,
+      "right": 1256,
+      "width": 992
+    },
+    "fields_info": {
+      "#filter-search": {
+        "left": 279,
+        "right": 754,
+        "width": 475
+      },
+      "#filter-status": {
+        "left": 766,
+        "right": 997.5,
+        "width": 231.5
+      },
+      "#filter-phase": {
+        "left": 1009.5,
+        "right": 1241,
+        "width": 231.5
+      },
+      "#filter-uf": {
+        "left": 279,
+        "right": 510.5,
+        "width": 231.5
+      },
+      "#filter-municipality": {
+        "left": 522.5,
+        "right": 754,
+        "width": 231.5
+      },
+      "#filter-sector": {
+        "left": 279,
+        "right": 510.5,
+        "width": 231.5
+      },
+      "#filter-company": {
+        "left": 522.5,
+        "right": 754,
+        "width": 231.5
+      },
+      "#filter-inv-min": {
+        "left": 766,
+        "right": 997.5,
+        "width": 231.5
+      },
+      "#filter-inv-max": {
+        "left": 1009.5,
+        "right": 1241,
+        "width": 231.5
+      },
+      "#filter-period-start": {
+        "left": 279,
+        "right": 510.5,
+        "width": 231.5
+      },
+      "#filter-period-end": {
+        "left": 522.5,
+        "right": 754,
+        "width": 231.5
+      },
+      "#filter-has-supplier": {
+        "left": 766,
+        "right": 997.5,
+        "width": 231.5
+      },
+      "#filter-has-decisionmaker": {
+        "left": 1009.5,
+        "right": 1241,
+        "width": 231.5
+      },
+      "#filter-has-opportunity": {
+        "left": 279,
+        "right": 510.5,
+        "width": 231.5
+      },
+      "#filter-capex-homologado": {
+        "left": 522.5,
+        "right": 754,
+        "width": 231.5
+      },
+      ".filter-actions": {
+        "left": 279,
+        "right": 1241,
+        "width": 962
+      }
+    },
+    "overflow_count": 0,
+    "overflows": [],
+    "screenshot": "/root/wins_hub_unificado/scratch/screenshots_real_v3/1280x720_sidebar_open_zoom125.png"
+  }
+]

@@ -1,0 +1,35 @@
+[
+  {
+    "resolution": "1920x1080",
+    "w": 1920,
+    "h": 1080,
+    "total_pixels": 2073600,
+    "identical": 364647,
+    "antialiasing": 1339080,
+    "structural_diff": 369873,
+    "diff_pct": 17.84,
+    "aa_pct": 64.58
+  },
+  {
+    "resolution": "1366x768",
+    "w": 1366,
+    "h": 768,
+    "total_pixels": 1049088,
+    "identical": 231857,
+    "antialiasing": 569657,
+    "structural_diff": 247574,
+    "diff_pct": 23.6,
+    "aa_pct": 54.3
+  },
+  {
+    "resolution": "390x844",
+    "w": 390,
+    "h": 844,
+    "total_pixels": 329160,
+    "identical": 120847,
+    "antialiasing": 158352,
+    "structural_diff": 49961,
+    "diff_pct": 15.18,
+    "aa_pct": 48.11
+  }
+]

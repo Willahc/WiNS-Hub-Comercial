@@ -1,0 +1,66 @@
+{
+  "realm": "wins-hub-staging",
+  "enabled": true,
+  "accessTokenLifespan": 120,
+  "ssoSessionIdleTimeout": 600,
+  "roles": {
+    "realm": [
+      {
+        "name": "engenharia"
+      },
+      {
+        "name": "empresa360"
+      },
+      {
+        "name": "decisores"
+      },
+      {
+        "name": "decisores:sensitive"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "wins-hub-spa",
+      "name": "WiNS Hub Staging SPA",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "https://winshubcomercial.com.br:18443/demo/*"
+      ],
+      "webOrigins": [
+        "https://winshubcomercial.com.br:18443"
+      ],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://winshubcomercial.com.br:18443/demo/+"
+      },
+      "protocolMappers": [
+        {
+          "name": "wins-hub-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "wins-hub-spa",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ],
+      "frontchannelLogout": true
+    }
+  ],
+  "loginTheme": "wins-hub",
+  "internationalizationEnabled": true,
+  "defaultLocale": "pt-BR",
+  "supportedLocales": [
+    "pt-BR",
+    "en"
+  ],
+  "rememberMe": true,
+  "resetPasswordAllowed": true
+}

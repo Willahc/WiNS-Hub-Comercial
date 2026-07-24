@@ -1,0 +1,231 @@
+{
+  "host": "winshubcomercial.com.br:18443",
+  "api": [
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/fornecedores?page=1&page_size=100&active=true"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/oportunidades?page=1&page_size=100&min_score=70"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/obras?page=1&page_size=25&sort=investment_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/conexoes"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/fornecedores?page=1&page_size=100&active=true"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/oportunidades?page=1&page_size=100&min_score=70"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/obras?page=1&page_size=25&capex_homologado=true&sort=investment_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=4&layers=works,companies,suppliers,opportunities"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=6&layers=works,companies,suppliers,opportunities&uf=PR"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=10&layers=works,companies,suppliers,opportunities&municipality=Curitiba&uf=PR"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=4&layers=works,companies,suppliers,opportunities&status=Em+andamento"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=4&layers=works,companies,suppliers,opportunities&phase=Licenciamento"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=4&layers=works,companies,suppliers,opportunities&company=02846056000197"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=4&layers=works,companies,suppliers,opportunities&has_opportunity=true"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=4&layers=works,companies,suppliers,opportunities&capex_homologado=true"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=4&layers=works,companies,suppliers,opportunities"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=4&layers=companies,suppliers,opportunities"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=4&layers=suppliers,opportunities"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=4&layers=opportunities"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=4&layers="
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/mapa?min_lat=-35.5&max_lat=6.5&min_lng=-75.5&max_lng=-32&zoom=4&layers=works"
+    }
+  ],
+  "consoleErrors": [],
+  "httpErrors": [],
+  "checks": {
+    "totalWorks": true,
+    "financialValue": true,
+    "coverage": true,
+    "multiverticalCompanies": true,
+    "multiverticalSuppliers": true,
+    "confirmedRelations": true,
+    "improperZero": false,
+    "investmentHref": "/demo/engenharia/obras?capex_homologado=true",
+    "capexFilteredTotal": "3.146 obras encontradas · página 1\nR$ 243,5 bi · completo\nLimpar filtros",
+    "map_nacional": {
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/mapa",
+      "count": "9.412 obras · sem amostragem · server_grid_cluster",
+      "markers": 165
+    },
+    "map_uf-pr": {
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/mapa?uf=PR&zoom=6",
+      "count": "2.558 obras · sem amostragem · server_grid_cluster",
+      "markers": 57
+    },
+    "map_municipio-curitiba": {
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/mapa?uf=PR&municipality=Curitiba&zoom=10",
+      "count": "2.085 obras · sem amostragem · municipality_cluster",
+      "markers": 245
+    },
+    "map_status": {
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/mapa?status=Em%20andamento",
+      "count": "409 obras · sem amostragem · server_grid_cluster",
+      "markers": 135
+    },
+    "map_fase": {
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/mapa?phase=Licenciamento",
+      "count": "2.898 obras · sem amostragem · server_grid_cluster",
+      "markers": 95
+    },
+    "map_empresa": {
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/mapa?company=02846056000197",
+      "count": "5 obras · sem amostragem · server_grid_cluster",
+      "markers": 29
+    },
+    "map_oportunidade": {
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/mapa?hasOpportunity=true",
+      "count": "2.044 obras · sem amostragem · server_grid_cluster",
+      "markers": 165
+    },
+    "map_capex": {
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/mapa?capex_homologado=true",
+      "count": "3.034 obras · sem amostragem · server_grid_cluster",
+      "markers": 113
+    },
+    "layers": {
+      "Obras": {
+        "status": 200,
+        "before": 165,
+        "after": 124,
+        "disabled": true
+      },
+      "Empresas": {
+        "status": 200,
+        "before": 124,
+        "after": 84,
+        "disabled": true
+      },
+      "Fornecedores": {
+        "status": 200,
+        "before": 84,
+        "after": 41,
+        "disabled": true
+      },
+      "Oportunidades": {
+        "status": 200,
+        "before": 41,
+        "after": 0,
+        "disabled": true
+      }
+    },
+    "detailNavigation": {
+      "href": "/demo/engenharia/obras/0017f88d-33e8-4e72-9964-064b46505b67",
+      "stateChanged": true
+    },
+    "backPreserved": true
+  },
+  "screenshots": [
+    {
+      "file": "screenshots/engineering-final-20260722/engenharia-dashboard-final.png",
+      "bytes": 259201,
+      "sha256": "865b159ee664f198806d5b071393b57398ee0f12a41cc970181609a0216d8bc4",
+      "timestamp": "2026-07-22T21:00:09.602228+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia",
+      "dimensions": [
+        1440,
+        1000
+      ]
+    },
+    {
+      "file": "screenshots/engineering-final-20260722/engenharia-capex-homologado.png",
+      "bytes": 279305,
+      "sha256": "e07e09eb62a225f50649f9e6eb8804b10f5f64154fdb796ff4024c1cf60d03f3",
+      "timestamp": "2026-07-22T21:00:15.405111+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/obras?capex_homologado=true",
+      "dimensions": [
+        1440,
+        1000
+      ]
+    },
+    {
+      "file": "screenshots/engineering-final-20260722/engenharia-mapa-nacional.png",
+      "bytes": 239139,
+      "sha256": "be88ea6cbd99c0d79f2f085cd6d89349ddf29cbc69aa2adc34edbf3ded642be6",
+      "timestamp": "2026-07-22T21:00:25.782277+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/mapa",
+      "dimensions": [
+        1440,
+        1000
+      ]
+    },
+    {
+      "file": "screenshots/engineering-final-20260722/engenharia-mapa-uf-pr.png",
+      "bytes": 446919,
+      "sha256": "ac3b52579c1437ac2d4b26d0baccec5ccc020b70f5cc1859423d0d93066003ce",
+      "timestamp": "2026-07-22T21:00:32.266201+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/mapa?uf=PR&zoom=6",
+      "dimensions": [
+        1440,
+        1000
+      ]
+    },
+    {
+      "file": "screenshots/engineering-final-20260722/engenharia-mapa-municipio-curitiba.png",
+      "bytes": 498863,
+      "sha256": "852fb9d2f422446767f089623a6f53c9739f9bfb53f2c124414d0fd6bd6386f1",
+      "timestamp": "2026-07-22T21:00:35.371263+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/mapa?uf=PR&municipality=Curitiba&zoom=10",
+      "dimensions": [
+        1440,
+        1000
+      ]
+    }
+  ],
+  "verdict": "PASS"
+}

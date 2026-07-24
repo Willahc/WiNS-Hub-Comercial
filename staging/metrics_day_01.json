@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-07-21T14:28:25.982715",
+  "api_health": true,
+  "pool": {
+    "total": 9,
+    "active": 0,
+    "idle": 9
+  },
+  "db_size": "27 GB",
+  "tables": {
+    "engenharia.fornecedores": 4094527,
+    "engenharia.obras": 35690,
+    "canonical_mvp.entidade_empresa": 4825673
+  },
+  "nginx": {
+    "total_requests": 335,
+    "errors_4xx": 90,
+    "errors_5xx": 39
+  }
+}

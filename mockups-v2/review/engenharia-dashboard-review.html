@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revisão — Engenharia Dashboard | WiNS Hub</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',sans-serif;background:#1a1a1a;color:#e0e0e0;padding:24px}
+  h1{font-size:22px;font-weight:700;margin-bottom:4px}
+  h2{font-size:16px;font-weight:600;margin:24px 0 12px;color:#aaa}
+  .sub{font-size:13px;color:#888;margin-bottom:20px}
+  .card{background:#222;border:1px solid #333;border-radius:12px;padding:20px;margin-bottom:16px}
+  .card-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+  .card-title{font-size:18px;font-weight:600;color:#eee}
+  .card-desc{font-size:13px;color:#999}
+  .img-wrapper{display:flex;justify-content:center;align-items:center;background:#0a0a0a;border-radius:8px;padding:16px;min-height:200px;cursor:zoom-in;overflow:hidden}
+  .img-wrapper img{max-width:100%;max-height:75vh;object-fit:contain;display:block;box-shadow:0 2px 12px rgba(0,0,0,0.5)}
+  .img-wrapper.zoomed{cursor:zoom-out}
+  .img-wrapper.zoomed img{max-width:none;max-height:none;width:100%;height:auto}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px}
+  @media(max-width:768px){.grid{grid-template-columns:1fr 1fr}}
+  .pass{color:#22C55E;font-weight:600}
+  .fail{color:#EF4444;font-weight:600}
+</style></head><body>
+
+<h1>WiNS Hub — Engenharia · Validação</h1>
+<p class="sub">Validação automatizada via Playwright · Rota: /mockups-v2/engenharia</p>
+
+<div class="card">
+  <h2 style="margin-top:0">Checks (55)</h2>
+  <div class="grid">
+<div><span style="color:#888">pathname ends with /mockups-v2/engenharia</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">h1 = Engenharia</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">subtitle visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">8 KPI cards</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666">8/8</span></div>
+<div><span style="color:#888">sidebar visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">sidebar Engenharia active</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">topbar visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">action bar: Ver obras</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">action bar: Fornecedores</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">action bar: Decisores</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">action bar: Empresas</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">action bar: Oportunidades</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">action bar: Explorar mapa</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">filter card present</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">filter: advanced button</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">filter: apply button</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">filter: clear button</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">filter: save view button</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">advanced: Setor visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">advanced: CAPEX mínimo</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">advanced: CAPEX máximo</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">works list: title</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">works list: total count</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">context: phase distribution</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">context: financial coverage</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">context: cadastral quality</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">prioritization section title</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">prioritization: maiores investimentos</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">prioritization: oportunidades score</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">prioritization: municípios concentração</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">prioritization: itens atenção</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">map section title</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">map visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">map disclaimer</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">connections section title</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">connections: CONFIRMADO badge</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">connections: PROVÁVEL badge</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">connections: POTENCIAL badge</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">footer visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">global disclaimer</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">zero horizontal overflow</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">KPI click shows toast</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">zero console errors</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666">clean</span></div>
+<div><span style="color:#888">mobile drawer closed</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile hamburger</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile zero overflow</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile KPIs visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile filter card visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile works list visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile prioritization visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile map visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile connections visible</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">mobile zero console errors</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666">clean</span></div>
+<div><span style="color:#888">Login page intact</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+<div><span style="color:#888">Visão Geral intact</span><br><span class="pass">✓ PASS</span><br><span style="font-size:10px;color:#666"></span></div>
+  </div>
+</div>
+
+<h2>Screenshots</h2>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Desktop</span>
+    <span class="card-desc">1920×1080</span>
+  </div>
+  <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+    <img src="../screenshots/03-engenharia-dashboard-desktop.png" alt="">
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Laptop</span>
+    <span class="card-desc">1440×900</span>
+  </div>
+  <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+    <img src="../screenshots/03-engenharia-dashboard-laptop.png" alt="">
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Mobile</span>
+    <span class="card-desc">390×844</span>
+  </div>
+  <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+    <img src="../screenshots/03-engenharia-dashboard-mobile.png" alt="">
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Full Page</span>
+    <span class="card-desc">1920×(completo)</span>
+  </div>
+  <div class="img-wrapper" onclick="this.classList.toggle('zoomed')">
+    <img src="../screenshots/03-engenharia-dashboard-fullpage.png" alt="">
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.img-wrapper').forEach(w => {
+  w.addEventListener('click', () => w.classList.toggle('zoomed'));
+});
+</script>
+</body></html>

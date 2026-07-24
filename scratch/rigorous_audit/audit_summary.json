@@ -1,0 +1,87 @@
+{
+  "bounding_boxes": {
+    "1920x1080": {
+      "sidebar": null,
+      "topbar": null,
+      "title": null,
+      "kpis_container": null,
+      "kpi_cards": [],
+      "connections_section": null,
+      "filters_bar": null,
+      "map_container": null,
+      "territory_panel": null,
+      "featured_event": null,
+      "overview_grid": null
+    },
+    "1366x768": {
+      "sidebar": null,
+      "topbar": null,
+      "title": null,
+      "kpis_container": null,
+      "kpi_cards": [],
+      "connections_section": null,
+      "filters_bar": null,
+      "map_container": null,
+      "territory_panel": null,
+      "featured_event": null,
+      "overview_grid": null
+    },
+    "390x844": {
+      "sidebar": null,
+      "topbar": null,
+      "title": null,
+      "kpis_container": null,
+      "kpi_cards": [],
+      "connections_section": null,
+      "filters_bar": null,
+      "map_container": null,
+      "territory_panel": null,
+      "featured_event": null,
+      "overview_grid": null
+    }
+  },
+  "math_audit": [
+    {
+      "resolution": "1920x1080",
+      "viewport_w_x_h": "1920x1080",
+      "total_pixels": 2073600,
+      "masked_pixels": 0,
+      "comparable_pixels": 2073600,
+      "raw_diff_pixels": 556089,
+      "structural_diff_pixels": 556089,
+      "structural_diff_percentage": 26.82,
+      "baseline_path": "/root/wins_hub_unificado/scratch/rigorous_audit/baseline_1920x1080_viewport.png",
+      "published_path": "/root/wins_hub_unificado/scratch/rigorous_audit/published_1920x1080_viewport.png",
+      "overlay_path": "/root/wins_hub_unificado/scratch/rigorous_audit/overlay_1920x1080.png",
+      "diff_path": "/root/wins_hub_unificado/scratch/rigorous_audit/diff_1920x1080.png"
+    },
+    {
+      "resolution": "1366x768",
+      "viewport_w_x_h": "1366x768",
+      "total_pixels": 1049088,
+      "masked_pixels": 0,
+      "comparable_pixels": 1049088,
+      "raw_diff_pixels": 345869,
+      "structural_diff_pixels": 345869,
+      "structural_diff_percentage": 32.97,
+      "baseline_path": "/root/wins_hub_unificado/scratch/rigorous_audit/baseline_1366x768_viewport.png",
+      "published_path": "/root/wins_hub_unificado/scratch/rigorous_audit/published_1366x768_viewport.png",
+      "overlay_path": "/root/wins_hub_unificado/scratch/rigorous_audit/overlay_1366x768.png",
+      "diff_path": "/root/wins_hub_unificado/scratch/rigorous_audit/diff_1366x768.png"
+    },
+    {
+      "resolution": "390x844",
+      "viewport_w_x_h": "390x844",
+      "total_pixels": 329160,
+      "masked_pixels": 0,
+      "comparable_pixels": 329160,
+      "raw_diff_pixels": 82162,
+      "structural_diff_pixels": 82162,
+      "structural_diff_percentage": 24.96,
+      "baseline_path": "/root/wins_hub_unificado/scratch/rigorous_audit/baseline_390x844_viewport.png",
+      "published_path": "/root/wins_hub_unificado/scratch/rigorous_audit/published_390x844_viewport.png",
+      "overlay_path": "/root/wins_hub_unificado/scratch/rigorous_audit/overlay_390x844.png",
+      "diff_path": "/root/wins_hub_unificado/scratch/rigorous_audit/diff_390x844.png"
+    }
+  ]
+}
