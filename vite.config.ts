@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/demo/',
+  base: '/',
   plugins: [react()],
   server: { proxy: { '/api': { target: 'http://127.0.0.1:18084', changeOrigin: true } } },
   test: {

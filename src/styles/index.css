@@ -1,53 +1,90 @@
 :root {
-  /* Backgrounds */
-  --color-bg-primary: #0a0a0b;
-  --color-bg-secondary: #131316;
-  --color-bg-tertiary: #1a1a1f;
-  --color-bg-elevated: #1f1f26;
-  --color-bg-inset: #0a0a0b;
+  /* Mockups-v2 Design Tokens */
+  --bg-base: #08111F;
+  --bg-sidebar: #091525;
+  --bg-surface: #101C2D;
+  --bg-surface-elevated: #142239;
+  --bg-surface-hover: #1A2A40;
+  --bg-input: #0E1929;
 
-  /* Surfaces */
-  --color-surface-primary: #1a1a1f;
-  --color-surface-secondary: #1f1f26;
-  --color-surface-tertiary: #27272e;
-  --color-surface-hover: #2a2a32;
+  --border-default: #253650;
+  --border-subtle: #1E2D42;
 
-  /* Borders */
-  --color-border-default: #27272e;
-  --color-border-subtle: #1f1f26;
-  --color-border-hover: #3a3a45;
-  --color-border-strong: #52525b;
+  --text-primary: #F4F7FB;
+  --text-secondary: #9EACC4;
+  --text-tertiary: #8498B2;
+  --text-disabled: #7587A0;
 
-  /* Text */
-  --color-text-primary: #fafafa;
-  --color-text-secondary: #a1a1aa;
-  --color-text-tertiary: #71717a;
-  --color-text-disabled: #52525b;
-  --color-text-inverse: #0a0a0b;
+  --accent-blue: #4F7CFF;
+  --accent-blue-hover: #6B90FF;
+  --accent-blue-bg: rgba(79, 124, 255, 0.12);
+
+  --vert-engenharia: #3B82F6;
+  --vert-agro: #22C55E;
+  --vert-logistica: #F59E0B;
+  --vert-saude: #EC4899;
+  --vert-oportunidades: #8B5CF6;
+
+  --status-confirmado: #22C55E;
+  --status-provavel: #F59E0B;
+  --status-potencial: #3B82F6;
+  --status-incompleto: #6B7280;
+
+  /* Legacy & compatibility tokens */
+  --color-bg-primary: #08111F;
+  --color-bg-secondary: #091525;
+  --color-bg-tertiary: #101C2D;
+  --color-bg-elevated: #142239;
+  --color-bg-inset: #0E1929;
+
+  --color-surface-primary: #101C2D;
+  --color-surface-secondary: #142239;
+  --color-surface-tertiary: #1A2A40;
+  --color-surface-hover: #1A2A40;
+
+  --color-border-default: #253650;
+  --color-border-subtle: #1E2D42;
+  --color-border-hover: #4F7CFF;
+  --color-border-strong: #4F7CFF;
+
+  --color-text-primary: #F4F7FB;
+  --color-text-secondary: #9EACC4;
+  --color-text-tertiary: #8498B2;
+  --color-text-disabled: #7587A0;
+  --color-text-inverse: #08111F;
   --color-text-on-color: #ffffff;
 
-  /* Verticais */
-  --color-engenharia: #3b82f6;
-  --color-logistica: #06b6d4;
-  --color-agro: #22c55e;
-  --color-saude: #ef4444;
-  --color-oportunidades: #f59e0b;
-  --color-empresas: #8b5cf6;
-  --color-territorial: #16a34a;
+  --color-engenharia: #3B82F6;
+  --color-logistica: #F59E0B;
+  --color-agro: #22C55E;
+  --color-saude: #EC4899;
+  --color-oportunidades: #8B5CF6;
+  --color-empresas: #8B5CF6;
+  --color-territorial: #22C55E;
 
-  /* Semantics */
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
-  --color-info: #3b82f6;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #4F7CFF;
 
-  /* Metrics & radius */
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  --sidebar-w: 240px;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --sidebar-w: 248px;
+  --sidebar-w-collapsed: 72px;
   --topbar-h: 60px;
+
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
 }
 
 body.light {
