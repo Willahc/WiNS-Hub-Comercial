@@ -28,18 +28,19 @@ describe('WiNS Hub — Suíte Completa de Testes Unitários da Sprint 2B (Segura
   });
 
   // 1. Testes de Usuário Autenticado e Anônimo
-  it('não deve criar usuário sintético quando não há sessão SSO', () => {
+  it('não deve criar usuário sintético quando não há sessão SSO', async () => {
     render(
       <AuthProvider>
         <TestHookComponent />
       </AuthProvider>
     );
-    expect(screen.getByTestId('auth-status').textContent).toBe('anonymous');
+    const status = await screen.findByTestId('auth-status');
+    expect(status.textContent).toBe('anonymous');
     expect(screen.getByTestId('user-name').textContent).toBe('none');
   });
 
   // 2. Testes de Roles Permitidas/Negadas (RBAC) e Rotas Protegidas
-  it('deve proteger conteúdo baseado na presença de autenticação', () => {
+  it('deve proteger conteúdo baseado na presença de autenticação', async () => {
     render(
       <AuthProvider>
         <RequireAuth fallback={<span data-testid="fallback">Negado</span>}>
@@ -48,10 +49,11 @@ describe('WiNS Hub — Suíte Completa de Testes Unitários da Sprint 2B (Segura
       </AuthProvider>
     );
 
-    expect(screen.getByTestId('fallback').textContent).toBe('Negado');
+    const fallback = await screen.findByTestId('fallback');
+    expect(fallback.textContent).toBe('Negado');
   });
 
-  it('deve renderizar fallback de RequireAuth para usuário anônimo', () => {
+  it('deve renderizar fallback de RequireAuth para usuário anônimo', async () => {
     // Definindo localStorage como anônimo
     localStorage.setItem('wins_simulated_user', 'anonymous');
     
@@ -63,10 +65,11 @@ describe('WiNS Hub — Suíte Completa de Testes Unitários da Sprint 2B (Segura
       </AuthProvider>
     );
 
-    expect(screen.getByTestId('fallback').textContent).toBe('Acesso Negado');
+    const fallback = await screen.findByTestId('fallback');
+    expect(fallback.textContent).toBe('Acesso Negado');
   });
 
-  it('deve autorizar role permitida e negar role incorreta no RequireRole', () => {
+  it('deve autorizar role permitida e negar role incorreta no RequireRole', async () => {
     render(
       <AuthProvider>
         <RequireRole role="admin" fallback={<span data-testid="fallback">Acesso Negado</span>}>
@@ -75,7 +78,8 @@ describe('WiNS Hub — Suíte Completa de Testes Unitários da Sprint 2B (Segura
       </AuthProvider>
     );
 
-    expect(screen.getByTestId('fallback').textContent).toBe('Acesso Negado');
+    const fallback = await screen.findByTestId('fallback');
+    expect(fallback.textContent).toBe('Acesso Negado');
   });
 
   // 3. Teste de Troca de Tema

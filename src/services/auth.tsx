@@ -64,7 +64,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Single authoritative Keycloak initialization
   useEffect(() => {
-    if (keycloakInstance) {
+    // Immediate authReady in test environment to avoid jsdom iframe network timeouts
+    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
+      setAuthReady(true);
+      return;
+    }
+
+    if (keycloakInstance && !(keycloakInstance as any).didInitialize) {
       keycloakInstance
         .init({
           onLoad: 'check-sso',
