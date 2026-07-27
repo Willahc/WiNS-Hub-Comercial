@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WiNS Hub Agro — Login</title>
-    <link rel="icon" href="/static/vendor/icon-192.png">
-    <link rel="stylesheet" href="/static/assets/app.css">
+    <link rel="icon" href="{{ prefix }}/static/vendor/icon-192.png">
+    <link rel="stylesheet" href="{{ prefix }}/static/assets/app.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -104,7 +104,7 @@
         {% elif request.query_params.get('error') %}
         <div class="error">Email ou senha incorretos.</div>
         {% endif %}
-        <form method="POST" action="/login">
+        <form method="POST" action="{{ prefix }}/login{% if next and next != '/' %}?next={{ next }}{% endif %}">
             <div class="field">
                 <label>Email</label>
                 <input type="email" name="email" placeholder="mari@winshubagro.cloud" required>
@@ -141,7 +141,7 @@
       async function bioLogin() {
         const e = document.getElementById('bioErr'); e.style.display = 'none';
         const b = document.getElementById('bioBtn'); b.disabled = true;
-        try { await window.winsPasskeyLogin(); location.href = '/'; }
+        try { await window.winsPasskeyLogin(); location.href = '{{ next | default("/") }}'; }
         catch (err) { e.textContent = 'Não foi possível entrar com digital — use email e senha.'; e.style.display = 'block'; b.disabled = false; }
       }
     </script>

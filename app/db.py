@@ -9,8 +9,14 @@ import os
 from contextlib import contextmanager
 
 import psycopg2
+import psycopg2.errors
 import psycopg2.extras
 from psycopg2 import pool as pgpool
+
+
+class QueryTimeoutError(Exception):
+    """Query cancelada por statement_timeout. Não retentar."""
+    pass
 
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "db"),
@@ -33,9 +39,10 @@ def _get_pool():
     return _POOL
 
 
-def _fetch(sql, params, dict_rows):
+def _fetch(sql, params, dict_rows, timeout_s=None):
     """Executa um SELECT usando o pool. Só leitura -> autocommit (sem transações
-    pendentes). Em conexão morta (OperationalError), descarta e tenta 1x de novo."""
+    pendentes). Em conexão morta (OperationalError), descarta e tenta 1x de novo.
+    Se timeout_s definido, aplica statement_timeout na conexão e restaura depois."""
     pool = _get_pool()
     err = None
     for _ in range(2):
@@ -44,10 +51,30 @@ def _fetch(sql, params, dict_rows):
             conn.autocommit = True
             cur = (conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
                    if dict_rows else conn.cursor())
+            if timeout_s is not None:
+                cur.execute(f"SET statement_timeout = {int(timeout_s * 1000)}")
             cur.execute(sql, params or {})
             rows = cur.fetchall()
+            if timeout_s is not None:
+                try:
+                    cur.execute("SET statement_timeout = DEFAULT")
+                except Exception:
+                    pass
             pool.putconn(conn)
             return rows
+        except psycopg2.errors.QueryCanceled as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            if timeout_s is not None:
+                pool.putconn(conn, close=True)
+                raise QueryTimeoutError("A consulta excedeu o tempo máximo permitido.") from e
+            err = e
+            try:
+                pool.putconn(conn, close=True)
+            except Exception:
+                pass
         except psycopg2.OperationalError as e:
             err = e
             try:
@@ -63,10 +90,11 @@ def _fetch(sql, params, dict_rows):
     raise err
 
 
-def query(sql, params=None):
-    """Run a SELECT and return a list of dict rows (decimals cast to float)."""
+def query(sql, params=None, timeout_s=None):
+    """Run a SELECT and return a list of dict rows (decimals cast to float).
+    timeout_s: opcional, segundos máximos antes de cancelar a query."""
     result = []
-    for row in _fetch(sql, params, True):
+    for row in _fetch(sql, params, True, timeout_s=timeout_s):
         d = dict(row)
         for k, v in d.items():
             # JSON-serialize numeric/Decimal as float

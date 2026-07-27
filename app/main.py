@@ -76,6 +76,65 @@ def healthz():
     return _JR({"status": "ok"}, headers={"Cache-Control": "no-store"})
 templates = Jinja2Templates(directory="frontend")
 
+from urllib.parse import urlsplit, unquote
+
+def get_validated_prefix(request: Request) -> str:
+    prefix = request.headers.get("x-forwarded-prefix", "")
+    if prefix in ("", "/agro"):
+        return prefix
+    return "/agro"  # Fallback seguro
+
+
+def is_safe_next_url(url_str: str) -> bool:
+    if not url_str:
+        return False
+    if len(url_str) > 256:
+        return False
+    if any(ord(c) < 32 or ord(c) == 127 for c in url_str):
+        return False
+    try:
+        decoded = unquote(url_str)
+    except Exception:
+        return False
+    if any(ord(c) < 32 or ord(c) == 127 for c in decoded):
+        return False
+    decoded_lower = decoded.lower().strip()
+    if any(scheme in decoded_lower for scheme in ("javascript:", "data:", "vbscript:")):
+        return False
+    try:
+        parsed = urlsplit(decoded)
+    except Exception:
+        return False
+    if parsed.scheme or parsed.netloc:
+        return False
+    if "\\" in decoded or "\\" in url_str:
+        return False
+    if not decoded.startswith("/"):
+        return False
+    if decoded.startswith("//") or decoded.startswith("/\\"):
+        return False
+
+    path = parsed.path
+    if path == "/agro" or path.startswith("/agro/"):
+        return True
+    return False
+
+
+def redirect_to_login(request: Request) -> RedirectResponse:
+    prefix = get_validated_prefix(request)
+    login_url = f"{prefix}/login" if prefix else "/login"
+    next_path = prefix + request.url.path if prefix else request.url.path
+    if request.query_params:
+        next_path += f"?{request.query_params}"
+    return RedirectResponse(f"{login_url}?next={next_path}", status_code=303)
+
+
+def add_prefix_context(request: Request) -> dict:
+    return {"prefix": get_validated_prefix(request)}
+
+
+templates.context_processors.append(add_prefix_context)
+
 # Feature flag para o menu de Autonomia Alimentar (visível apenas quando ativa)
 ENABLE_FOOD_AUTONOMY = os.getenv("ENABLE_FOOD_AUTONOMY", "").lower() in {"1", "true", "yes"}
 templates.env.globals["enable_food_autonomy"] = ENABLE_FOOD_AUTONOMY
@@ -115,7 +174,8 @@ async def request_pipeline(request: Request, call_next):
     # público: simulador (zero PII) + LOGIN por passkey (pré-sessão; o registro
     # continua exigindo sessão, é só o login/available que precisam ser abertos).
     _wa_public = path.startswith("/api/webauthn/login") or path == "/api/webauthn/available"
-    if path.startswith("/api/") and not path.startswith("/api/simulador") and not _wa_public:
+    _pub_api = path.startswith("/api/simulador") or path.startswith("/api/municipios") or path.startswith("/api/bairros")
+    if path.startswith("/api/") and not _pub_api and not _wa_public:
         token = request.cookies.get("access_token")
         if not token or decode_token(token) is None:
             return JSONResponse({"error": "Não autenticado"}, status_code=401)
@@ -246,17 +306,22 @@ def get_current_user(request: Request):
 # ---------------------------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
 def root(request: Request):
-    # Monolito index.html (17 abas) APOSENTADO em jun/14 — substituído pelo redesign
-    # de 5 páginas. A raiz agora leva à 1ª página do funil (Fazendas).
     user = get_current_user(request)
+    prefix = get_validated_prefix(request)
     if not user:
-        return RedirectResponse("/login")
-    return RedirectResponse("/fazendas")
+        next_path = prefix + "/" if prefix else "/"
+        login_url = f"{prefix}/login" if prefix else "/login"
+        return RedirectResponse(f"{login_url}?next={next_path}")
+    return RedirectResponse(f"{prefix}/fazendas" if prefix else "/fazendas")
 
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "mfa": MFA_ENABLED})
+    prefix = get_validated_prefix(request)
+    next_path = request.query_params.get("next")
+    if not next_path or not is_safe_next_url(next_path):
+        next_path = prefix + "/" if prefix else "/"
+    return templates.TemplateResponse("login.html", {"request": request, "mfa": MFA_ENABLED, "next": next_path})
 
 
 # --- Proteção contra força-bruta no login (em memória; app é single-instance) ---
@@ -292,18 +357,25 @@ def _login_state(ip, record_fail=False, clear=False):
 @app.post("/login")
 def login(request: Request, email: str = Form(...), password: str = Form(...), code: str = Form("")):
     ip = _client_ip(request)
-    if _login_state(ip):   # já travado: falha RÁPIDO (sem sleep/audit — evita amplificar flood)
-        return RedirectResponse("/login?error=locked", status_code=303)
-    user = authenticate_user(email, password, code)   # code só importa se MFA ativo
+    prefix = get_validated_prefix(request)
+    next_path = request.query_params.get("next")
+    if not next_path or not is_safe_next_url(next_path):
+        next_path = prefix + "/" if prefix else "/"
+
+    login_url = f"{prefix}/login" if prefix else "/login"
+
+    if _login_state(ip):
+        return RedirectResponse(f"{login_url}?error=locked&next={next_path}", status_code=303)
+    user = authenticate_user(email, password, code)
     if not user:
         blocked = _login_state(ip, record_fail=True)
         audit(request, "login_falha", f"email={(email or '')[:60]} ip={ip}" + (" [TRAVOU]" if blocked else ""))
-        time.sleep(1.0)   # encarece tentativas automatizadas
-        return RedirectResponse("/login?error=1", status_code=303)
+        time.sleep(1.0)
+        return RedirectResponse(f"{login_url}?error=1&next={next_path}", status_code=303)
     _login_state(ip, clear=True)
     audit(request, "login_ok", f"ip={ip}")
     token = create_access_token({"sub": user["email"], "name": user["name"]})
-    resp = RedirectResponse("/", status_code=303)
+    resp = RedirectResponse(next_path, status_code=303)
     resp.set_cookie(
         "access_token", token,
         httponly=True, secure=True, samesite="lax",
@@ -313,8 +385,10 @@ def login(request: Request, email: str = Form(...), password: str = Form(...), c
 
 
 @app.get("/logout")
-def logout():
-    resp = RedirectResponse("/login", status_code=303)
+def logout(request: Request):
+    prefix = get_validated_prefix(request)
+    login_url = f"{prefix}/login" if prefix else "/login"
+    resp = RedirectResponse(login_url, status_code=303)
     resp.delete_cookie("access_token")
     return resp
 
@@ -559,6 +633,25 @@ if ENABLE_WEATHER_OPERATIONS:
 
     app.include_router(weather_operations_router)
 
+# Empresa 360° — visão canônica com geografia
+from routers.empresa_360 import router as empresa_360_router  # noqa: E402
+from routers.empresa_360 import handle_query_timeout
+from db import QueryTimeoutError
+
+app.include_router(empresa_360_router)
+app.add_exception_handler(QueryTimeoutError, handle_query_timeout)
+
+
+@app.get("/empresa-360", response_class=HTMLResponse)
+def empresa_360_page(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return redirect_to_login(request)
+    resp = templates.TemplateResponse("empresa_360.html",
+        {"request": request, "user": user, "active": "empresa_360", "app_version": APP_VERSION})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
 
 # ---------------------------------------------------------------------------
 # Visão Geral Agro — agregador cross-módulo
@@ -571,7 +664,7 @@ templates.env.globals["agro_overview_enabled"] = AGRO_OVERVIEW_ENABLED
 def visao_geral_agro_page(request: Request):
     user = get_current_user(request)
     if not user:
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     resp = templates.TemplateResponse("visao_geral_agro.html",
         {"request": request, "user": user, "active": "visao_geral_agro", "app_version": APP_VERSION})
     resp.headers["Cache-Control"] = "no-store"
@@ -2442,7 +2535,7 @@ def _faz_where(uf, sinal, canal, q, cobertura=None, prioridade=None, demanda=Non
 def fazendas_page(request: Request):
     user = get_current_user(request)
     if not user:
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     resp = templates.TemplateResponse("fazendas.html",
         {"request": request, "user": user, "active": "fazendas", "app_version": APP_VERSION})
     resp.headers["Cache-Control"] = "no-store"
@@ -2452,7 +2545,7 @@ def fazendas_page(request: Request):
 def tecnica_page(request: Request):
     user = get_current_user(request)
     if not user:
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     resp = templates.TemplateResponse("tecnica.html",
         {"request": request, "user": user, "active": "tecnica", "app_version": APP_VERSION})
     resp.headers["Cache-Control"] = "no-store"
@@ -2462,7 +2555,7 @@ def tecnica_page(request: Request):
 def tecnico_ficha_page(request: Request, cnpj: str):
     user = get_current_user(request)
     if not user:
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     resp = templates.TemplateResponse("tecnico_ficha.html",
         {"request": request, "user": user, "active": "tecnica", "app_version": APP_VERSION})
     resp.headers["Cache-Control"] = "no-store"
@@ -2472,7 +2565,7 @@ def tecnico_ficha_page(request: Request, cnpj: str):
 def cruzamento_page(request: Request):
     user = get_current_user(request)
     if not user:
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     resp = templates.TemplateResponse("cruzamento.html",
         {"request": request, "user": user, "active": "cruzamento", "app_version": APP_VERSION})
     resp.headers["Cache-Control"] = "no-store"
@@ -2482,7 +2575,7 @@ def cruzamento_page(request: Request):
 def mapa_page(request: Request):
     user = get_current_user(request)
     if not user:
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     resp = templates.TemplateResponse("mapa.html",
         {"request": request, "user": user, "active": "mapa", "app_version": APP_VERSION})
     resp.headers["Cache-Control"] = "no-store"
@@ -2492,7 +2585,7 @@ def mapa_page(request: Request):
 def comercial_page(request: Request):
     user = get_current_user(request)
     if not user:
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     resp = templates.TemplateResponse("comercial.html",
         {"request": request, "user": user, "active": "comercial", "app_version": APP_VERSION})
     resp.headers["Cache-Control"] = "no-store"
@@ -2508,7 +2601,7 @@ def comercial_page(request: Request):
 def holdings_page(request: Request):
     user = get_current_user(request)
     if not user:
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     resp = templates.TemplateResponse("holdings.html",
         {"request": request, "user": user, "active": "holdings", "app_version": APP_VERSION})
     resp.headers["Cache-Control"] = "no-store"
@@ -2661,7 +2754,7 @@ def holdings_csv(request: Request, uf: str = None, canal: str = None, tipo: str 
 def prospeccao_page(request: Request):
     user = get_current_user(request)
     if not user:
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     resp = templates.TemplateResponse("prospeccao.html",
         {"request": request, "user": user, "active": "prospeccao", "app_version": APP_VERSION})
     resp.headers["Cache-Control"] = "no-store"
@@ -2750,7 +2843,7 @@ def _so_digitos(s): return "".join(c for c in (s or "") if c.isdigit())
 def ficha_page(request: Request, cnpj: str):
     user = get_current_user(request)
     if not user:
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     resp = templates.TemplateResponse("ficha.html",
         {"request": request, "user": user, "active": "fazendas", "app_version": APP_VERSION})
     resp.headers["Cache-Control"] = "no-store"
@@ -3914,7 +4007,7 @@ _TEC_SORT = {"score": _TEC_SCORE, "nome": "nome", "profissao": "profissao", "ati
              "fazreal": "fazendas_real_50km"}
 
 
-def _tec_where(uf, prof, canal, q, params, escopo="todos", score_min=None, tier=None, rebanho_min=None):
+def _tec_where(uf, prof, canal, q, params, escopo="todos", score_min=None, tier=None, rebanho_min=None, municipio=None):
     w = []
     # escopo = filtro de CONFIANÇA: confirmado (cadastro/CRMV) vs provavel (só CNAE)
     if escopo == "confirmado":
@@ -3923,6 +4016,8 @@ def _tec_where(uf, prof, canal, q, params, escopo="todos", score_min=None, tier=
         w.append(f"NOT {_TEC_REAL}")
     if uf:
         w.append("uf = %(uf)s"); params["uf"] = uf
+    if municipio:
+        w.append("municipio = %(municipio)s"); params["municipio"] = municipio
     if prof in ("veterinario", "zootecnista", "ambos", "reproducao_manejo"):
         w.append(f"{_TEC_PROF} = %(prof)s"); params["prof"] = prof
     if canal == "whatsapp":
@@ -4005,12 +4100,13 @@ def _tec_order(sort, order):
     return f"ORDER BY {col} {dir_sql} NULLS LAST, nome ASC"
 
 
-def _tecnicos_roster(origem, uf, q, page, page_size):
+def _tecnicos_roster(origem, uf, q, page, page_size, municipio=None):
     """Rosters alternativos: avaliadores/técnicos de associação (ABCZ, canal_central) e
     agrônomos/zootecnistas do CREA (tecnico_crea). Mapeados pro mesmo shape da tabela."""
     ps = min(max(page_size, 1), 200); page = max(page, 1); off = (page - 1) * ps
     p = {}; w = ["TRUE"]
     if uf: w.append("uf=%(uf)s"); p["uf"] = uf
+    if municipio: w.append("municipio=%(municipio)s"); p["municipio"] = municipio
     if q: w.append("(nome ILIKE %(q)s OR COALESCE(municipio,'') ILIKE %(q)s)"); p["q"] = f"%{q}%"
     if origem == "abcz":
         base = "FROM prospeccao.canal_central WHERE " + " AND ".join(w)
@@ -4032,22 +4128,58 @@ def _tecnicos_roster(origem, uf, q, page, page_size):
     if isinstance(rows, dict): return rows
     return {"rows": rows, "total": total or 0, "total_pages": max(1, ((total or 0) + ps - 1) // ps)}
 
+@app.get("/api/bairros")
+def bairros(uf: str = None, municipio: str = None):
+    """Lista de bairros com técnicos (veterinários/zootecnistas), filtrados por UF e/ou município."""
+    w = []; p = {}
+    if uf:
+        w.append("t.uf = %(uf)s"); p["uf"] = uf
+    if municipio:
+        w.append("t.municipio = %(mun)s"); p["mun"] = municipio
+    where = " AND ".join(w) if w else "TRUE"
+    rows = query(
+        f"SELECT DISTINCT e.bairro FROM prospeccao.v_tecnico_fazenda_ui t "
+        f"JOIN cnpj.estabelecimento_vet e ON e.cnpj_basico::text = substr(t.cnpj14, 1, 8) "
+        f"WHERE t.nome !~ '^[0-9]' AND t.categoria IS NOT NULL "
+        f"AND e.bairro IS NOT NULL AND e.bairro <> '' AND {where} ORDER BY e.bairro", p)
+    if isinstance(rows, dict):
+        return rows
+    return [r["bairro"] for r in rows]
+
+
+@app.get("/api/municipios")
+def municipios(uf: str = None):
+    """Lista de municípios disponíveis, opcionalmente filtrados por UF."""
+    if uf:
+        rows = query("SELECT DISTINCT municipio FROM prospeccao.v_tecnico_fazenda_ui WHERE uf = %(uf)s AND municipio IS NOT NULL ORDER BY municipio", {"uf": uf})
+    else:
+        rows = query("SELECT DISTINCT municipio FROM prospeccao.v_tecnico_fazenda_ui WHERE municipio IS NOT NULL ORDER BY municipio")
+    if isinstance(rows, dict):
+        return rows
+    return [r["municipio"] for r in rows]
+
+
 @app.get("/api/tecnicos")
 def tecnicos(uf: str = None, prof: str = None, canal: str = None, q: str = None,
              page: int = 1, page_size: int = 50, sort: str = None, order: str = "asc", origem: str = "fila",
-             escopo: str = "todos", score_min: str = None, tier: str = None, rebanho_min: str = None):
+             escopo: str = "todos", score_min: str = None, tier: str = None, rebanho_min: str = None,
+             municipio: str = None, bairro: str = None):
     """Fila do canal técnico: vet/zootecnista (fila) ou rosters ABCZ/CREA (origem).
-    Filtros por coluna: score_min, tier, rebanho_min (além de uf/prof/canal/q)."""
+    Filtros por coluna: score_min, tier, rebanho_min, municipio, bairro (além de uf/prof/canal/q)."""
     if origem in ("abcz", "crea"):
-        return _tecnicos_roster(origem, uf, q, page, page_size)
+        return _tecnicos_roster(origem, uf, q, page, page_size, municipio)
     params = {}
-    where = _tec_where(uf, prof, canal, q, params, escopo, score_min, tier, rebanho_min)
-    tot = query(f"SELECT count(*) AS n {_TEC_BASE}{where}", params)
+    base = _TEC_BASE
+    where = _tec_where(uf, prof, canal, q, params, escopo, score_min, tier, rebanho_min, municipio)
+    if bairro:
+        base = f"FROM prospeccao.v_tecnico_fazenda_ui t JOIN cnpj.estabelecimento_vet e ON e.cnpj_basico::text = substr(t.cnpj14, 1, 8) AND e.cnpj_ordem::text = substr(t.cnpj14, 9, 4) AND e.cnpj_dv::text = substr(t.cnpj14, 13, 2) WHERE t.nome !~ '^[0-9]' AND (t.categoria IS NOT NULL)"
+        where += " AND e.bairro = %(bairro)s"; params["bairro"] = bairro
+    tot = query(f"SELECT count(*) AS n {base}{where}", params)
     if isinstance(tot, dict):
         return tot
     total = tot[0]["n"]
     ps = min(max(page_size, 1), 200); page = max(page, 1)
-    rows = query(f"SELECT {_TEC_COLS} {_TEC_BASE}{where} {_tec_order(sort, order)} LIMIT %(lim)s OFFSET %(off)s",
+    rows = query(f"SELECT {_TEC_COLS} {base}{where} {_tec_order(sort, order)} LIMIT %(lim)s OFFSET %(off)s",
                  {**params, "lim": ps, "off": (page - 1) * ps})
     if isinstance(rows, dict):
         return rows
@@ -4056,11 +4188,15 @@ def tecnicos(uf: str = None, prof: str = None, canal: str = None, q: str = None,
 
 @app.get("/api/tecnicos/csv")
 def tecnicos_csv(uf: str = None, prof: str = None, canal: str = None, q: str = None,
-                 escopo: str = "todos"):
+                 escopo: str = "todos", municipio: str = None, bairro: str = None):
     """Exporta a fila técnica filtrada (não só a página) em CSV."""
     params = {}
-    where = _tec_where(uf, prof, canal, q, params, escopo)
-    rows = query(f"SELECT {_TEC_COLS} {_TEC_BASE}{where} {_TEC_ORDER} LIMIT 20000", params)
+    base = _TEC_BASE
+    where = _tec_where(uf, prof, canal, q, params, escopo, municipio=municipio)
+    if bairro:
+        base = f"FROM prospeccao.v_tecnico_fazenda_ui t JOIN cnpj.estabelecimento_vet e ON e.cnpj_basico::text = substr(t.cnpj14, 1, 8) AND e.cnpj_ordem::text = substr(t.cnpj14, 9, 4) AND e.cnpj_dv::text = substr(t.cnpj14, 13, 2) WHERE t.nome !~ '^[0-9]' AND (t.categoria IS NOT NULL)"
+        where += " AND e.bairro = %(bairro)s"; params["bairro"] = bairro
+    rows = query(f"SELECT {_TEC_COLS} {base}{where} {_TEC_ORDER} LIMIT 20000", params)
     if isinstance(rows, dict):
         return rows
     import csv as _csv
@@ -4517,7 +4653,7 @@ def _valida_pesagem(req) -> str | None:
 def campo_page(request: Request):
     user = get_current_user(request)
     if not user:
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     resp = templates.TemplateResponse("campo.html", {
         "request": request, "user": user, "active": "campo", "app_version": APP_VERSION,
     })
@@ -4530,7 +4666,7 @@ if os.getenv("ENABLE_FOOD_AUTONOMY", "").lower() in {"1", "true", "yes"}:
     def food_autonomy_page(request: Request):
         user = get_current_user(request)
         if not user:
-            return RedirectResponse("/login")
+            return redirect_to_login(request)
         resp = templates.TemplateResponse("autonomia_alimentar.html",
             {"request": request, "user": user, "active": "autonomia_alimentar", "app_version": APP_VERSION})
         resp.headers["Cache-Control"] = "no-store"
@@ -4542,7 +4678,7 @@ if ENABLE_PASTURE_LIVE:
     def pasture_live_page(request: Request):
         user = get_current_user(request)
         if not user:
-            return RedirectResponse("/login")
+            return redirect_to_login(request)
         resp = templates.TemplateResponse("pasto_vivo.html",
             {"request": request, "user": user, "active": "pasto_vivo", "app_version": APP_VERSION})
         resp.headers["Cache-Control"] = "no-store"
@@ -4554,7 +4690,7 @@ if ENABLE_FEED_INVENTORY:
     def feed_inventory_page(request: Request):
         user = get_current_user(request)
         if not user:
-            return RedirectResponse("/login")
+            return redirect_to_login(request)
         resp = templates.TemplateResponse("silagem_estoques.html",
             {"request": request, "user": user, "active": "feed_inventory", "app_version": APP_VERSION})
         resp.headers["Cache-Control"] = "no-store"
@@ -4566,7 +4702,7 @@ if ENABLE_HARVEST_SILOS:
     def harvest_silos_page(request: Request):
         user = get_current_user(request)
         if not user:
-            return RedirectResponse("/login")
+            return redirect_to_login(request)
         resp = templates.TemplateResponse("colheita_silos.html",
             {"request": request, "user": user, "active": "harvest_silos", "app_version": APP_VERSION})
         resp.headers["Cache-Control"] = "no-store"
@@ -4578,7 +4714,7 @@ if ENABLE_WEATHER_OPERATIONS:
     def weather_operations_page(request: Request):
         user = get_current_user(request)
         if not user:
-            return RedirectResponse("/login")
+            return redirect_to_login(request)
         resp = templates.TemplateResponse("clima_operacoes.html",
             {"request": request, "user": user, "active": "weather_operations", "app_version": APP_VERSION})
         resp.headers["Cache-Control"] = "no-store"
@@ -4589,7 +4725,7 @@ if ENABLE_WEATHER_OPERATIONS:
 def baixar_onepager(request: Request):
     """One-pager de impacto p/ enviar a grandes grupos. Exige sessão."""
     if not get_current_user(request):
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     return FileResponse("frontend/dl/WiNS_OnePager.pdf", media_type="application/pdf",
                         filename="WiNS_OnePager.pdf")
 
@@ -4598,7 +4734,7 @@ def baixar_onepager(request: Request):
 def baixar_valuation(request: Request):
     """PDF de valoração & modelo de negócio (interno). Exige sessão."""
     if not get_current_user(request):
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     return FileResponse("frontend/dl/WiNS_Valoracao.pdf", media_type="application/pdf",
                         filename="WiNS_Valoracao.pdf")
 
@@ -4609,7 +4745,7 @@ def baixar_apk(request: Request):
     o middleware só gateia /api/*, então o check é manual aqui. Quem não está logado
     cai no /login e baixa depois de entrar."""
     if not get_current_user(request):
-        return RedirectResponse("/login")
+        return redirect_to_login(request)
     return FileResponse(
         "frontend/dl/WiNS_Campo.apk",
         media_type="application/vnd.android.package-archive",
