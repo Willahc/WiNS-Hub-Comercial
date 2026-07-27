@@ -1,0 +1,13 @@
+[Unit]
+Description=Run WiNS Hub engineering capture daily at 01:00 BRT
+
+[Timer]
+OnCalendar=*-*-* 01:00:00 America/Sao_Paulo
+Persistent=true
+RandomizedDelaySec=0
+AccuracySec=1min
+Unit=winshub-engineering-capture.service
+
+[Install]
+WantedBy=timers.target
+

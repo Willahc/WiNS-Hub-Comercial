@@ -1,0 +1,7 @@
+[Unit]
+Description=Alert for failed WiNS Hub engineering capture unit %i
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/logger -p daemon.crit -t winshub-engineering-capture "ALERT: engineering capture unit %i failed; inspect journalctl -u %i"
+
