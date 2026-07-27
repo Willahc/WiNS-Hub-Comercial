@@ -1,0 +1,96 @@
+__pycache__/
+*.pyc
+.env
+.env.*
+*.bak
+*.bak.*
+*.bak_*
+*.old
+*.old.*
+*.log
+*.db
+*.db-*
+*.dump
+*.sql.gz
+*.sqlite
+*.sqlite3
+*.pem
+*.key
+*.p12
+*.pfx
+backups/
+backup/
+certbot/conf/archive/
+certbot/conf/live/
+certbot/conf/accounts/
+certbot/conf/renewal/
+
+# Artefatos do smoke test (screenshots)
+smoke_shots/
+ov_test.py
+nav_test.py
+align_test.py
+width_test.py
+leads_test.py
+sort_test.py
+mapa_test.py
+modal_test.py
+
+# Deliverables de prospecção com PII (decisor/email/telefone) + logs — NÃO versionar
+/*.csv
+/*.log
+data/
+
+# Segredos de MFA — QR embute o segredo em claro; .recovery é cifrado mas é artefato local
+*MFA_QR*.png
+*.recovery.asc
+
+# Senha do /prospec (Basic Auth, hash apr1) — segredo, não versionar
+nginx/.htpasswd_prospec
+
+# Deliverables de prospecção (PII) movidos da raiz
+deliverables/
+# Exports de prospecção (PII: decisor/WhatsApp/e-mail) — geráveis via scripts
+exports/
+# Config local do backup (offsite/webhook/heartbeat) — template em scripts/backup_env.example
+.backup_env
+
+# PDF de pricing interno (gerável via scripts/gen_valuation_pdf.py)
+app/frontend/dl/*.pdf
+
+# Cliente Inteligente — projeto SEPARADO, repo próprio: github.com/Willahc/cliente-inteligente
+# (servido daqui via mount do compose; versionado no repo dele, não neste)
+ci/*
+!ci/admin-claims.html
+!ci/index.html
+
+# Prospecção Campanella — artefatos gerados + lista de leads (PII), não é código do produto
+prospeccao-campanella/
+
+# Backend do Cliente Inteligente: dados de runtime (sqlite/backups cifrados) e
+# cardápios publicados pelos lojistas — não versionar (dados, não código)
+ci-data/
+ci-lojas/
+
+# flag efêmero do cron de reload do cert (scripts/reload_nginx_cert.sh)
+certbot/conf/.nginx-reload-needed
+
+# dumps de geometria CAR (grandes, regeneráveis)
+data/car_geom/
+
+# ── Proteções adicionais Cliente Inteligente ──
+ci-data/*.db
+ci-data/admin_token.txt
+**/admin_token.txt
+backups_*/
+backups_marco_*/
+backups_teste_*/
+*.tar.gz
+*.tgz
+*.zip
+master/
+staging/
+enriquecimento_v5max_cnpj/
+
+# Configurações locais de ferramentas de desenvolvimento
+.claude/settings.local.json

@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Fazendas · WiNS Hub Agro{% endblock %}
+{% block topbar %}Fazendas{% endblock %}
+{% block content %}
+<div x-data="fazendas()" x-init="restoreFilters();load()">
+
+  <div class="page-head">
+    <div>
+      <h1>Fazendas</h1>
+      <div class="sub">Base de criadores com decisor, canais de contato e porte — priorizada por sinal genético.</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="secure-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg> export auditado</span>
+      <a class="btn btn-gold" :href="exportUrl()" @click="logExport"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg> Exportar</a>
+    </div>
+  </div>
+
+  <!-- KPIs do recorte -->
+  <div class="stats">
+    <div class="stat"><div class="k">Fazendas no filtro</div><div class="v" x-text="fmt(kpi.n)"></div></div>
+    <div class="stat"><div class="k">Com WhatsApp / Celular</div><div class="v" x-text="fmt(kpi.wa)"></div><div class="d" x-text="pct(kpi.wa,kpi.n)"></div></div>
+    <div class="stat"><div class="k">Com e-mail</div><div class="v" x-text="fmt(kpi.em)"></div><div class="d" x-text="pct(kpi.em,kpi.n)"></div></div>
+    <div class="stat"><div class="k">Com Instagram</div><div class="v" x-text="fmt(kpi.ig)"></div><div class="d" x-text="pct(kpi.ig,kpi.n)"></div></div>
+    <div class="stat" x-show="kpi.deserto"><div class="k">🏜️ Em deserto vet</div><div class="v" x-text="fmt(kpi.deserto)"></div><div class="d" x-text="pct(kpi.deserto,kpi.n)+' — região c/ carga ≥40k gado/téc (75km)'"></div></div>
+  </div>
+
+  <!-- filtros -->
+  <div class="filters">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+      <input class="input" placeholder="Buscar fazenda, decisor, município…" x-model="f.q" @input.debounce.400ms="page=1;load()">
+    </div>
+    <select class="select" x-model="f.uf" @change="page=1;load()">
+      <option value="">UF (todas)</option>
+      <template x-for="u in ufs"><option :value="u" x-text="u"></option></template>
+    </select>
+    <select class="select" x-model="f.sinal" @change="page=1;load()">
+      <option value="">Sinal genético</option>
+      <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
+    </select>
+    <select class="select" x-model="f.canal" @change="page=1;load()">
+      <option value="">Canal recomendado</option>
+      <template x-for="c in canais"><option :value="c" x-text="c"></option></template>
+    </select>
+    <select class="select" x-model="f.cobertura" @change="page=1;load()" title="cobertura veterinária do município">
+      <option value="">Cobertura vet (todas)</option>
+      <option value="deserto">🏜️ Deserto vet (região subatendida)</option>
+      <option value="baixa">Baixa cobertura</option>
+      <option value="normal">Normal</option>
+    </select>
+    <button class="btn btn-ghost" @click="limpar()">Limpar</button>
+  </div>
+
+  <!-- tabela -->
+  <div class="table-wrap">
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+        <tr>
+          <th class="sortable" @click="setSort('prioridade')" title="clique para ordenar">Prioridade<span class="sort-ind" x-text="sortIcon('prioridade')"></span></th>
+          <th class="sortable" @click="setSort('demanda')" title="ranking combinado: sinal genético + demanda do município (matrizes, crédito, deserto vet) · clique para ordenar">Demanda<span class="sort-ind" x-text="sortIcon('demanda')"></span></th>
+          <th>Fazenda</th>
+          <th>Decisor / Operador</th>
+          <th class="sortable" @click="setSort('touros')" title="clique para ordenar por nº de touros">Sinal · Touros<span class="sort-ind" x-text="sortIcon('touros')"></span></th>
+          <th class="sortable" @click="setSort('matrizes')" title="matrizes estimadas no município da fazenda · clique para ordenar">Matrizes (mun.)<span class="sort-ind" x-text="sortIcon('matrizes')"></span></th>
+          <th class="sortable" @click="setSort('capital')" title="clique para ordenar por porte">Porte<span class="sort-ind" x-text="sortIcon('capital')"></span></th>
+          <th>Canal recomendado</th>
+          <th>Contato</th>
+          <th>Grupo</th>
+        </tr>
+        </thead>
+        <tbody>
+          <template x-for="r in rows" :key="r.cnpj_basico">
+            <tr>
+              <td data-label="Prioridade"><span class="tier" :class="tierClass(r.prioridade)" x-text="prioLabel(r.prioridade)"></span></td>
+              <td data-label="Demanda">
+                <span class="badge" :class="demandaBadge(r.prioridade_final)" x-text="demandaLabel(r.prioridade_final)" :title="r.prioridade_final!=null?('score '+r.prioridade_final):''"></span>
+                <div class="fz-sub" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">
+                  <span x-show="r.deserto_vet" class="badge warn" title="município sem cobertura veterinária local">🏜️ deserto vet</span>
+                  <span x-show="r.sicor_credito_matriz_flag" class="badge info" title="município com crédito SICOR p/ aquisição de matriz">crédito matriz</span>
+                </div>
+              </td>
+              <td data-label="Fazenda">
+                <a class="fz-nome" :href="'/fazendas/'+(r.cnpj_completo||'').replace(/\D/g,'')" @click="saveFilters()"
+                   x-text="r.nome_fazenda" style="cursor:pointer;color:#2d5a2d;text-decoration:none"></a>
+                <div class="fz-sub mono" x-text="(r.municipio||'')+'/'+r.uf+' · '+(r.cnpj_completo||'')"></div>
+              </td>
+              <td data-label="Decisor / Operador">
+                <div x-text="cleanNome(r.decisor)||'—'"></div>
+                <span x-show="ehEmpresa(r.decisor)" class="badge warn" style="font-size:9px" title="o 'decisor' é uma razão social (LTDA/holding), não uma pessoa física — buscar o sócio responsável antes de abordar">⚠ razão social</span>
+                <div class="fz-sub" x-show="r.operador_jovem && r.operador_jovem!==cleanNome(r.decisor)" x-text="'opera: '+r.operador_jovem"></div>
+              </td>
+              <td data-label="Sinal · Touros">
+                <span class="badge" :class="sinalBadge(r.sinal_genetico)" x-text="r.sinal_genetico"></span>
+                <span class="fz-sub" x-show="r.touros_nelore>0" x-text="' '+r.touros_nelore+' touros'"></span>
+              </td>
+              <td data-label="Matrizes (mun.)">
+                <span x-show="r.matrizes_municipio!=null" x-text="fmt(r.matrizes_municipio)"></span>
+                <span x-show="r.matrizes_municipio==null">—</span>
+              </td>
+              <td data-label="Porte">
+                <span x-show="r.capital_mi" x-text="'R$ '+r.capital_mi+' M'"></span>
+                <div class="fz-sub" x-show="r.porte_digital" x-text="'IG '+fmt(r.followers)+' seg.'"></div>
+              </td>
+              <td data-label="Canal recomendado"><span class="badge" :class="canalBadge(r.canal_recomendado)" x-text="r.canal_recomendado"></span></td>
+              <td data-label="Contato">
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <a x-show="r.whatsapp&&r.whats_alta_conf&&!r.whats_compartilhado" class="badge ok" :href="'https://wa.me/55'+r.whatsapp" target="_blank" title="WhatsApp verificado (DDD bate a UF / origem pública)">WhatsApp ✓</a>
+                  <a x-show="r.whatsapp&&r.whats_compartilhado" class="badge warn" :href="'https://wa.me/55'+r.whatsapp" target="_blank" title="número compartilhado por vários cadastros distintos (provável central/contador) — confirmar de quem é antes de abordar">WhatsApp? compartilhado</a>
+                  <a x-show="r.whatsapp&&!r.whats_alta_conf&&!r.whats_compartilhado" class="badge warn" :href="'https://wa.me/55'+r.whatsapp" target="_blank" title="número NÃO verificado — pode ser inferido do telefone da Receita (contador/terceiro/antigo). Confirmar antes de abordar.">WhatsApp? a confirmar</a>
+                  <a x-show="r.email" class="badge info" :href="'mailto:'+r.email" :title="r.email" x-text="emailLabel(r.email_tier)"></a>
+                  <a x-show="r.instagram" class="badge neutral" :href="'https://instagram.com/'+r.instagram" target="_blank" x-text="'@'+r.instagram"></a>
+                  <span x-show="!r.whatsapp&&!r.email&&!r.instagram&&r.telefone_rfb" class="badge neutral mono" title="telefone do cadastro da Receita — a confirmar (pode ser contador/terceiro/antigo)" x-text="'☎ '+r.telefone_rfb+' (Receita)'"></span>
+                </div>
+              </td>
+              <td data-label="Grupo"><span x-show="r.dono_n_fazendas>1" class="badge gold" x-text="r.dono_n_fazendas+' faz.'"></span></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <div class="loading" x-show="loading"><div class="spinner"></div></div>
+      <div class="empty" x-show="!loading && rows.length===0">Nenhuma fazenda nesse filtro.</div>
+    </div>
+    <div class="pager">
+      <span x-text="'Página '+page+' de '+total_pages+' · '+fmt(total)+' fazendas'"></span>
+      <button class="btn btn-ghost" :disabled="page<=1" @click="page--;load()">‹</button>
+      <button class="btn btn-ghost" :disabled="page>=total_pages" @click="page++;load()">›</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fazendas(){
+  return {
+    rows:[], kpi:{n:0,wa:0,em:0,ig:0}, total:0, total_pages:1, page:1, loading:false,
+    sortCol:'', order:'asc',   // sortCol='' = sem ordenação (default do servidor)
+    f:{q:'',uf:'',sinal:'',canal:'',cobertura:''},
+    ufs:['MT','MS','GO','PA','TO','MG','BA','RO','SP','PR','RS','SC','ES','RJ','MA','PI','CE','PE','BA','RN','PB','AL','SE','AC','RR','AP','AM','DF'],
+    canais:['WhatsApp','E-mail','E-mail (Receita)','Instagram DM','E-mail (risco bounce)','E-mail (contador)','Via técnico','Ligacao (capturar zap)','sem canal'],
+    qs(){const p=new URLSearchParams();for(const k in this.f)if(this.f[k])p.set(k,this.f[k]);return p},
+    limpar(){ for(const k in this.f) this.f[k]=''; this.page=1; this.load() },
+    saveFilters(){ try{ sessionStorage.setItem('faz_filtros', JSON.stringify({f:this.f,page:this.page,sortCol:this.sortCol,order:this.order})); }catch(e){} },
+    restoreFilters(){ try{ const s=JSON.parse(sessionStorage.getItem('faz_filtros')||'null'); if(s){ if(s.f) for(const k in this.f){ if(s.f[k]!=null) this.f[k]=s.f[k]; } this.page=s.page||1; this.sortCol=s.sortCol||''; this.order=s.order||'asc'; } }catch(e){} },
+    async load(){
+      this.loading=true;
+      const p=this.qs(); p.set('page',this.page); p.set('page_size',50);
+      if(this.sortCol){ p.set('sort',this.sortCol); p.set('order',this.order); }
+      try{
+        const r=await fetch('/api/farms?'+p.toString()); const d=await r.json();
+        this.rows=d.rows||[]; this.total=d.total||0; this.total_pages=d.total_pages||1; this.kpi=d.kpi||this.kpi;
+      }catch(e){ this.rows=[]; }
+      this.loading=false;
+    },
+    // 3 estados: 1º clique = crescente (↑), 2º = decrescente (↓), 3º = remove ordenação (default)
+    setSort(c){
+      if(this.sortCol!==c){ this.sortCol=c; this.order='asc'; }
+      else if(this.order==='asc'){ this.order='desc'; }
+      else { this.sortCol=''; this.order='asc'; }
+      this.page=1; this.load();
+    },
+    sortIcon(c){ return this.sortCol===c ? (this.order==='asc'?' ↑':' ↓') : ''; },
+    exportUrl(){ const p=this.qs(); return '/api/farms/export?'+p.toString() },
+    logExport(){ /* o servidor audita; aqui só UX */ },
+    fmt(n){ return (n==null)?'—':Number(n).toLocaleString('pt-BR') },
+    pct(a,b){ return b?Math.round(100*a/b)+'%':'' },
+    cleanNome(s){ return s? s.replace(/\s*\(.*$/,'') : '' },
+    ehEmpresa(s){ return !!s && /\b(LTDA|EIRELI|S\/A|S\.A\b|PARTICIPAC|HOLDING|EMPREENDIMENT|INVESTIMENT|COOPERATIV|AGROPECUARIA\s+\w+\s+LTDA)\b/i.test(s) },
+    prioLabel(p){ return {1:'Alta',2:'Média',3:'Baixa'}[p]||'—' },
+    tierClass(p){ return {1:'alta',2:'media',3:'baixa'}[p]||'baixa' },
+    sinalBadge(s){ return s==='alta'?'ok':(s==='media'?'gold':'neutral') },
+    canalBadge(c){ if(!c)return 'neutral'; if(c.startsWith('WhatsApp'))return 'ok'; if(c.startsWith('E-mail'))return 'info'; if(c.startsWith('Instagram'))return 'neutral'; return 'warn' },
+    emailLabel(t){ return {valid:'e-mail ✓','rfb':'e-mail Receita','rfb-contador':'e-mail contador','catch-all':'e-mail ?'}[t]||'e-mail' },
+    demandaLabel(s){ if(s==null)return '—'; const n=Number(s); return (n>=0.7?'Alta':(n>=0.4?'Média':'Baixa')) },
+    demandaBadge(s){ if(s==null)return 'neutral'; const n=Number(s); return (n>=0.7?'ok':(n>=0.4?'gold':'neutral')) }
+  }
+}
+</script>
+{% endblock %}
