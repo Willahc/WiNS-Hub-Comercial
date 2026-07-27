@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import socket
+import ssl
 import time
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -33,9 +35,21 @@ class HttpJsonSource:
                 retryable = exc.code == 429 or 500 <= exc.code < 600
                 if not retryable or attempt == self.attempts:
                     raise SourceError(f"{self.name}: HTTP {exc.code}") from exc
-            except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+            except json.JSONDecodeError as exc:
                 if attempt == self.attempts:
-                    raise SourceError(f"{self.name}: indisponível") from exc
+                    raise SourceError(f"{self.name}: PAYLOAD_INCOMPATIBLE") from exc
+            except (URLError, TimeoutError, socket.timeout, ssl.SSLError) as exc:
+                reason = getattr(exc, "reason", exc)
+                if isinstance(reason, socket.gaierror):
+                    classification = "DNS"
+                elif isinstance(reason, (TimeoutError, socket.timeout)):
+                    classification = "TIMEOUT"
+                elif isinstance(reason, ssl.SSLError):
+                    classification = "CERTIFICATE"
+                else:
+                    classification = "NETWORK_UNAVAILABLE"
+                if attempt == self.attempts:
+                    raise SourceError(f"{self.name}: {classification}") from exc
             self.retries += 1
             time.sleep(min(2 ** attempt, 8))
         raise SourceError(f"{self.name}: tentativas esgotadas")
@@ -43,6 +57,7 @@ class HttpJsonSource:
 
 class PncpCivilSource(HttpJsonSource):
     name = "pncp_civil_100k"
+    timeout = 20
     endpoint = "https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao"
     modalities = (4, 5, 12)
 
@@ -87,46 +102,59 @@ class PncpCivilSource(HttpJsonSource):
 
 class ObrasGovSource(HttpJsonSource):
     name = "obrasgov_100k"
-    endpoint = "https://api.obrasgov.gestao.gov.br/obrasgov/api/projeto-investimento"
+    timeout = 30
+    endpoint = "https://api-publica.obrasgov.gestao.gov.br/obras/projeto-investimento"
 
     def capture(self, *, days: int = 3, max_pages: int = 2) -> Iterator[RawCandidate]:
         for offset in range(max(1, days) + 1):
             target_date = date.today() - timedelta(days=offset)
-            for page in range(max_pages):
+            for page in range(1, max_pages + 1):
                 payload = self.get_json(self.endpoint, {
-                    "dataCadastro": target_date.isoformat(), "natureza": "Obra",
-                    "pagina": page, "tamanhoDaPagina": 100,
+                    "dt_cadastro": target_date.isoformat(),
+                    "natureza_intervencao": "Obra",
+                    "pagina": page, "tamanho_da_pagina": 100,
                 })
-                for rec in payload.get("content") or []:
+                for rec in payload.get("data") or []:
                     values = [
-                        Decimal(str(item.get("valorInvestimentoPrevisto") or "0"))
-                        for item in rec.get("fontesDeRecurso") or []
+                        Decimal(str(item.get("vl_investimento_previsto") or "0"))
+                        for item in rec.get("investimentos_previstos") or []
                     ]
                     total = sum(values, Decimal("0"))
-                    source_id = str(rec.get("idUnico") or "")
-                    title = str(rec.get("nome") or rec.get("descricao") or "")
+                    source_id = str(rec.get("id_projeto_investimento") or "")
+                    title = str(rec.get("desc_nome") or rec.get("desc_projeto") or "")
                     description = " ".join(filter(None, (
-                        str(rec.get("descricao") or ""),
-                        str(rec.get("metaGlobal") or ""),
-                        " ".join(str(x.get("descricao") or "") for x in rec.get("tipos") or []),
+                        str(rec.get("desc_projeto") or ""),
+                        str(rec.get("desc_meta_global") or ""),
+                        str(rec.get("especie_intervencao") or ""),
+                        " ".join(
+                            " ".join(filter(None, (
+                                str(x.get("eixo") or ""),
+                                str(x.get("tipo") or ""),
+                                str(x.get("subtipo") or ""),
+                            )))
+                            for x in rec.get("eixos_tipos") or []
+                        ),
                     )))
-                    actors = (rec.get("executores") or []) + (rec.get("tomadores") or [])
-                    cnpj = str((actors[0] if actors else {}).get("codigo") or "") or None
+                    executors = rec.get("executores") or []
+                    cnpj = (
+                        str((executors[0] if executors else {}).get("cnpj_executor") or "")
+                        or str(rec.get("cnpj_organizacao_resp") or "")
+                        or None
+                    )
                     yield RawCandidate(
                         source=self.name, source_id=f"OBRASGOV:{source_id}",
                         title=title, description=description,
                         value_original=total, currency_original="BRL",
                         value_class=ValueClass.DOCUMENTAL,
-                        value_source_field="fontesDeRecurso[].valorInvestimentoPrevisto",
-                        canonical_url="https://obrasgov.sistema.gov.br/",
+                        value_source_field="investimentos_previstos[].vl_investimento_previsto",
+                        canonical_url="https://api-publica.obrasgov.gestao.gov.br/",
                         collected_at=datetime.now(timezone.utc),
-                        responsible_cnpj=cnpj, state=rec.get("uf"),
-                        original_classification=str(rec.get("natureza") or "") or None,
+                        responsible_cnpj=cnpj, state=rec.get("uf_principal"),
+                        original_classification=str(rec.get("natureza_intervencao") or "") or None,
                         payload=rec,
                     )
-                if payload.get("last") is True:
+                if page >= int(payload.get("total_pages") or 0):
                     break
 
 
 SOURCES = (PncpCivilSource, ObrasGovSource)
-

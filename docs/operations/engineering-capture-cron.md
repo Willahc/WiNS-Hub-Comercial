@@ -17,7 +17,7 @@ paralela e violaria o fluxo canônico.
 | Nome | Comando/adaptador | Fonte | Tipo | Frequência anterior | Última execução conhecida | Saída/destino | Deduplicação/atualização | Dependências | Risco | Vertical |
 |---|---|---|---|---|---|---|---|---|---|---|
 | PNCP Civil 100k | `PncpCivilSource` | API PNCP | Civil | diária | 2026-07-17 01:24 BRT | `capturas_brutas` e `obras` | ID PNCP + hash; atualização apenas mais recente/confiável | HTTPS, PostgreSQL | baixo após adaptador | Engenharia |
-| ObrasGov 100k | `ObrasGovSource` | API ObrasGov | Civil/industrial | diária | 2026-07-17 01:26 BRT | `capturas_brutas` e `obras` | `idUnico` + hash; atualização apenas mais recente/confiável | HTTPS, PostgreSQL | baixo após adaptador | Engenharia |
+| ObrasGov 100k | `ObrasGovSource` | API pública ObrasGov | Civil/industrial | diária | 2026-07-17 01:26 BRT | `capturas_brutas` e `obras` | `id_projeto_investimento` + hash; atualização apenas mais recente/confiável | HTTPS, PostgreSQL | baixo após adaptador | Engenharia |
 
 ## Inventário legado — excluído da ativação
 
@@ -99,6 +99,12 @@ era `engenharia.obras` por `INSERT/UPSERT` direto; deduplicação usual era
 - Timeout global: 2 horas; HTTP: 60 s, até 3 tentativas, backoff progressivo,
   429 e 5xx retryable. Falha de uma fonte não interrompe a outra.
 - Checkpoint diário é a janela sobreposta de três dias mais idempotência por fonte.
+- O adaptador ObrasGov usa a API pública atual
+  `api-publica.obrasgov.gestao.gov.br`; o endpoint legado
+  `api.obrasgov.gestao.gov.br` passou a responder `429`.
+- Em 2026-07-27, o PNCP resolveu DNS, completou TLS com certificado válido e
+  aceitou a requisição, mas não enviou bytes de resposta dentro do timeout:
+  indisponibilidade classificada como `TIMEOUT`, sem mock ou troca de fonte.
 
 ## Logs, métricas e alertas
 
@@ -109,7 +115,18 @@ era `engenharia.obras` por `INSERT/UPSERT` direto; deduplicação usual era
   `engineering_capture_source_runs`.
 - Rejeições sanitizadas: `engineering_capture_rejections`.
 - `OnFailure` envia alerta crítico ao syslog. O runner alerta lock, disco
-  abaixo de 10 GiB, falha por fonte e execução total sem sucesso.
+  abaixo de 15 GB, falha por fonte e execução total sem sucesso. Falha isolada
+  gera `PARTIAL_SUCCESS`, sem esconder a fonte indisponível.
+
+## Dependência do Portão
+
+A restauração do schema consolidou as tabelas e funções em `engenharia`, mas
+seis funções mantiveram referências literais ao antigo `wins_v2`. A migration
+`20260727_repair_engineering_gate_trigger_up.sql` corrige somente essas
+referências para os objetos canônicos já existentes (`portao_config`,
+`portao_fila`, `pipeline_inbox` e funções auxiliares). Nenhum schema vazio é
+criado e nenhum trigger é removido. O rollback é bloqueado se uma implementação
+completa e real de `wins_v2` não estiver disponível.
 
 ## Operação
 

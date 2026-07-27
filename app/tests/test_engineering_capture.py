@@ -151,6 +151,14 @@ class RetryTest(unittest.TestCase):
                 continue
         self.assertEqual(results, ["success"])
 
+    def test_timeout_is_classified(self):
+        source = HttpJsonSource()
+        with patch("engineering_capture.sources.urlopen", side_effect=TimeoutError()):
+            with patch("engineering_capture.sources.time.sleep"):
+                with self.assertRaisesRegex(RuntimeError, "TIMEOUT"):
+                    source.get_json("https://example.invalid", {})
+        self.assertEqual(source.retries, 2)
+
 
 class SchedulingTest(unittest.TestCase):
     def test_timer_uses_sao_paulo_at_0100(self):
@@ -167,7 +175,13 @@ class SchedulingTest(unittest.TestCase):
             usage.return_value.free = 1
             self.assertFalse(disk_safe()[0])
 
+    def test_disk_guard_requires_15_decimal_gb(self):
+        with patch("engineering_capture.runner.shutil.disk_usage") as usage:
+            usage.return_value.free = 14_999_999_999
+            self.assertFalse(disk_safe()[0])
+            usage.return_value.free = 15_000_000_000
+            self.assertTrue(disk_safe()[0])
+
 
 if __name__ == "__main__":
     unittest.main()
-

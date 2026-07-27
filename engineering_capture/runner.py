@@ -19,7 +19,7 @@ from .sources import SOURCES
 
 BRT = ZoneInfo("America/Sao_Paulo")
 LOCK_ID = 867530901
-MIN_FREE_BYTES = 10 * 1024 * 1024 * 1024
+MIN_FREE_BYTES = 15_000_000_000
 
 
 class JsonFormatter(logging.Formatter):
@@ -182,7 +182,7 @@ def run(*, dry_run: bool, days: int, max_pages: int, log_dir: str) -> tuple[int,
                     WHERE run_id=%s
                     """,
                     (
-                        "SUCCESS" if failure_count == 0 else ("PARTIAL" if success_count else "FAILED"),
+                        "SUCCESS" if failure_count == 0 else ("PARTIAL_SUCCESS" if success_count else "FAILED"),
                         success_count, failure_count, metrics.captured_count,
                         metrics.civil_count, metrics.industrial_count,
                         metrics.rejected_below_minimum, metrics.rejected_missing_value,
@@ -197,7 +197,7 @@ def run(*, dry_run: bool, days: int, max_pages: int, log_dir: str) -> tuple[int,
         success_count = sum(x["status"] == "SUCCESS" for x in source_results)
         final_status = (
             "SUCCESS" if success_count == len(source_results)
-            else ("PARTIAL" if success_count else "FAILED")
+            else ("PARTIAL_SUCCESS" if success_count else "FAILED")
         )
         report = {
             "run_id": run_id, "scheduled_for": scheduled_for.isoformat(),
