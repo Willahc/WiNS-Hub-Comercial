@@ -53,33 +53,41 @@ BEGIN
 END;
 $validation$;
 
-CREATE OR REPLACE FUNCTION engenharia.portao_flag(
-    p_chave text,
-    p_default text DEFAULT 'false'
-) RETURNS text
-LANGUAGE sql STABLE
-AS $$
-    SELECT COALESCE(
-        (SELECT valor FROM wins_v2.portao_config WHERE chave = p_chave),
-        p_default
-    );
-$$;
-
-CREATE OR REPLACE FUNCTION engenharia.portao_flag_on(p_chave text)
-RETURNS boolean
-LANGUAGE sql STABLE
-AS $$
-    SELECT lower(wins_v2.portao_flag(p_chave, 'false'))
-           IN ('1', 'true', 'yes', 'on', 'sim');
-$$;
-
--- Remaining trigger functions must be restored from the pre-migration
--- schema dump only after the guard above succeeds.
 DO $rollback$
+DECLARE
+    signature text;
+    current_ddl text;
+    rollback_ddl text;
 BEGIN
-    RAISE EXCEPTION
-        'Rollback requires reviewed restoration of all pre-migration trigger definitions';
+    FOREACH signature IN ARRAY ARRAY[
+        'engenharia.portao_flag(text,text)',
+        'engenharia.portao_flag_on(text)',
+        'engenharia.fn_enqueue_enrichment()',
+        'engenharia.fn_portao_nova_captura()',
+        'engenharia.fn_portao_enfileirar()',
+        'engenharia.trg_obras_pipeline_inbox()'
+    ]
+    LOOP
+        SELECT pg_get_functiondef(signature::regprocedure) INTO current_ddl;
+        rollback_ddl := replace(current_ddl, 'engenharia.', 'wins_v2.');
+        rollback_ddl := regexp_replace(
+            rollback_ddl,
+            '^CREATE OR REPLACE FUNCTION wins_v2\.',
+            'CREATE OR REPLACE FUNCTION engenharia.'
+        );
+        EXECUTE rollback_ddl;
+    END LOOP;
 END;
 $rollback$;
+
+ALTER TABLE engenharia.engineering_capture_runs
+    DROP CONSTRAINT IF EXISTS engineering_capture_runs_status_chk;
+ALTER TABLE engenharia.engineering_capture_runs
+    ADD CONSTRAINT engineering_capture_runs_status_chk CHECK (
+        status IN (
+            'RUNNING', 'SUCCESS', 'PARTIAL', 'FAILED',
+            'SKIPPED_LOCKED', 'BLOCKED_DISK'
+        )
+    );
 
 COMMIT;
