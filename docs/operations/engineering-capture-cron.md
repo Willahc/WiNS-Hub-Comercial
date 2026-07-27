@@ -94,6 +94,8 @@ era `engenharia.obras` por `INSERT/UPSERT` direto; deduplicação usual era
 - Timer: `winshub-engineering-capture.timer`.
 - Variáveis de banco: arquivo operacional existente
   `/root/wins_agro_v1/.env`; nenhuma credencial é copiada ou versionada.
+  O host e a porta são fixados na unit como `127.0.0.1:5432`, pois o valor
+  Docker `db` do arquivo de ambiente não resolve fora da rede Compose.
 - Agenda: `01:00 America/Sao_Paulo`, explícita mesmo com host em UTC.
 - Lock duplo: `flock` no host e advisory lock PostgreSQL.
 - Timeout global: 2 horas; HTTP: 60 s, até 3 tentativas, backoff progressivo,

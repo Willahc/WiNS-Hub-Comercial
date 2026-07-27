@@ -9,8 +9,12 @@ Type=oneshot
 User=root
 WorkingDirectory=/opt/winshub/engineering-capture/current
 EnvironmentFile=/root/wins_agro_v1/.env
+Environment=DB_HOST=127.0.0.1
+Environment=DB_PORT=5432
+Environment=DB_NAME=wins_agro
 ExecStart=/usr/bin/flock -n -E 75 /run/lock/winshub-engineering-capture.lock /usr/bin/python3 -m engineering_capture.runner --days 3 --max-pages 20
 TimeoutStartSec=2h
+UMask=0027
 Nice=10
 IOSchedulingClass=best-effort
 IOSchedulingPriority=6
