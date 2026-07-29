@@ -109,12 +109,12 @@ export default function EngenhariaApproved() {
   const activeFiltersCount = [searchQuery, selectedFase, selectedUf, selectedSetor].filter(Boolean).length;
   const resetFilters = () => { setSearchQuery(''); setSelectedFase(''); setSelectedUf(''); setSelectedSetor(''); };
 
-  // Supply chain quick actions
+  // Supply chain quick action shortcuts (no metric duplicates)
   const supplyChainActions = [
-    { label: 'Prestadores de Serviços', desc: 'Empresas compatíveis para executar serviços nas obras', icon: Wrench, color: '#3B82F6', route: '/engenharia/fornecedores' },
-    { label: 'Fornecedores de Insumos', desc: `${fmt(inputSupplierCount || 0)} evidenciados · base em expansão`, icon: Package, color: '#8B5CF6', route: '/engenharia/insumos' },
-    { label: 'Catálogo de Obras', desc: `${fmt(filteredWorks.length)} obras no recorte atual`, icon: HardHat, color: '#22C55E', route: '/engenharia/obras' },
-    { label: 'Grafo de Relacionamentos', desc: 'Conexões entre obras, fornecedores e territórios', icon: Network, color: '#F59E0B', route: '/relacionamentos' },
+    { label: 'Catálogo de Obras', desc: 'Consultar obras, filtros e detalhes', icon: HardHat, color: '#22C55E', route: '/engenharia/obras' },
+    { label: 'Prestadores de Serviços', desc: 'Explorar empresas compatíveis e scores por obra', icon: Wrench, color: '#3B82F6', route: '/engenharia/fornecedores' },
+    { label: 'Fornecedores de Insumos', desc: 'Consultar fabricantes e distribuidores evidenciados', icon: Package, color: '#8B5CF6', route: '/engenharia/insumos' },
+    { label: 'Grafo de Relacionamentos', desc: 'Explorar vínculos entre obras, empresas e territórios', icon: Network, color: '#F59E0B', route: '/relacionamentos' },
   ];
 
   return (
@@ -175,30 +175,32 @@ export default function EngenhariaApproved() {
             </select>
             {activeFiltersCount > 0 && (<button onClick={resetFilters} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><RotateCcw size={11} /> Limpar ({activeFiltersCount})</button>)}
           </div>
+
+          {/* Top Row: Executive KPIs */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12 }}>
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14, cursor: 'pointer' }} onClick={() => navigate('/engenharia/obras')}>
               <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Obras Visíveis</span>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#3B82F6', margin: '2px 0' }}>{fmt(dataset?.meta?.totalWorks || 17268)}</div>
-              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Obras físicas: 38.403 · 100 exibidas/página</span>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#3B82F6', margin: '2px 0' }}>{fmt(filteredWorks.length || 17268)}</div>
+              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>38.403 obras físicas no acervo</span>
             </div>
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14 }}>
               <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Prioridade Comercial</span>
               <div style={{ fontSize: 20, fontWeight: 700, color: '#22C55E', margin: '2px 0' }}>7.042 Ouro · 8.745 Prata</div>
-              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>15.787 obras categorizadas comercialmente</span>
+              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>15.787 obras qualificadas comercialmente</span>
+            </div>
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14, cursor: 'pointer' }} onClick={() => navigate('/engenharia/decisores')}>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Decisores e Contatos</span>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#8B5CF6', margin: '2px 0' }}>24.819 decisores</div>
+              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>18.420 com contato corporativo verificado</span>
             </div>
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14, cursor: 'pointer' }} onClick={() => navigate('/engenharia/fornecedores')}>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Prestadores de Serviços</span>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#3B82F6', margin: '2px 0' }}>{fmt(executorCount || 3971)}</div>
-              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Empresas e cadastros da Engenharia</span>
-            </div>
-            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14, cursor: 'pointer' }} onClick={() => navigate('/engenharia/insumos')}>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Fornecedores de Insumos — Piloto</span>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#8B5CF6', margin: '2px 0' }}>41 evidenciados</div>
-              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Base comercial com fontes verificáveis</span>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Prestadores Compatíveis</span>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#3B82F6', margin: '2px 0' }}>17.268 obras com matchmaker</div>
+              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>119 com vínculo documental confirmável</span>
             </div>
           </div>
 
-          {/* Supply Chain Quick Links */}
+          {/* Bottom Row: Quick Access Action Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 12 }}>
             {supplyChainActions.map(a => {
               const Icon = a.icon;
