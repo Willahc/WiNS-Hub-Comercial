@@ -193,6 +193,25 @@ th{{color:var(--mut);font-size:12px;position:sticky;top:0;background:var(--card)
 <button onclick="load()">Buscar</button></section>
 <div class="card scroll"><table><thead><tr><th>Nível</th><th>Obra</th><th>Empresa</th><th>Local</th><th>Valor</th><th>Decisor</th><th>Contatos</th></tr></thead><tbody id="rows"></tbody></table></div>
 </main><script>
+(function cleanUrl(){{
+ if(typeof window==='undefined'||!window.history||!window.history.replaceState)return;
+ try{{
+  const u=new URL(window.location.href);
+  let mod=false;
+  ['code','state','session_state','iss'].forEach(p=>{{if(u.searchParams.has(p)){{u.searchParams.delete(p);mod=true;}}}});
+  if(u.hash){{
+   let h=u.hash.substring(1);
+   ['code','state','session_state','iss'].forEach(p=>{{
+    if(h.includes(p+'=')){{const sp=new URLSearchParams(h);sp.delete(p);h=sp.toString();mod=true;}}
+   }});
+   u.hash=h?'#'+h:'';
+  }}
+  if(mod){{
+   const cl=u.pathname+(u.searchParams.toString()?'?'+u.searchParams.toString():'')+u.hash;
+   window.history.replaceState(null,document.title,cl);
+  }}
+ }}catch(e){{}}
+}})();
 const P='{APP_PREFIX}';
 const money=v=>v==null?'—':new Intl.NumberFormat('pt-BR',{{style:'currency',currency:'BRL',maximumFractionDigits:0}}).format(v);
 const esc=s=>String(s??'—').replace(/[&<>"']/g,c=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c]));
