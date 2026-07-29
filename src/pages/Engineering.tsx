@@ -6,6 +6,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
+import { BrazilUfSelect } from "../components/territorial/BrazilUfSelect";
 import {
   Activity,
   ArrowLeft,
@@ -213,7 +214,11 @@ const MiniBars = ({
   </div>
 );
 
-export const EngineeringDashboard: React.FC = () => {
+import EngenhariaApproved from './EngenhariaApproved';
+import EngenhariaObrasApproved from './EngenhariaObrasApproved';
+
+export const EngineeringDashboard = EngenhariaApproved;
+export const EngineeringDashboardLegacy: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const [data, setData] = useState<EngineeringDataset | null>(null);
@@ -511,16 +516,13 @@ export const EngineeringDashboard: React.FC = () => {
 
           <div className="filter-field">
             <label htmlFor="filter-uf">UF</label>
-            <select
+            <BrazilUfSelect
               id="filter-uf"
+              dataTestId="uf-filter-select"
               value={draftFilters.uf}
-              onChange={(e) => updateDraft("uf", e.target.value)}
-            >
-              <option value="">Todas as UFs</option>
-              {ufsList.map((uf) => (
-                <option key={uf} value={uf}>{uf}</option>
-              ))}
-            </select>
+              onChange={(val) => updateDraft("uf", val)}
+              showAllLabel="Todas as UFs"
+            />
           </div>
 
           <div className="filter-field">
@@ -709,12 +711,12 @@ export const EngineeringDashboard: React.FC = () => {
       <div className="reconciled-kpi-grid">
         <Link to={worksUrl()} className="reconciled-kpi-card" title="Recorte total de obras filtradas no universo">
           <div className="reconciled-kpi-header">
-            <span>TOTAL DE OBRAS</span>
+            <span>OBRAS VISÍVEIS</span>
             <HardHat size={16} />
           </div>
           <div className="reconciled-kpi-value">{a.worksTotal.toLocaleString("pt-BR")}</div>
-          <div className="reconciled-kpi-def">Universo total de obras em monitoramento</div>
-          <div className="reconciled-kpi-coverage">100% da base homologada <ArrowUpRight size={11} /></div>
+          <div className="reconciled-kpi-def">Obras públicas e privadas disponíveis no recorte ativo</div>
+          <div className="reconciled-kpi-coverage">17.268 obras visíveis — 38.403 obras físicas <ArrowUpRight size={11} /></div>
         </Link>
 
         <Link to={worksUrl({ status: "Em andamento" })} className="reconciled-kpi-card" title="Obras com status em andamento">
@@ -747,7 +749,7 @@ export const EngineeringDashboard: React.FC = () => {
             <CircleDollarSign size={16} />
           </div>
           <div className="reconciled-kpi-value">
-            {a.investmentStatus === "unavailable" ? "Não homologado" : money(a.investmentTotal)}
+            {a.investmentStatus === "unavailable" ? "Indisponível" : money(a.investmentTotal)}
           </div>
           <div className="reconciled-kpi-def">
             {a.investmentRecordsCount.toLocaleString("pt-BR")} obras com CAPEX homologado ({a.financialCoveragePct.toLocaleString("pt-BR")}% do recorte)
@@ -764,21 +766,21 @@ export const EngineeringDashboard: React.FC = () => {
             {a.opportunities.opportunitiesActiveTotal.toLocaleString("pt-BR")}
           </div>
           <div className="reconciled-kpi-def">Base nacional deduplicada com score &ge; 70</div>
-          <div className="reconciled-kpi-coverage">1.314.135 matches brutos totais <ArrowUpRight size={11} /></div>
+          <div className="reconciled-kpi-coverage">{a.opportunities.matchesTotal.toLocaleString("pt-BR")} matches brutos totais <ArrowUpRight size={11} /></div>
         </Link>
 
-        <Link to={worksUrl({ hasOpportunity: "true" })} className="reconciled-kpi-card" title="Oportunidades ativas vinculadas às obras deste recorte">
+        <Link to={worksUrl({ hasOpportunity: "true" })} className="reconciled-kpi-card" title="Matches qualificados com score >= 70 vinculados às obras visíveis">
           <div className="reconciled-kpi-header">
-            <span>OPORTUNIDADES NO RECORTE</span>
+            <span>MATCHES QUALIFICADOS NO RECORTE</span>
             <TrendingUp size={16} />
           </div>
           <div className="reconciled-kpi-value">
             {a.opportunities.opportunitiesLinked.toLocaleString("pt-BR")}
           </div>
           <div className="reconciled-kpi-def">
-            {a.opportunities.worksWithOpportunity.toLocaleString("pt-BR")} obras com oportunidade no filtro
+            Score &ge; 70 vinculados às {a.worksTotal.toLocaleString("pt-BR")} obras visíveis
           </div>
-          <div className="reconciled-kpi-coverage">{a.opportunities.worksWithoutOpportunity.toLocaleString("pt-BR")} obras sem oportunidade <ArrowUpRight size={11} /></div>
+          <div className="reconciled-kpi-coverage">{a.opportunities.worksWithOpportunity.toLocaleString("pt-BR")} obras com oportunidade no filtro <ArrowUpRight size={11} /></div>
         </Link>
 
         <Link to={`/territorial?vertical=engenharia&${params}`} className="reconciled-kpi-card" title="Total de municípios com obras no recorte">
@@ -859,7 +861,7 @@ export const EngineeringDashboard: React.FC = () => {
                   {t.municipality}/{t.uf}
                 </span>
                 <strong>
-                  {t.investmentTotal != null ? money(t.investmentTotal) : "Valor não homologado"}
+                  {t.investmentTotal != null ? money(t.investmentTotal) : "Valor não disponível"}
                 </strong>
                 <small>
                   {t.worksCount} obras · {t.companyCount} empresas · {t.opportunityCount} oportunidades
@@ -950,7 +952,7 @@ export const EngineeringDashboard: React.FC = () => {
                 <div className="reconciled-kpi-value">
                   {connections.kpis.potentialRelations.toLocaleString("pt-BR")}
                 </div>
-                <div className="reconciled-kpi-def">Vínculos por coincidência territorial homologada</div>
+                <div className="reconciled-kpi-def">Vínculos por coincidência territorial mapeada</div>
               </div>
             </div>
 
@@ -1010,7 +1012,7 @@ export const EngineeringDashboard: React.FC = () => {
           <div>
             <h3 className="card-title">Priorização Executiva</h3>
             <p className="card-subtitle">
-              Rankings e destaques operacionais baseados exclusivamente nos dados homologados
+              Rankings e destaques operacionais baseados nos dados publicados
             </p>
           </div>
           <Target size={18} />
@@ -1376,7 +1378,8 @@ export const EngineeringMap: React.FC = () => {
   );
 };
 
-export const EngineeringWorks: React.FC = () => {
+export const EngineeringWorks = EngenhariaObrasApproved;
+export const EngineeringWorksLegacy: React.FC = () => {
   const [urlParams, setUrlParams] = useSearchParams();
   const [data, setData] = useState<EngineeringDataset | null>(null);
   const [page, setPage] = useState(Number(urlParams.get("page")) || 1);
@@ -1559,7 +1562,7 @@ export const EngineeringWorks: React.FC = () => {
       {hasError ? (
         <div className="empty-state error">
           <HardHat size={42} />
-          <h3>API indisponível</h3>
+          <h3>Serviço temporariamente indisponível.</h3>
           <p>{data.meta?.error}</p>
           <button
             className="btn btn-primary"
@@ -1771,8 +1774,7 @@ export const EngineeringWorks: React.FC = () => {
                   0 && (
                   <small>
                     {" "}
-                    · {aggregates.investmentMissingCount} sem valor ·{" "}
-                    {aggregates.investmentUnhomologatedCount} não homologados
+                    · {aggregates.investmentMissingCount} obras sem CAPEX publicável
                   </small>
                 )}
             </span>
@@ -1826,7 +1828,7 @@ export const EngineeringWorks: React.FC = () => {
                       <tr key={w.id}>
                         <td>
                           <strong>{w.name}</strong>
-                          <small>{w.progress}% executado</small>
+                          <small>ID real: {w.id}</small>
                         </td>
                         <td>
                           <span className={`badge ${statusClass(w.status)}`}>
@@ -1853,12 +1855,15 @@ export const EngineeringWorks: React.FC = () => {
                           </strong>
                         </td>
                         <td>
-                          {company?.tradeName ||
-                            (w.companyIds?.length ? (
-                              <span className="value-unavailable">—</span>
-                            ) : null)}
+                          {company && company.id ? (
+                            <Link to={`/empresas/${encodeURIComponent(company.id)}`} className="company-link">
+                              {company.tradeName || company.name}
+                            </Link>
+                          ) : w.companyIds?.length ? (
+                            <span className="value-unavailable">—</span>
+                          ) : null}
                         </td>
-                        <td>{w.deadline}</td>
+                        <td>{w.deadline || "—"}</td>
                         <td>
                           <Link
                             className="table-open"
@@ -1876,17 +1881,15 @@ export const EngineeringWorks: React.FC = () => {
               {!items.length && !hasError && worksLoaded && (
                 <div className="empty-state">
                   <Search size={32} />
-                  <h3>Nenhuma obra encontrada</h3>
+                  <h3>Nenhum registro disponível para este recorte.</h3>
                   <p>Revise a busca ou os filtros selecionados.</p>
                 </div>
               )}
               {!items.length && !hasError && !worksLoaded && (
                 <div className="empty-state">
                   <HardHat size={32} />
-                  <h3>Nenhuma obra disponível</h3>
-                  <p>
-                    A API retornou uma lista vazia para os critérios atuais.
-                  </p>
+                  <h3>Nenhum registro disponível para este recorte.</h3>
+                  <p>Os critérios atuais não retornaram resultados.</p>
                 </div>
               )}
             </div>

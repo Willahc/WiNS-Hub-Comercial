@@ -157,7 +157,7 @@ export function VisaoGeral() {
   const mapHeight = isMobile ? 300 : (isTablet ? 400 : 450);
 
   const kpis = [
-    { label: 'Obras visíveis', value: realData?.obrasCount ? realData.obrasCount.toLocaleString('pt-BR') : '16.633', sub: 'catálogo físico: 35.690', icon: HardHat, color: VERT_COLORS.engenharia, bg: 'rgba(59,130,246,0.12)' },
+    { label: 'Obras visíveis', value: realData?.obrasCount ? realData.obrasCount.toLocaleString('pt-BR') : '17.268', sub: 'obras físicas: 38.403', icon: HardHat, color: VERT_COLORS.engenharia, bg: 'rgba(59,130,246,0.12)' },
     { label: 'Empresas ativas', value: realData?.empresasCount ? realData.empresasCount.toLocaleString('pt-BR') : '636.404', sub: 'registros físicos: ~4,8M', icon: Building2, color: VERT_COLORS.oportunidades, bg: 'rgba(139,92,246,0.12)' },
     { label: 'Oportunidades', value: realData?.oportunidadesCount ? realData.oportunidadesCount.toLocaleString('pt-BR') : '641.968', sub: 'matches score ≥70: 1.210.670', icon: Target, color: VERT_COLORS.logistica, bg: 'rgba(245,158,11,0.12)' },
     { label: 'Relações documentais confirmadas', value: realData?.confirmadosCount ? realData.confirmadosCount.toLocaleString('pt-BR') : '133.697', sub: 'vínculos documentais explícitos', icon: CheckCircle2, color: VERT_COLORS.agro, bg: 'rgba(34,197,94,0.12)' },
