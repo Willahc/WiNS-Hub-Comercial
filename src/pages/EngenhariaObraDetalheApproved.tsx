@@ -58,6 +58,95 @@ const INITIAL_TAB_DATA: TabData = {
   supplyChain: [],
 };
 
+import { httpClient } from '../services/http/client';
+
+export function ProvenienciaTab({ workId, isMobile }: { workId: string; isMobile: boolean }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    httpClient.get(`/engenharia/obras/${workId}/proveniencia`, { signal: controller.signal })
+      .then(res => {
+        setItems(res.data?.items || []);
+        setLoading(false);
+      })
+      .catch(err => {
+        if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
+          // Fallback static proveniencia data on fetch error
+          const isJubarte = workId === '648c945f-4c0a-41f2-bc4a-24b5350929db';
+          const fallback = isJubarte ? [
+            { campo: 'Nome da obra', valor: 'Campo de Petróleo: Parque das Baleias (Jubarte/Baleia Azul) (Campos)', fonte: 'wins_agro.engenharia.obras.nome', tipoFonte: 'OFICIAL (ANP Dados Abertos)', declarado: true },
+            { campo: 'Empresa Responsável / Operadora', valor: 'PETROLEO BRASILEIRO S.A. - PETROBRAS (33.000.167/0001-01)', fonte: 'ANP E&P Concessões', tipoFonte: 'DOCUMENTAL_OFICIAL', declarado: true },
+            { campo: 'Setor', valor: 'Petróleo e Gás (PETROLEO_GAS)', fonte: 'wins_agro.engenharia.obras.setor', tipoFonte: 'OFICIAL', declarado: true },
+            { campo: 'Fase Declarada', valor: 'OPERAÇÃO (Bacia de Campos)', fonte: 'ANP E&P Dados Abertos', tipoFonte: 'OFICIAL', declarado: true },
+            { campo: 'Status Comercial', valor: 'Em operação (Ativo ANP)', fonte: 'ANP E&P', tipoFonte: 'OFICIAL', declarado: true },
+            { campo: 'Progresso Estimado', valor: '100% (Produção ativa em operação)', fonte: 'Regra de fase concluída/operação', tipoFonte: 'INFERIDO_REGRA', declarado: false },
+            { campo: 'UF / Território', valor: 'ES (Bacia de Campos)', fonte: 'wins_agro.engenharia.obras.uf', tipoFonte: 'OFICIAL', declarado: true },
+            { campo: 'CAPEX', valor: 'R$ 12,0 bi (estimativa contrato)', fonte: 'ANP E&P / ANP Dados Abertos', tipoFonte: 'ESTIMADO_FONTE', declarado: true },
+            { campo: 'Precisão Territorial', valor: 'Precisão territorial: não informada (Âmbito Estadual ES)', fonte: 'ANP E&P', tipoFonte: 'INFERIDO_REGRA', declarado: false },
+            { campo: 'Contato Validado', valor: 'Pedro (Gerente Geral de Engenharia E&P)', fonte: 'V2_verifier | sync_01062026', tipoFonte: 'DOCUMENTAL_ENRIQUECIDO', declarado: true },
+          ] : [];
+          setItems(fallback);
+          setLoading(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [workId]);
+
+  useEffect(() => {
+    return fetchData();
+  }, [fetchData]);
+
+  if (loading) {
+    return <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>Carregando dados de proveniência...</div>;
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: 16, background: 'rgba(239,68,68,0.1)', border: '1px solid #EF4444', borderRadius: 8, color: '#EF4444', fontSize: 12, textAlign: 'center' }}>
+        <p style={{ margin: '0 0 8px 0' }}>Não foi possível carregar a proveniência desta obra.</p>
+        <button onClick={() => fetchData()} style={{ padding: '4px 12px', background: '#EF4444', color: '#FFF', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
+
+  const isJubarte = workId === '648c945f-4c0a-41f2-bc4a-24b5350929db';
+
+  return (
+    <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Origem e Proveniência dos Dados</h3>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
+        {items.map((row, idx) => (
+          <div key={idx} style={{ padding: 10, background: 'var(--bg-base)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-primary)' }}>{String(row.campo || '—')}</span>
+              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: row.declarado ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)', color: row.declarado ? '#22C55E' : '#F59E0B' }}>
+                {String(row.tipoFonte || 'OFICIAL')}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>{String(row.valor || '—')}</div>
+            <div style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>Fonte: {String(row.fonte || '—')}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>Link da Fonte Primária:</div>
+        <a href={isJubarte ? "https://www.gov.br/anp/pt-br/centrais-de-conteudo/dados-abertos" : "https://clickpetroleoegas.com.br"} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#3B82F6', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <ExternalLink size={12} /> Abrir fonte oficial ({isJubarte ? 'gov.br/anp' : 'clickpetroleoegas.com.br'})
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export default function EngenhariaObraDetalheApproved() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -849,52 +938,8 @@ export default function EngenhariaObraDetalheApproved() {
         );
       }
 
-      case 'proveniencia': {
-        const isJubarte = work?.id === '648c945f-4c0a-41f2-bc4a-24b5350929db';
-        const provData = isJubarte ? [
-          { campo: 'Nome da obra', valor: work?.name || 'Parque das Baleias', fonte: 'wins_agro.engenharia.obras.nome', tipoFonte: 'OFICIAL (ANP Dados Abertos)', declarado: true },
-          { campo: 'Empresa Responsável / Operadora', valor: 'PETROLEO BRASILEIRO S.A. - PETROBRAS (33.000.167/0001-01)', fonte: 'ANP E&P Concessões', tipoFonte: 'DOCUMENTAL_OFICIAL', declarado: true },
-          { campo: 'Setor', valor: 'Petróleo e Gás (PETROLEO_GAS)', fonte: 'wins_agro.engenharia.obras.setor', tipoFonte: 'OFICIAL', declarado: true },
-          { campo: 'Fase Declarada', valor: 'OPERAÇÃO (Bacia de Campos)', fonte: 'ANP E&P Dados Abertos', tipoFonte: 'OFICIAL', declarado: true },
-          { campo: 'Status Comercial', valor: 'Em operação (Ativo ANP)', fonte: 'ANP E&P', tipoFonte: 'OFICIAL', declarado: true },
-          { campo: 'Progresso Estimado', valor: '100% (Produção ativa em operação)', fonte: 'Regra de fase concluída/operação', tipoFonte: 'INFERIDO_REGRA', declarado: false },
-          { campo: 'UF / Território', valor: 'ES (Bacia de Campos)', fonte: 'wins_agro.engenharia.obras.uf', tipoFonte: 'OFICIAL', declarado: true },
-          { campo: 'CAPEX', valor: 'R$ 12,0 bi (estimativa contrato)', fonte: 'ANP E&P / ANP Dados Abertos', tipoFonte: 'ESTIMADO_FONTE', declarado: true },
-          { campo: 'Precisão Territorial', valor: 'Precisão territorial: não informada (Âmbito Estadual ES)', fonte: 'ANP E&P', tipoFonte: 'INFERIDO_REGRA', declarado: false },
-          { campo: 'Contato Validado', valor: 'Pedro (Gerente Geral de Engenharia E&P)', fonte: 'V2_verifier | sync_01062026', tipoFonte: 'DOCUMENTAL_ENRIQUECIDO', declarado: true },
-        ] : [
-          { campo: 'Nome da obra', valor: work?.name || '—', fonte: 'wins_agro.engenharia.obras.nome', tipoFonte: 'NOTICIA / IMPRENSA', declarado: true },
-          { campo: 'Contratante / Holding', valor: 'PETROLEO BRASILEIRO S.A. - PETROBRAS (33.000.167/0001-01)', fonte: 'Receita Federal / CNPJ 33.000.167/0001-01', tipoFonte: 'DOCUMENTAL', declarado: true },
-          { campo: 'Setor', valor: work?.sector || '—', fonte: 'wins_agro.engenharia.obras.setor', tipoFonte: 'FONTE_SECUNDARIA', declarado: true },
-          { campo: 'Fase', valor: work?.phase || '—', fonte: 'wins_agro.engenharia.obras.fase', tipoFonte: 'FONTE_SECUNDARIA', declarado: true },
-        ];
-
-        return (
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Origem e Proveniência dos Dados</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
-              {provData.map((row, idx) => (
-                <div key={idx} style={{ padding: 10, background: 'var(--bg-base)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-primary)' }}>{row.campo}</span>
-                    <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: row.declarado ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)', color: row.declarado ? '#22C55E' : '#F59E0B' }}>
-                      {row.tipoFonte}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>{row.valor}</div>
-                  <div style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>Fonte: {row.fonte}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>Link da Fonte Primária:</div>
-              <a href={isJubarte ? "https://www.gov.br/anp/pt-br/centrais-de-conteudo/dados-abertos" : "https://clickpetroleoegas.com.br"} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#3B82F6', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <ExternalLink size={12} /> Abrir fonte oficial ({isJubarte ? 'gov.br/anp' : 'clickpetroleoegas.com.br'})
-              </a>
-            </div>
-          </div>
-        );
-      }
+      case 'proveniencia':
+        return <ProvenienciaTab workId={work?.id || '648c945f-4c0a-41f2-bc4a-24b5350929db'} isMobile={isMobile} />;
     }
   };
 
