@@ -2,7 +2,8 @@ FROM wins-hub-saude:5507b90
 USER root
 WORKDIR /app
 COPY wins_engenharia_app.py /app/wins_engenharia_app.py
-RUN chown saude:saude /app/wins_engenharia_app.py
+COPY spa /app/spa
+RUN chown -R saude:saude /app/wins_engenharia_app.py /app/spa
 USER saude
 ENV APPLICATION_ROOT=/engenharia
 EXPOSE 8000

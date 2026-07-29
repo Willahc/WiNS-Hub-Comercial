@@ -163,73 +163,57 @@ def api_obras():
         return jsonify(json_ready(cursor.fetchall()))
 
 
-@app.route("/")
-def home():
-    return Response(
-        f"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>WiNS Hub Engenharia</title>
-<style>
-:root{{--bg:#08111f;--card:#111d31;--txt:#eaf1fb;--mut:#91a4bf;--acc:#55a5ff;--bd:#263651}}
-*{{box-sizing:border-box}}body{{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui}}
-.wrap{{max-width:1400px;margin:auto;padding:24px}}h1{{margin:0}}.sub,.mut{{color:var(--mut)}}
-.kpis{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0}}
-.card{{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}}
-.v{{font-size:22px;font-weight:750}}.filters{{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}}
-input,select,button{{background:#0d1728;color:var(--txt);border:1px solid var(--bd);border-radius:8px;padding:9px}}
-button{{cursor:pointer;background:#174d82}}table{{width:100%;border-collapse:collapse}}
-th,td{{padding:9px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}}
-th{{color:var(--mut);font-size:12px;position:sticky;top:0;background:var(--card)}}.scroll{{overflow:auto;max-height:68vh}}
-.badge{{padding:2px 7px;border-radius:10px;background:#17304f;font-size:11px}}a{{color:var(--acc)}}
-</style></head><body><main class="wrap">
-<div class="mut">WiNS Hub · ENGENHARIA</div><h1>Obras e inteligência comercial</h1>
-<p class="sub">Contatos profissionais mascarados na interface pública. Dados completos permanecem protegidos no banco.</p>
-<section class="kpis" id="kpis"></section>
-<section class="filters">
-<input id="q" placeholder="Obra, empresa ou decisor">
-<select id="uf"><option value="">Todos os estados</option></select>
-<select id="nivel"><option value="">Todos os níveis</option><option>OURO</option><option>PRATA</option><option>BRONZE</option><option>PIPELINE</option></select>
-<input id="minv" type="number" min="0" placeholder="Valor mínimo">
-<button onclick="load()">Buscar</button></section>
-<div class="card scroll"><table><thead><tr><th>Nível</th><th>Obra</th><th>Empresa</th><th>Local</th><th>Valor</th><th>Decisor</th><th>Contatos</th></tr></thead><tbody id="rows"></tbody></table></div>
-</main><script>
-(function cleanUrl(){{
+SPA_DIR = "/app/spa" if os.path.exists("/app/spa") else "/opt/winshub/spa"
+
+@app.route("/assets/<path:path>")
+def serve_assets(path):
+    from flask import send_from_directory
+    assets_dir = os.path.join(SPA_DIR, "assets")
+    if os.path.exists(os.path.join(assets_dir, path)):
+        return send_from_directory(assets_dir, path)
+    return jsonify({"error": "asset not found"}), 404
+
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_spa(path):
+    if path.startswith("api/") or path == "healthz":
+        return jsonify({"error": "endpoint not found"}), 404
+
+    from flask import send_from_directory
+    target_file = os.path.join(SPA_DIR, path)
+    if path and os.path.exists(target_file) and os.path.isfile(target_file):
+        return send_from_directory(SPA_DIR, path)
+
+    index_path = os.path.join(SPA_DIR, "index.html")
+    if os.path.exists(index_path):
+        with open(index_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        clean_script = """<script>
+(function cleanUrl(){
  if(typeof window==='undefined'||!window.history||!window.history.replaceState)return;
- try{{
+ try{
   const u=new URL(window.location.href);
   let mod=false;
-  ['code','state','session_state','iss'].forEach(p=>{{if(u.searchParams.has(p)){{u.searchParams.delete(p);mod=true;}}}});
-  if(u.hash){{
+  ['code','state','session_state','iss'].forEach(p=>{if(u.searchParams.has(p)){u.searchParams.delete(p);mod=true;}});
+  if(u.hash){
    let h=u.hash.substring(1);
-   ['code','state','session_state','iss'].forEach(p=>{{
-    if(h.includes(p+'=')){{const sp=new URLSearchParams(h);sp.delete(p);h=sp.toString();mod=true;}}
-   }});
+   ['code','state','session_state','iss'].forEach(p=>{
+    if(h.includes(p+'=')){const sp=new URLSearchParams(h);sp.delete(p);h=sp.toString();mod=true;}
+   });
    u.hash=h?'#'+h:'';
-  }}
-  if(mod){{
+  }
+  if(mod){
    const cl=u.pathname+(u.searchParams.toString()?'?'+u.searchParams.toString():'')+u.hash;
    window.history.replaceState(null,document.title,cl);
-  }}
- }}catch(e){{}}
-}})();
-const P='{APP_PREFIX}';
-const money=v=>v==null?'—':new Intl.NumberFormat('pt-BR',{{style:'currency',currency:'BRL',maximumFractionDigits:0}}).format(v);
-const esc=s=>String(s??'—').replace(/[&<>"']/g,c=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c]));
-async function init(){{
- const [s,u]=await Promise.all([fetch(P+'/api/stats').then(r=>r.json()),fetch(P+'/api/ufs').then(r=>r.json())]);
- const labels=[['Obras',s.obras],['Ouro',s.ouro],['Prata',s.prata],['Decisores',s.decisores],['Com e-mail',s.decisores_email],['Com telefone',s.decisores_telefone],['Domínios',s.dominios]];
- document.getElementById('kpis').innerHTML=labels.map(x=>`<div class="card"><div class="v">${{Number(x[1]).toLocaleString('pt-BR')}}</div><div class="mut">${{x[0]}}</div></div>`).join('');
- document.getElementById('uf').innerHTML+=u.map(x=>`<option>${{esc(x)}}</option>`).join('');load();
-}}
-async function load(){{
- const p=new URLSearchParams({{q:q.value,uf:uf.value,nivel:nivel.value,min_value:minv.value||0,limit:100}});
- const data=await fetch(P+'/api/obras?'+p).then(r=>r.json());
- rows.innerHTML=data.map(r=>`<tr><td><span class="badge">${{esc(r.nivel)}}</span></td><td>${{esc(r.nome)}}<div class="mut">${{esc(r.fase)}}</div></td><td>${{esc(r.empresa)}}<div class="mut">${{esc(r.cnpj)}}</div></td><td>${{esc(r.municipio)}}/${{esc(r.uf)}}</td><td>${{money(r.valor_estimado)}}</td><td>${{esc(r.decisor)}}<div class="mut">${{esc(r.cargo)}}</div><div class="mut"><span class="badge">${{esc(r.status_vinculo_obra||'CONTATO_VALIDADO')}}</span> Score: ${{r.match_score??'—'}}</div></td><td>${{r.email?esc(r.email):'—'}}<br>${{r.telefone?esc(r.telefone):''}} ${{r.linkedin_url?`<a href="${{esc(r.linkedin_url)}}" rel="noopener noreferrer" target="_blank">LinkedIn</a>`:''}}</td></tr>`).join('');
-}}
-init();
-</script></body></html>""",
-        mimetype="text/html; charset=utf-8",
-    )
+  }
+ }catch(e){}
+})();
+</script>"""
+        if "<head>" in content:
+            content = content.replace("<head>", f"<head>{clean_script}")
+        return Response(content, mimetype="text/html; charset=utf-8")
+
+    return jsonify({"error": "SPA bundle not found"}), 404
 
 
 if __name__ == "__main__":
