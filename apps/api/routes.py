@@ -4,12 +4,18 @@ from datetime import date
 from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from auth import get_current_user, require_permission
 from repositories import (
     HealthRepository, DashboardRepository, EventosRepository,
     IndicadoresRepository, EmpresasRepository, OportunidadesRepository
 )
 from wave1_repository import Wave1Repository
+
+
+class ReviewRequest(BaseModel):
+    classificacao_nova: str
+    justificativa: str
 
 logger = logging.getLogger("wins_hub_api.routes")
 
@@ -186,7 +192,6 @@ def wave1_projects(request: Request, page: int = Query(1, ge=1), page_size: int 
     return Wave1Repository.projects(page=page, page_size=page_size, search=search, municipality=municipality, uf=uf, status=status, sort=sort)
 
 @router.get("/fornecedores")
-@router.get("/engenharia/fornecedores")
 def wave1_suppliers(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
                     search: Optional[str] = Query(None, max_length=120), cnpj: Optional[str] = None,
                     municipality: Optional[str] = Query(None, max_length=100), uf: Optional[str] = Query(None, min_length=2, max_length=2),
@@ -194,11 +199,71 @@ def wave1_suppliers(request: Request, page: int = Query(1, ge=1), page_size: int
     return Wave1Repository.suppliers(page, page_size, search, cnpj, municipality, uf, active, sort)
 
 @router.get("/fornecedores/{id}")
-@router.get("/engenharia/fornecedores/{id}")
 def wave1_supplier(id: str, request: Request, user=Depends(require_permission("empresa360"))):
     record=Wave1Repository.supplier(id)
     if not record:return standard_error("SUPPLIER_NOT_FOUND", "Fornecedor não encontrado", request.state.request_id, 404)
     return record
+
+@router.get("/engenharia/fornecedores")
+def engineering_executors(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+                          search: Optional[str] = Query(None, max_length=120), uf: Optional[str] = Query(None, min_length=2, max_length=2),
+                          especialidade: Optional[str] = Query(None, max_length=100),
+                          papel: Optional[str] = Query(None, max_length=50),
+                          classification: Optional[str] = Query(None, max_length=30),
+                          sort: str = "name_asc", user=Depends(require_permission("engenharia"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        logger.info("Listando executores page=%s uf=%s search=%s requestId=%s", page, uf, search, req_id)
+        return Wave1Repository.executors(page=page, page_size=page_size, search=search, uf=uf,
+          especialidade=especialidade, papel=papel, classification=classification, sort=sort)
+    except Exception as e:
+        logger.error(f"Erro ao listar executores: {e} requestId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", "Error fetching executors", req_id, 500)
+
+@router.get("/engenharia/fornecedores/{id}")
+def engineering_executor(id: str, request: Request, user=Depends(require_permission("engenharia"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        record = Wave1Repository.executor(id)
+        if not record:
+            return standard_error("EXECUTOR_NOT_FOUND", "Executor não encontrado", req_id, 404)
+        return record
+    except Exception as e:
+        logger.error(f"Erro ao buscar executor {id}: {e} requestId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", "Error fetching executor", req_id, 500)
+
+@router.get("/engenharia/insumos")
+def engineering_input_suppliers(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+                                search: Optional[str] = Query(None, max_length=120), uf: Optional[str] = Query(None, min_length=2, max_length=2),
+                                categoria: Optional[str] = Query(None, max_length=100), tipo: Optional[str] = Query(None, max_length=30),
+                                sort: str = "name_asc", user=Depends(require_permission("engenharia"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        return Wave1Repository.input_suppliers(page=page, page_size=page_size, search=search, uf=uf,
+          categoria=categoria, tipo=tipo, sort=sort)
+    except Exception as e:
+        logger.error(f"Erro ao listar fornecedores de insumos: {e} requestId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", "Error fetching input suppliers", req_id, 500)
+
+@router.get("/engenharia/insumos/summary")
+def engineering_input_suppliers_summary(request: Request, user=Depends(require_permission("engenharia"))):
+    return Wave1Repository.input_suppliers_summary()
+
+@router.get("/engenharia/insumos/facets")
+def engineering_input_suppliers_facets(request: Request, user=Depends(require_permission("engenharia"))):
+    return Wave1Repository.input_suppliers_facets()
+
+@router.get("/engenharia/insumos/{id}")
+def engineering_input_supplier(id: str, request: Request, user=Depends(require_permission("engenharia"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        record = Wave1Repository.input_supplier(id)
+        if not record:
+            return standard_error("INPUT_SUPPLIER_NOT_FOUND", "Fornecedor de insumo não encontrado", req_id, 404)
+        return record
+    except Exception as e:
+        logger.error(f"Erro ao buscar fornecedor de insumo {id}: {e} requestId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", "Error fetching input supplier", req_id, 500)
 
 @router.get("/decisores")
 @router.get("/engenharia/decisores")
@@ -230,6 +295,53 @@ def engineering_opportunity(id: str, request: Request, user=Depends(require_perm
     if not record:return standard_error("OPPORTUNITY_NOT_FOUND", "Oportunidade não encontrada", request.state.request_id, 404)
     return record
 
+# === Engineering Work Sub-resources (Supply Chain) ===
+@router.get("/engenharia/obras/{id}/executores")
+def work_executors(id: str, request: Request, user=Depends(require_permission("engenharia"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        logger.info("Listando executores da obra %s requestId=%s", id, req_id)
+        return Wave1Repository.work_executors(id)
+    except Exception as e:
+        logger.error(f"Erro executores obra {id}: {e} requestId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", "Error fetching work executors", req_id, 500)
+
+@router.get("/engenharia/obras/{id}/disciplinas")
+def work_disciplinas(id: str, request: Request, user=Depends(require_permission("engenharia"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        return Wave1Repository.work_disciplinas(id)
+    except Exception as e:
+        logger.error(f"Erro disciplinas obra {id}: {e} requestId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", "Error fetching work disciplinas", req_id, 500)
+
+@router.get("/engenharia/obras/{id}/insumos")
+def work_insumos(id: str, request: Request, user=Depends(require_permission("engenharia"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        return Wave1Repository.work_insumos(id)
+    except Exception as e:
+        logger.error(f"Erro insumos obra {id}: {e} requestId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", "Error fetching work insumos", req_id, 500)
+
+@router.get("/engenharia/obras/{id}/oportunidades")
+def work_opportunities(id: str, request: Request, user=Depends(require_permission("engenharia"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        return Wave1Repository.work_opportunities(id)
+    except Exception as e:
+        logger.error(f"Erro oportunidades obra {id}: {e} requestId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", "Error fetching work opportunities", req_id, 500)
+
+@router.get("/engenharia/obras/{id}/supply-chain")
+def work_supply_chain(id: str, request: Request, user=Depends(require_permission("engenharia"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        return Wave1Repository.work_supply_chain(id)
+    except Exception as e:
+        logger.error(f"Erro supply-chain obra {id}: {e} requestId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", "Error fetching work supply chain", req_id, 500)
+
 @router.get("/mapa")
 def wave1_map(request: Request, page: int = Query(1, ge=1), page_size: int = Query(100, ge=1, le=100),
               municipality: Optional[str] = None, uf: Optional[str] = Query(None, min_length=2, max_length=2),
@@ -245,14 +357,110 @@ def get_relationships(request: Request, cnpj: Optional[str] = None, municipality
                       uf: Optional[str] = None, work_id: Optional[str] = None, user=Depends(get_current_user)):
     return Wave1Repository.relacionamentos(cnpj=cnpj, municipality=municipality, uf=uf, work_id=work_id)
 
+
+@router.post("/relacionamentos/{relationship_id}/review", status_code=200)
+def review_relationship(relationship_id: str, body: ReviewRequest,
+                        request: Request, user=Depends(get_current_user)):
+    req_id = getattr(request.state, "request_id", "unknown")
+
+    # VIEWER check: must have at least one non-viewer role to reclassify
+    user_roles = set(user.get("roles", [])) if isinstance(user, dict) else set()
+    user_perms = set(user.get("permissions", [])) if isinstance(user, dict) else set()
+    has_write_role = bool(user_roles - {"viewer", "uma_authorization"}) or bool(user_perms - {"viewer"})
+    if not has_write_role:
+        raise HTTPException(status_code=403, detail="Apenas usuários autorizados podem reclassificar relações")
+
+    # Validate body
+    nova = body.classificacao_nova.upper().strip()
+    if nova not in ("CONFIRMADO", "PROVÁVEL", "POTENCIAL"):
+        raise HTTPException(status_code=422, detail="classificacao_nova deve ser CONFIRMADO, PROVÁVEL ou POTENCIAL")
+    justificativa = body.justificativa.strip()
+    if not justificativa:
+        raise HTTPException(status_code=422, detail="Justificativa é obrigatória")
+
+    # Get previous classification from reviews table (if any)
+    prev = Wave1Repository.get_review_status(relationship_id)
+    classificacao_anterior = prev["classificacao_nova"] if prev else "POTENCIAL"
+
+    # Identity extracted from Keycloak JWT — not from request body
+    user_id = user.get("sub", "unknown")
+    username = user.get("preferred_username", user.get("name", "unknown"))
+    roles_str = ",".join(sorted(user_roles))
+
+    # Ensure tables exist (safe to call on every review)
+    try:
+        Wave1Repository.ensure_review_tables()
+    except Exception as e:
+        logger.error(f"[{req_id}] Erro ao criar tabelas de revisão: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao preparar banco de auditoria")
+
+    # Persist review + audit
+    try:
+        review = Wave1Repository.save_review(
+            relationship_id=relationship_id,
+            classificacao_anterior=classificacao_anterior,
+            classificacao_nova=nova,
+            justificativa=justificativa,
+            user_id=user_id,
+            username=username,
+            roles=roles_str,
+        )
+        logger.info(f"[{req_id}] Revisão registrada: rel={relationship_id} {classificacao_anterior}→{nova} user={username}")
+        return {
+            "status": "ok",
+            "review": {
+                "id": review["id"],
+                "relationship_id": review["relationship_id"],
+                "classificacao_anterior": review["classificacao_anterior"],
+                "classificacao_nova": review["classificacao_nova"],
+                "username": review["username"],
+                "created_at": review["created_at"].isoformat() if hasattr(review["created_at"], "isoformat") else str(review["created_at"]),
+            }
+        }
+    except Exception as e:
+        logger.error(f"[{req_id}] Erro ao persistir revisão: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao persistir revisão")
+
 @router.get("/diretorios/catalogo")
 def get_directory_catalog(request: Request, user=Depends(get_current_user)):
     return {"items": Wave1Repository.directory_catalog()}
 
+try:
+    from apps.api.search_engine import execute_server_side_search, execute_server_side_suggest, MASTER_SERVER_INDEX
+except ModuleNotFoundError:
+    from search_engine import execute_server_side_search, execute_server_side_suggest, MASTER_SERVER_INDEX
+
 @router.get("/busca-global")
-def global_real_search(request: Request, q: str = Query(..., min_length=2, max_length=120),
-                       user=Depends(get_current_user)):
-    return Wave1Repository.global_search(q)
+@router.get("/search")
+def global_real_search(request: Request,
+                        q: str = Query(..., min_length=1, max_length=120),
+                        types: Optional[str] = Query(None),
+                        verticals: Optional[str] = Query(None),
+                        uf: Optional[str] = Query(None),
+                        municipality_id: Optional[str] = Query(None),
+                        page: int = Query(1, ge=1),
+                        page_size: int = Query(20, ge=1, le=100),
+                        sort: str = Query("relevancia"),
+                        user=Depends(get_current_user)):
+    type_list = [t.strip() for t in types.split(",")] if types else None
+    vert_list = [v.strip() for v in verticals.split(",")] if verticals else None
+    is_admin = user and getattr(user, "roles", None) and "admin" in user.roles
+    return execute_server_side_search(
+        q=q, types=type_list, verticals=vert_list, uf=uf,
+        municipality_id=municipality_id, page=page, page_size=page_size,
+        sort=sort, is_admin=is_admin
+    )
+
+@router.get("/search/suggest")
+def global_suggest(request: Request, q: str = Query(..., min_length=1, max_length=120), user=Depends(get_current_user)):
+    return execute_server_side_suggest(q=q)
+
+@router.get("/search/detail")
+def global_detail(request: Request, id: str = Query(...), user=Depends(get_current_user)):
+    item = next((i for i in MASTER_SERVER_INDEX if i["entity_id"] == id), None)
+    if not item:
+        raise HTTPException(status_code=404, detail="Entidade não encontrada")
+    return item
 
 @router.get("/territorios/municipio")
 def real_municipality(request: Request, municipality: str = Query(..., min_length=2, max_length=100),

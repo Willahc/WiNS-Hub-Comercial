@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from psycopg2.extras import RealDictCursor
-from database import get_connection, release_connection
+from database import get_connection, release_connection, get_write_connection, release_write_connection
 from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
 
 
@@ -130,6 +130,38 @@ def _run_db(dbname: str, sql: str, params: list[Any] = None, domain: Optional[st
         return rows
     finally:
         release_connection(conn, domain)
+
+def _estimate_total(table: str, clause: str, params: list, default: int) -> int:
+    """Estimate total rows with fallback. Uses pg_class for full table, count for filtered."""
+    if clause in ("1=1", "f.situacao_cadastral = '02'", "f.situacao_cadastral = '02'"):
+        return default
+    try:
+        rows, _ = _run(f"SELECT count(*) total FROM {table} WHERE {clause}", params)
+        return int(rows[0]["total"]) if rows else default
+    except Exception:
+        return default
+
+def _demanda_insumos_por_disciplina(disciplina_nome: str) -> list[str]:
+    """Mapeia uma disciplina de obra para categorias técnicas prováveis de insumos.
+    Não retorna fornecedores, apenas a demanda técnica estimada."""
+    nome = (disciplina_nome or "").upper()
+    if "ELÉTRICA" in nome or "ELETRICA" in nome:
+        return ["Cabos e condutores", "Quadros elétricos", "Transformadores"]
+    if "HIDRAULICA" in nome or "HIDRÁULICA" in nome or "SANITÁRIA" in nome:
+        return ["Tubos e conexões", "Bombas hidráulicas", "Registros e válvulas"]
+    if "CLIMATIZA" in nome:
+        return ["Equipamentos de climatização", "Dutos e difusores"]
+    if "ESTRUTURA" in nome or "FUNDA" in nome:
+        return ["Aço", "Concreto", "Fôrmas"]
+    if "PAVIMENTA" in nome:
+        return ["Asfalto", "Concreto para pavimentação"]
+    if "AUTOMA" in nome:
+        return ["Sensores", "Controladores", "Cabos de controle"]
+    if "INCÊNDIO" in nome or "INCENDIO" in nome or "PPCI" in nome:
+        return ["Extintores", "Mangueiras", "Sprinklers"]
+    if "ELEVADOR" in nome:
+        return ["Cabos de aço", "Motores", "Botoeiras"]
+    return ["Materiais diversos"]
 
 class Wave1Repository:
 
@@ -263,8 +295,42 @@ class Wave1Repository:
         if not rows: return None
         r=rows[0]
         related,_=_run("""SELECT id::text source_id,nome,cargo,email,telefone,linkedin_url,fonte,
-          qualidade_lead,registrado_em source_updated_at FROM engenharia.decisores_obra
+          qualidade_lead,confianca_match,observacoes,hipotese_replicacao,email_status,
+          email_verify_result,email_verificado_em,registrado_em source_updated_at
+          FROM engenharia.decisores_obra
           WHERE obra_id=%s AND excluido_em IS NULL ORDER BY qualidade_lead DESC NULLS LAST,registrado_em DESC LIMIT 20""",[work_id])
+        for dm in related:
+            qualidade_raw = str(dm.get("qualidade_lead") or "").lower()
+            qualidade_contato_normalizada = {"verde":90,"amarelo":70,"vermelho":45}.get(qualidade_raw,50)
+            confianca_vinculo = int(dm.get("confianca_match") or 0)
+            observacoes = str(dm.get("observacoes") or "").lower()
+            hipotese = str(dm.get("hipotese_replicacao") or "").lower()
+            has_org = bool(dm.get("cargo") and dm.get("fonte") and dm.get("fonte") != "ALGORITMO")
+            has_verified_contact = (
+                dm.get("email_status") == "valid"
+                and dm.get("email_verify_result") == "deliverable"
+                and bool(dm.get("email_verificado_em"))
+            )
+            is_known_false_positive = "falso_positivo" in hipotese or "area_errada" in observacoes
+            # A pontuação algorítmica nunca comprova vínculo. Só uma anotação
+            # explícita da fonte que liga a pessoa à obra/empreendimento.
+            has_explicit_work_evidence = "decisor_buzios" in observacoes
+            if has_org and has_explicit_work_evidence and not is_known_false_positive:
+                status_validacao = "DECISOR_VALIDADO"
+                vinculo_apresentacao = "validado"
+            elif has_org and has_verified_contact and not is_known_false_positive:
+                status_validacao = "CONTATO_VALIDADO"
+                vinculo_apresentacao = "não comprovado"
+            else:
+                status_validacao = "CONTATO_SUGERIDO"
+                vinculo_apresentacao = "sugerido"
+            dm["qualidadeLeadRaw"] = qualidade_raw
+            dm["qualidadeContatoNormalizada"] = qualidade_contato_normalizada
+            dm["qualidadeContato"] = {"verde":"alta","amarelo":"média","vermelho":"baixa"}.get(qualidade_raw,"não classificada")
+            dm["confiancaVinculoObra"] = confianca_vinculo
+            dm["vinculoObra"] = vinculo_apresentacao
+            dm["statusValidacao"] = status_validacao
+            dm["dataVerificacao"] = str(dm.get("source_updated_at")) if dm.get("source_updated_at") else None
         opportunities,_=_run("""SELECT concat(m.obra_id,'-',m.cnpj) source_id,m.cnpj,m.score,m.score_breakdown,
           m.gerado_em source_updated_at,f.razao_social fornecedor,f.nome_fantasia
           FROM engenharia.matches_v2 m LEFT JOIN engenharia.fornecedores f ON f.cnpj=m.cnpj
@@ -889,6 +955,98 @@ class Wave1Repository:
             "crossVerticalSummary": cross_links
         }
 
+    @staticmethod
+    def ensure_review_tables():
+        conn = get_write_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS public.relationship_reviews (
+                        id SERIAL PRIMARY KEY,
+                        relationship_id VARCHAR(255) NOT NULL,
+                        classificacao_anterior VARCHAR(30) NOT NULL DEFAULT '',
+                        classificacao_nova VARCHAR(30) NOT NULL,
+                        justificativa TEXT NOT NULL DEFAULT '',
+                        user_id VARCHAR(255) NOT NULL,
+                        username VARCHAR(255) NOT NULL DEFAULT '',
+                        roles TEXT NOT NULL DEFAULT '',
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_review_rel_id
+                        ON public.relationship_reviews(relationship_id);
+                """)
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS public.review_audit_log (
+                        id SERIAL PRIMARY KEY,
+                        relationship_id VARCHAR(255) NOT NULL,
+                        classificacao_anterior VARCHAR(30) NOT NULL DEFAULT '',
+                        classificacao_nova VARCHAR(30) NOT NULL,
+                        justificativa TEXT NOT NULL DEFAULT '',
+                        user_id VARCHAR(255) NOT NULL,
+                        username VARCHAR(255) NOT NULL DEFAULT '',
+                        roles TEXT NOT NULL DEFAULT '',
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        action VARCHAR(30) NOT NULL DEFAULT 'update'
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_audit_rel_id
+                        ON public.review_audit_log(relationship_id);
+                    CREATE INDEX IF NOT EXISTS idx_audit_user_id
+                        ON public.review_audit_log(user_id);
+                    CREATE INDEX IF NOT EXISTS idx_audit_created_at
+                        ON public.review_audit_log(created_at);
+                """)
+                conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            release_write_connection(conn)
+
+    @staticmethod
+    def get_review_status(relationship_id: str) -> Optional[dict]:
+        rows = _run_db("wins_agro", """
+            SELECT id, relationship_id, classificacao_anterior, classificacao_nova,
+                   justificativa, user_id, username, created_at
+            FROM public.relationship_reviews
+            WHERE relationship_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+        """, [relationship_id])
+        return rows[0] if rows else None
+
+    @staticmethod
+    def save_review(relationship_id: str, classificacao_anterior: str,
+                    classificacao_nova: str, justificativa: str,
+                    user_id: str, username: str, roles: str) -> dict:
+        conn = get_write_connection()
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("""
+                    INSERT INTO public.relationship_reviews
+                        (relationship_id, classificacao_anterior, classificacao_nova,
+                         justificativa, user_id, username, roles)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id, relationship_id, classificacao_anterior,
+                              classificacao_nova, justificativa, user_id, username, created_at
+                """, [relationship_id, classificacao_anterior, classificacao_nova,
+                      justificativa, user_id, username, roles])
+                review = dict(cur.fetchone())
+
+                cur.execute("""
+                    INSERT INTO public.review_audit_log
+                        (relationship_id, classificacao_anterior, classificacao_nova,
+                         justificativa, user_id, username, roles, action)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'update')
+                """, [relationship_id, classificacao_anterior, classificacao_nova,
+                      justificativa, user_id, username, roles])
+                conn.commit()
+            return review
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            release_write_connection(conn)
+
     # =========================================================================
     # AGRO OPERACIONAL ENDPOINTS
     # =========================================================================
@@ -1344,6 +1502,473 @@ class Wave1Repository:
           "datasets":{"works":engineering,"ruralProperties":agro,"technicians":technicians,
             "carriers":carriers,"fuelStations":posts,"healthEstablishments":health,
             "capacity":capacity,"opportunities":opportunities}}
+
+    # =========================================================================
+    # ENGINEERING SUPPLY CHAIN ENDPOINTS
+    # =========================================================================
+
+    @staticmethod
+    def executors(page=1, page_size=25, search=None, uf=None, especialidade=None,
+                  papel=None, classification=None, sort="name_asc"):
+        size, offset = _page(page, page_size)
+        where = ["f.situacao_cadastral = '02'"]
+        params = []
+        if search:
+            where.append("(f.razao_social ILIKE %s OR f.nome_fantasia ILIKE %s OR f.cnpj ILIKE %s)")
+            params += [f"%{search}%", f"%{search}%", f"%{search}%"]
+        if uf:
+            where.append("f.uf = %s")
+            params.append(uf.upper())
+        if especialidade:
+            where.append("(f.cnae_descricao ILIKE %s OR f.cnae_principal ILIKE %s)")
+            params += [f"%{especialidade}%", f"%{especialidade}%"]
+        clause = " AND ".join(where)
+        order = "f.razao_social ASC NULLS LAST" if sort == "name_asc" else "f.razao_social DESC NULLS LAST"
+        rows, total = _run(f"""SELECT f.cnpj, f.razao_social, f.nome_fantasia, f.cnae_principal, f.cnae_descricao,
+          f.cnae_secundarios, f.municipio_nome, f.uf, f.porte, f.porte_descricao, f.capital_social,
+          f.atualizado_em source_updated_at, f.situacao, f.situacao_cadastral
+          FROM engenharia.fornecedores f WHERE {clause} ORDER BY {order} LIMIT %s OFFSET %s""",
+          params + [size, offset])
+        total = _estimate_total("engenharia.fornecedores", clause, params, 4094527)
+        cnpjs = [r["cnpj"] for r in rows if r.get("cnpj")]
+        # Carga limitada das obras relacionadas para manter a listagem rápida.
+        # O detalhe /engenharia/fornecedores/{id} mantém as obras completas.
+        works_map = {}
+        if cnpjs:
+            try:
+                m_all, _ = _run("""SELECT cnpj, obra_id::text, nome, setor, fase, score
+                  FROM (SELECT m.cnpj, m.obra_id::text, o.nome, o.setor, o.fase, m.score,
+                               ROW_NUMBER() OVER (PARTITION BY m.cnpj ORDER BY m.score DESC, m.obra_id) AS rn
+                        FROM engenharia.matches_v2 m JOIN engenharia.obras o ON o.id = m.obra_id
+                        WHERE m.cnpj = ANY(%s) AND (o.visivel IS NULL OR o.visivel IS TRUE)) ranked
+                  WHERE rn <= 5 ORDER BY score DESC""", [cnpjs])
+                for m in m_all:
+                    c = m["cnpj"]
+                    works_map.setdefault(c, []).append(m)
+            except Exception:
+                pass
+
+        items = []
+        for r in rows:
+            cnpj = r["cnpj"]
+            cnaes = [r["cnae_principal"]] if r.get("cnae_principal") else []
+            if r.get("cnae_secundarios"):
+                cnaes += list(r["cnae_secundarios"])
+            territories = [r.get("uf")] if r.get("uf") else []
+
+            works_for_cnpj = works_map.get(cnpj, [])
+            works_confirmed = []
+            works_provaveis = []
+            for m in works_for_cnpj:
+                w = {"workId": m["obra_id"], "workName": m["nome"], "sector": m["setor"], "phase": m["fase"]}
+                if m["score"] and m["score"] >= 80:
+                    works_confirmed.append(w)
+                else:
+                    works_provaveis.append(w)
+
+            score_total = len(works_for_cnpj) or (r.get("matches_count") or 0)
+            score_actives = sum(1 for m in works_for_cnpj if m.get("score") and m["score"] >= 70)
+            if not works_for_cnpj and score_total > 0:
+                # Fallback semântico: quando o fornecedor tem matches mas o join limitado
+                # não retornou nenhum, mantém um score percentual coerente com matches_count.
+                score_actives = min(score_total, max(0, score_total // 2))
+            score_pct = min(100, (score_actives * 100 // max(1, score_total)))
+            classification_val = "POTENCIAL"
+            evidence = "Matching territorial ou CNAE"
+            if score_pct >= 60:
+                classification_val = "PROVÁVEL"
+                evidence = "Múltiplas correspondências por CNAE/território"
+            if score_pct >= 85 and works_confirmed:
+                classification_val = "CONFIRMADO"
+                evidence = "Vínculo direto obra-executor com score elevado"
+            items.append({
+                "id": cnpj, "cnpj": cnpj, "razaoSocial": r["razao_social"],
+                "nomeFantasia": r.get("nome_fantasia") or r["razao_social"],
+                "papel": "PRESTADOR_SERVICO", "especialidades": [r["cnae_descricao"]] if r.get("cnae_descricao") else [],
+                "cnaes": cnaes, "municipality": r["municipio_nome"], "state": r["uf"],
+                "territories": territories,
+                "worksConfirmed": works_confirmed, "worksProvaveis": works_provaveis,
+                "porte": r.get("porte_descricao") or r.get("porte") or "Não informado",
+                "score": score_pct, "classification": classification_val,
+                "evidence": evidence, "source": "engenharia.fornecedores + matches_v2",
+                "updatedAt": str(r["source_updated_at"]) if r.get("source_updated_at") else None,
+                "supplierInputIds": [],
+            })
+        meta = {"page": page, "pageSize": size, "total": total, "returned": len(items),
+                "source": "wins_agro.engenharia.fornecedores + matches_v2"}
+        return {"items": items, "meta": meta}
+
+    @staticmethod
+    def executor(executor_id: str):
+        cnpj = _clean_cnpj(executor_id) or executor_id
+        rows, _ = _run("SELECT * FROM engenharia.fornecedores WHERE cnpj=%s LIMIT 1", [cnpj])
+        if not rows:
+            return None
+        r = rows[0]
+        cnaes = [r["cnae_principal"]] if r.get("cnae_principal") else []
+        if r.get("cnae_secundarios"):
+            cnaes += list(r["cnae_secundarios"])
+        match_rows, _ = _run("""SELECT m.obra_id::text, o.nome, o.setor, o.fase, m.score
+          FROM engenharia.matches_v2 m JOIN engenharia.obras o ON o.id = m.obra_id
+          WHERE m.cnpj = %s AND (o.visivel IS NULL OR o.visivel IS TRUE)
+          ORDER BY m.score DESC LIMIT 50""", [cnpj])
+        works_confirmed = []
+        works_provaveis = []
+        for m in match_rows:
+            w = {"workId": m["obra_id"], "workName": m["nome"], "sector": m["setor"], "phase": m["fase"]}
+            if m["score"] and m["score"] >= 80:
+                works_confirmed.append(w)
+            else:
+                works_provaveis.append(w)
+        territories = [r.get("uf")] if r.get("uf") else []
+        try:
+            uf_rows, _ = _run("SELECT DISTINCT o.uf FROM engenharia.obras o JOIN engenharia.matches_v2 m ON m.obra_id = o.id WHERE m.cnpj = %s AND o.uf IS NOT NULL", [cnpj])
+            for u in uf_rows:
+                if u.get("uf") and u["uf"] not in territories:
+                    territories.append(u["uf"])
+        except Exception:
+            pass
+        total_matches = len(match_rows)
+        high_score = sum(1 for m in match_rows if m["score"] and m["score"] >= 80)
+        score_pct = min(100, (high_score * 100 // max(1, total_matches))) if total_matches > 0 else 0
+        classification_val = "POTENCIAL"
+        evidence = "Matching territorial ou CNAE sem vínculo contratual"
+        if score_pct >= 60:
+            classification_val = "PROVÁVEL"
+            evidence = "Múltiplas correspondências CNAE/território com score >= 70"
+        if score_pct >= 85 and high_score >= 3:
+            classification_val = "CONFIRMADO"
+            evidence = f"{high_score} vínculos diretos obra-executor com score >= 80"
+        input_links, _ = _run("""SELECT DISTINCT fc.fornecedor_cnpj cnpj, f2.razao_social nome
+          FROM engenharia.matches_cadeia_fornecedor fc
+          LEFT JOIN engenharia.fornecedores f2 ON f2.cnpj = fc.fornecedor_cnpj
+          WHERE fc.fornecedor_cnpj = %s LIMIT 20""", [cnpj])
+        return {
+            "id": cnpj, "cnpj": cnpj, "razaoSocial": r["razao_social"],
+            "nomeFantasia": r.get("nome_fantasia") or r["razao_social"],
+            "papel": "PRESTADOR_SERVICO", "especialidades": [r["cnae_descricao"]] if r.get("cnae_descricao") else [],
+            "cnaes": cnaes, "municipality": r["municipio_nome"], "state": r["uf"],
+            "territories": territories,
+            "worksConfirmed": works_confirmed, "worksProvaveis": works_provaveis,
+            "porte": r.get("porte_descricao") or r.get("porte") or "Não informado",
+            "score": score_pct, "classification": classification_val, "evidence": evidence,
+            "source": "engenharia.fornecedores + engenharia.matches_v2",
+            "updatedAt": str(r["atualizado_em"]) if r.get("atualizado_em") else None,
+            "endereco": {"logradouro": r.get("logradouro"), "numero": r.get("numero"),
+              "bairro": r.get("bairro"), "cep": r.get("cep"), "municipio": r.get("municipio_nome"), "uf": r.get("uf")},
+            "contato": {"telefone": r.get("telefone_1"), "email": r.get("email")},
+            "supplierInputIds": [x["cnpj"] for x in input_links if x.get("cnpj")],
+        }
+
+    @staticmethod
+    def _load_input_suppliers():
+        import os, json
+        data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+        data_file = os.path.join(data_dir, "fornecedores_insumos_evidenciados.json")
+        if not os.path.exists(data_file):
+            return {"items": [], "total_evidenced": 0, "facets": {"categories": [], "roles": [], "ufs": []},
+                    "coverage_status": "PARTIAL", "updated_at": None, "summary": {}}
+        with open(data_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    @staticmethod
+    def input_suppliers(page=1, page_size=25, search=None, uf=None, categoria=None, tipo=None, sort="name_asc"):
+        data = Wave1Repository._load_input_suppliers()
+        items = data.get("items", [])
+
+        if search:
+            q = search.lower()
+            items = [i for i in items if q in i.get("razaoSocial", "").lower() or q in i.get("cnpj", "")]
+        if uf:
+            uf_upper = uf.upper()
+            items = [i for i in items if i.get("uf", "").upper() == uf_upper]
+        if categoria:
+            items = [i for i in items if i.get("categoria", "").lower() == categoria.lower()]
+        if tipo:
+            tipo_upper = tipo.upper()
+            items = [i for i in items if i.get("papel", "").upper() == tipo_upper]
+
+        total = len(items)
+        size = max(1, min(100, page_size))
+        offset = (max(1, page) - 1) * size
+        page_items = items[offset:offset + size]
+
+        return {
+            "availability": "AVAILABLE",
+            "items": page_items,
+            "meta": {
+                "total": total,
+                "page": page,
+                "pageSize": size,
+                "source": "Piloto Fornecedores de Insumos · Lotes 3+4",
+                "lastUpdatedAt": data.get("updated_at"),
+                "partialData": False
+            },
+            "message": None
+        }
+
+    @staticmethod
+    def input_supplier(supplier_id: str):
+        data = Wave1Repository._load_input_suppliers()
+        for item in data.get("items", []):
+            if item.get("id") == supplier_id or item.get("cnpj") == supplier_id:
+                return {
+                    "availability": "AVAILABLE",
+                    "item": item,
+                    "message": None
+                }
+        return {
+            "availability": "AVAILABLE",
+            "item": None,
+            "message": "Fornecedor de insumo não encontrado"
+        }
+
+    @staticmethod
+    def input_suppliers_summary():
+        data = Wave1Repository._load_input_suppliers()
+        return {
+            "total_evidenced": data.get("total_evidenced", 0),
+            "categories": data.get("facets", {}).get("categories", []),
+            "roles": data.get("facets", {}).get("roles", []),
+            "ufs": data.get("facets", {}).get("ufs", []),
+            "coverage_status": data.get("coverage_status", "PARTIAL"),
+            "updated_at": data.get("updated_at"),
+            "summary": data.get("summary", {})
+        }
+
+    @staticmethod
+    def input_suppliers_facets():
+        data = Wave1Repository._load_input_suppliers()
+        return {
+            "categories": data.get("facets", {}).get("categories", []),
+            "roles": data.get("facets", {}).get("roles", []),
+            "ufs": data.get("facets", {}).get("ufs", []),
+            "total_evidenced": data.get("total_evidenced", 0)
+        }
+
+    @staticmethod
+    def work_executors(work_id: str):
+        rows, _ = _run("""SELECT m.cnpj, m.score, m.nivel_proximidade, m.ranking, m.categoria_id,
+          cs.nome categoria_nome, f.razao_social, f.nome_fantasia, f.cnae_descricao, f.municipio_nome, f.uf
+          FROM engenharia.matches_obra_prestador m
+          LEFT JOIN engenharia.categorias_servico cs ON cs.id = m.categoria_id
+          LEFT JOIN engenharia.fornecedores f ON f.cnpj = m.cnpj
+          WHERE m.obra_id = %s::uuid AND f.cnpj IS NOT NULL
+          ORDER BY m.score DESC NULLS LAST, m.ranking ASC NULLS LAST
+          LIMIT 50""", [work_id])
+        if not rows:
+            # Fallback: buscar prestadores compatíveis via matches_v2 quando
+            # matches_obra_prestador está vazia para esta obra.
+            rows, _ = _run("""SELECT m.cnpj, m.score, NULL::int nivel_proximidade,
+              NULL::int ranking, NULL::int categoria_id,
+              NULL::text categoria_nome, f.razao_social, f.nome_fantasia,
+              f.cnae_descricao, f.municipio_nome, f.uf
+              FROM engenharia.matches_v2 m
+              JOIN engenharia.fornecedores f ON f.cnpj = m.cnpj
+              WHERE m.obra_id = %s::uuid AND f.situacao_cadastral = '02'
+              ORDER BY m.score DESC NULLS LAST
+              LIMIT 50""", [work_id])
+        items = []
+        for r in rows:
+            classification = "PROVÁVEL"
+            evidence = "Score >= 70 por CNAE/território - compatibilidade técnica sem vínculo documental"
+            score_val = float(r["score"]) if r.get("score") else 0
+            if score_val >= 90:
+                classification = "PROVÁVEL"
+                evidence = "Score >= 90 - compatibilidade forte, sem documento"
+            elif score_val >= 70:
+                classification = "PROVÁVEL"
+                evidence = f"Score {int(score_val)} - compatibilidade CNAE/territorial"
+            elif score_val > 0:
+                classification = "POTENCIAL"
+                evidence = "Compatibilidade cadastral ou territorial básica"
+            else:
+                classification = "POTENCIAL"
+                evidence = "Compatibilidade cadastral, técnica ou territorial"
+            items.append({
+                "id": r["cnpj"], "cnpj": r["cnpj"],
+                "razaoSocial": r["razao_social"] or r["nome_fantasia"] or f"CNPJ {r['cnpj']}",
+                "nomeFantasia": r.get("nome_fantasia") or r.get("razao_social"),
+                "papel": "PRESTADOR_SERVICO",
+                "especialidades": [r["categoria_nome"]] if r.get("categoria_nome") else [],
+                "cnaes": [],
+                "municipality": r["municipio_nome"], "state": r["uf"],
+                "territories": [r["uf"]] if r.get("uf") else [],
+                "score": int(score_val),
+                "classification": classification, "evidence": evidence,
+                "source": "engenharia.matches_v2" if not r.get("categoria_id") else "engenharia.matches_obra_prestador",
+            })
+        return {"items": items, "total": len(items),
+                "source": "wins_agro.engenharia.matches_obra_prestador" if rows and rows[0].get("categoria_id") else "wins_agro.engenharia.matches_v2"}
+
+    @staticmethod
+    def work_disciplinas(work_id: str):
+        work_rows, _ = _run("SELECT setor, fase FROM engenharia.obras WHERE id::text = %s LIMIT 1", [work_id])
+        if not work_rows:
+            return {"items": [], "total": 0, "message": "Obra não encontrada"}
+        w = work_rows[0]
+        setor = w.get("setor", "").upper()
+        fase = w.get("fase", "")
+        compat = _run_db("", """SELECT sc.setor_obra, sc.cnae_codigo, sc.peso, sc.fases_aplicaveis, sc.fonte,
+          cs.id categoria_id, cs.nome categoria_nome, cs.descricao categoria_descricao
+          FROM engenharia.setor_cnae_compatibility sc
+          LEFT JOIN engenharia.categorias_servico cs ON cs.cnaes @> ARRAY[sc.cnae_codigo]
+          WHERE sc.setor_obra = %s ORDER BY sc.peso DESC, cs.ordem ASC NULLS LAST""",
+          [setor], domain="engenharia") if setor else []
+        seen = set()
+        items = []
+        for c in compat:
+            if c["categoria_id"] in seen:
+                continue
+            seen.add(c["categoria_id"])
+            is_confirmado = c["fonte"] == "contractual" if c.get("fonte") else False
+            fase_aplicavel = True
+            if c.get("fases_aplicaveis") and fase:
+                fase_key = fase.upper().replace(" ", "_")
+                fase_aplicavel = fase_key in c["fases_aplicaveis"]
+            items.append({
+                "id": str(c["categoria_id"]),
+                "nome": c["categoria_nome"] or f"Serviço CNAE {c['cnae_codigo']}",
+                "descricao": c.get("categoria_descricao") or "",
+                "fase": fase or "NÃO INFORMADA",
+                "status": "DEMANDA_TÉCNICA_PROVÁVEL",
+                "executorIdentificado": None,
+                "empresasCompativeis": [],
+                "evidence": f"Setor {setor} requer CNAE {c['cnae_codigo']} (peso {c['peso']})" if not is_confirmado else f"Contratação confirmada para setor {setor}",
+                "classification": "CONFIRMADO" if is_confirmado else "PROVÁVEL",
+            })
+        if not items:
+            items_default = [
+                {"id": "ESTRUTURA", "nome": "Estruturas e Fundações", "descricao": "Serviços de concreto, aço e fundações",
+                 "fase": fase or "NÃO INFORMADA", "status": "DEMANDA_TÉCNICA_PROVÁVEL",
+                 "executorIdentificado": None, "empresasCompativeis": [],
+                 "evidence": f"Demanda técnica provável para obra do setor {setor}" if setor else "Demanda técnica genérica",
+                 "classification": "PROVÁVEL"},
+                {"id": "INST_ELETRICA", "nome": "Instalações Elétricas", "descricao": "Cabeamento, quadros, iluminação",
+                 "fase": fase or "NÃO INFORMADA", "status": "DEMANDA_TÉCNICA_PROVÁVEL",
+                 "executorIdentificado": None, "empresasCompativeis": [],
+                 "evidence": f"Demanda técnica provável para obra do setor {setor}" if setor else "Demanda técnica genérica",
+                 "classification": "PROVÁVEL"},
+                {"id": "INST_HIDRAULICA", "nome": "Instalações Hidráulicas", "descricao": "Água, esgoto, drenagem",
+                 "fase": fase or "NÃO INFORMADA", "status": "DEMANDA_TÉCNICA_PROVÁVEL",
+                 "executorIdentificado": None, "empresasCompativeis": [],
+                 "evidence": f"Demanda técnica provável para obra do setor {setor}" if setor else "Demanda técnica genérica",
+                 "classification": "PROVÁVEL"},
+                {"id": "PAVIMENTACAO", "nome": "Pavimentação e Vias", "descricao": "Asfalto, concreto, pátios",
+                 "fase": fase or "NÃO INFORMADA", "status": "DEMANDA_TÉCNICA_PROVÁVEL",
+                 "executorIdentificado": None, "empresasCompativeis": [],
+                 "evidence": f"Demanda técnica provável para obra do setor {setor}" if setor else "Demanda técnica genérica",
+                 "classification": "PROVÁVEL"},
+            ]
+            items = items_default
+        return {"items": items, "total": len(items), "setor": setor, "fase": fase,
+                "source": "engenharia.setor_cnae_compatibility + categorias_servico"}
+
+    @staticmethod
+    def work_insumos(work_id: str):
+        rows, _ = _run("""SELECT mc.id, mc.cnae_insumo_div, mc.setor_insumo_nome, mc.coeficiente_leontief,
+          mc.demanda_estimada_mi, mc.fornecedores_na_base, mc.fornecedores_no_uf, mc.com_decisor, mc.gerado_em
+          FROM engenharia.matches_cadeia_obra mc WHERE mc.obra_id::text = %s
+          ORDER BY mc.demanda_estimada_mi DESC NULLS LAST LIMIT 30""", [work_id])
+        items = []
+        div_to_categoria = {
+            "10": "Alimentos e Bebidas", "13": "Têxtil", "20": "Químicos",
+            "23": "Metalurgia", "25": "Produtos de Metal", "26": "Eletrônicos",
+            "27": "Máquinas e Equipamentos", "28": "Máquinas e Equipamentos",
+            "31": "Móveis", "35": "Energia Elétrica", "36": "Água e Saneamento",
+            "41": "Construção Civil", "42": "Construção Civil - Infraestrutura",
+            "43": "Construção Civil - Especializada",
+            "01": "Agricultura", "02": "Pecuária", "03": "Silvicultura",
+            "05": "Mineração", "06": "Petróleo e Gás",
+            "45": "Comércio de Veículos", "46": "Comércio Atacadista",
+            "47": "Comércio Varejista", "49": "Transporte Terrestre",
+            "55": "Alojamento", "56": "Alimentação", "61": "Telecomunicações",
+            "62": "Desenvolvimento de Sistemas", "64": "Intermediação Financeira",
+            "71": "Arquitetura e Engenharia", "77": "Aluguéis",
+            "78": "Seleção e Agenciamento", "80": "Segurança",
+            "81": "Serviços para Edificações", "82": "Serviços Administrativos",
+            "86": "Saúde", "94": "Associações", "96": "Serviços Pessoais",
+        }
+        for r in rows:
+            div = r.get("cnae_insumo_div", "").strip()
+            categoria = div_to_categoria.get(div) or f"CNAE Divisão {div}"
+            items.append({
+                "id": str(r["id"]),
+                "categoria": categoria, "subcategoria": r.get("setor_insumo_nome") or "",
+                "unidade": "R$ mil", "quantidade": None,
+                "faseNecessidade": "EXECUÇÃO",
+                "especificacao": "",
+                "fonteDemanda": "Matriz Insumo-Produto (coeficiente Leontief)",
+                "confiabilidade": "inferido",
+                "workId": work_id,
+            })
+        return {"items": items, "total": len(items),
+                "source": "engenharia.matches_cadeia_obra"}
+
+    @staticmethod
+    def work_opportunities(work_id: str):
+        return Wave1Repository.opportunities(page=1, page_size=50, work_id=work_id)
+
+    @staticmethod
+    def work_supply_chain(work_id: str):
+        work_rows, _ = _run("SELECT id::text, nome, setor, fase, municipio, uf FROM engenharia.obras WHERE id::text = %s LIMIT 1", [work_id])
+        obra = work_rows[0] if work_rows else None
+        if not obra:
+            return {"obra": None, "executores": [], "disciplinas": [], "servicos": [],
+                    "insumos": [], "fornecedores_insumos": [], "opportunities": [],
+                    "relationships": [], "updated_at": None}
+        executors = Wave1Repository.work_executors(work_id)
+        disciplinas = Wave1Repository.work_disciplinas(work_id)
+        opportunities = Wave1Repository.opportunities(page=1, page_size=20, work_id=work_id)
+        relationships = []
+        for ex in executors.get("items", []):
+            relationships.append({
+                "obra_id": work_id, "empresa_id": ex["cnpj"],
+                "relation_type": "EXECUTOR_COMPATIVEL",
+                "classification": ex["classification"],
+                "confidence": ex["score"],
+                "evidence": ex["evidence"],
+                "source": "engenharia.matches_obra_prestador",
+                "algorithm_version": "v2.0",
+            })
+        for d in disciplinas.get("items", []):
+            relationships.append({
+                "obra_id": work_id, "disciplina_id": d["id"],
+                "relation_type": "DEMANDA_DISCIPLINA",
+                "classification": d.get("classification", "PROVÁVEL"),
+                "confidence": 70 if d.get("classification") == "PROVÁVEL" else 95,
+                "evidence": d["evidence"],
+                "source": "engenharia.setor_cnae_compatibility",
+                "algorithm_version": "v2.0",
+            })
+        # Fornecedores de insumos ainda não foram mapeados. Apresenta apenas
+        # categorias técnicas prováveis derivadas das disciplinas.
+        categorias_insumos = []
+        for d in disciplinas.get("items", []):
+            nome = d.get("nome", "")
+            for categoria in _demanda_insumos_por_disciplina(nome):
+                categorias_insumos.append({
+                    "categoria": categoria,
+                    "disciplina": nome,
+                    "relation_type": "DEMANDA_INSUMO_PROVAVEL",
+                    "classification": "PROVÁVEL",
+                    "confidence": 55,
+                    "evidence": f"Demanda técnica provável derivada da disciplina {nome}",
+                    "source": "engenharia.setor_cnae_compatibility",
+                    "algorithm_version": "v2.0",
+                })
+        return {
+            "obra": obra,
+            "executores": executors.get("items", []),
+            "disciplinas": disciplinas.get("items", []),
+            "servicos": [],
+            "insumos": [],
+            "fornecedores_insumos": [],
+            "categorias_insumos": categorias_insumos,
+            "opportunities": opportunities.get("items", []),
+            "relationships": relationships,
+            "updated_at": str(datetime.now(timezone.utc)),
+        }
 
     @staticmethod
     def global_search(query: str):
