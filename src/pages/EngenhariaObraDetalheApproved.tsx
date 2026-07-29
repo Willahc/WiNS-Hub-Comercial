@@ -170,7 +170,7 @@ export default function EngenhariaObraDetalheApproved() {
                 { label: 'Fase atual', value: isJubarte ? 'Operação' : (work?.phase || '—'), color: '#3B82F6' },
                 { label: 'Status comercial', value: isJubarte ? 'Em operação (Ativo ANP)' : (work?.status || '—'), color: '#22C55E' },
                 { label: 'Progresso', value: isJubarte ? '100% (Em operação / Produção ativa)' : `${work?.progress || 15}% (Estimativa por fase)`, color: '#F59E0B' },
-                { label: 'Previsão de Operação', value: isJubarte ? 'Operação ativa (PN Petrobras 2026–2030)' : '2027–2030 (Previsão de operação)', color: '#8B5CF6' },
+                { label: isJubarte ? 'Situação Operacional' : 'Previsão de Operação', value: isJubarte ? 'Operação ativa (PN Petrobras 2026–2030)' : '2027–2030 (Previsão de operação)', color: '#8B5CF6' },
               ].map((item, idx) => (
                 <div key={idx} style={{ padding: 10, background: 'var(--bg-base)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
                   <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{item.label}</div>
@@ -476,7 +476,7 @@ export default function EngenhariaObraDetalheApproved() {
                   <div><span style={{ color: 'var(--text-tertiary)', display: 'block' }}>Status Comercial</span><span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{isJubarte ? 'Em operação (Ativo ANP)' : work.status}</span></div>
                   <div><span style={{ color: 'var(--text-tertiary)', display: 'block' }}>Progresso Estimado</span><span style={{ fontWeight: 600, color: '#3B82F6' }}>{isJubarte ? '100% (Em operação / Produção ativa)' : '15% (Estimativa por fase PIPELINE)'}</span></div>
                   <div><span style={{ color: 'var(--text-tertiary)', display: 'block' }}>Cadastro na Fonte</span><span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{isJubarte ? '29/04/2026' : '17/05/2026'}</span></div>
-                  <div><span style={{ color: 'var(--text-tertiary)', display: 'block' }}>Previsão de Operação</span><span style={{ fontWeight: 600, color: '#F59E0B' }}>{isJubarte ? 'Operação ativa (PN 2026–2030)' : '2027–2030 (Operação)'}</span></div>
+                  <div><span style={{ color: 'var(--text-tertiary)', display: 'block' }}>{isJubarte ? 'Situação Operacional' : 'Previsão de Operação'}</span><span style={{ fontWeight: 600, color: '#F59E0B' }}>{isJubarte ? 'Operação ativa (PN Petrobras 2026–2030)' : '2027–2030 (Operação)'}</span></div>
                 </div>
               </div>
 
