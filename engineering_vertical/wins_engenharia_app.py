@@ -117,7 +117,8 @@ def api_obras():
                    COALESCE(NULLIF(regexp_replace(o.cnpj_executora,'\\D','','g'),''),
                             NULLIF(regexp_replace(o.cnpj,'\\D','','g'),'')) cnpj,
                    d.nome decisor,d.cargo,d.tipo_cargo,d.email,d.telefone,
-                   d.linkedin_url,
+                   d.linkedin_url,d.status_vinculo_obra,d.classificacao_compatibilidade,
+                   d.confianca_match match_score,d.tipo_evidencia,
                    NULLIF(d.email,'') IS NOT NULL tem_email,
                    NULLIF(d.telefone,'') IS NOT NULL tem_telefone,
                    NULLIF(d.linkedin_url,'') IS NOT NULL tem_linkedin,
@@ -129,7 +130,11 @@ def api_obras():
                           THEN dx.email END email,
                      CASE WHEN COALESCE(dx.telefone_fonte,'') NOT LIKE 'REMOVIDO%%'
                           THEN dx.telefone END telefone,
-                     dx.linkedin_url
+                     dx.linkedin_url,
+                     dx.status_vinculo_obra,
+                     dx.classificacao_compatibilidade,
+                     dx.confianca_match,
+                     dx.tipo_evidencia
               FROM decisores_obra dx
               WHERE dx.obra_id=o.id AND dx.excluido_em IS NULL
                 AND COALESCE(dx.hipotese_replicacao,'')
@@ -200,7 +205,7 @@ async function init(){{
 async function load(){{
  const p=new URLSearchParams({{q:q.value,uf:uf.value,nivel:nivel.value,min_value:minv.value||0,limit:100}});
  const data=await fetch(P+'/api/obras?'+p).then(r=>r.json());
- rows.innerHTML=data.map(r=>`<tr><td><span class="badge">${{esc(r.nivel)}}</span></td><td>${{esc(r.nome)}}<div class="mut">${{esc(r.fase)}}</div></td><td>${{esc(r.empresa)}}<div class="mut">${{esc(r.cnpj)}}</div></td><td>${{esc(r.municipio)}}/${{esc(r.uf)}}</td><td>${{money(r.valor_estimado)}}</td><td>${{esc(r.decisor)}}<div class="mut">${{esc(r.cargo)}}</div></td><td>${{r.email?esc(r.email):'—'}}<br>${{r.telefone?esc(r.telefone):''}} ${{r.linkedin_url?`<a href="${{esc(r.linkedin_url)}}" rel="noopener noreferrer" target="_blank">LinkedIn</a>`:''}}</td></tr>`).join('');
+ rows.innerHTML=data.map(r=>`<tr><td><span class="badge">${{esc(r.nivel)}}</span></td><td>${{esc(r.nome)}}<div class="mut">${{esc(r.fase)}}</div></td><td>${{esc(r.empresa)}}<div class="mut">${{esc(r.cnpj)}}</div></td><td>${{esc(r.municipio)}}/${{esc(r.uf)}}</td><td>${{money(r.valor_estimado)}}</td><td>${{esc(r.decisor)}}<div class="mut">${{esc(r.cargo)}}</div><div class="mut"><span class="badge">${{esc(r.status_vinculo_obra||'CONTATO_VALIDADO')}}</span> Score: ${{r.match_score??'—'}}</div></td><td>${{r.email?esc(r.email):'—'}}<br>${{r.telefone?esc(r.telefone):''}} ${{r.linkedin_url?`<a href="${{esc(r.linkedin_url)}}" rel="noopener noreferrer" target="_blank">LinkedIn</a>`:''}}</td></tr>`).join('');
 }}
 init();
 </script></body></html>""",
