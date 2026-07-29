@@ -136,7 +136,7 @@ export default function EngenhariaObrasApproved() {
             </button>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 style={{ fontSize: isMobile ? 14 : 16, fontWeight: 600, color: 'var(--text-primary, #F8FAFC)', margin: 0 }}>Lista Oficial de Obras</h1>
+            <h1 style={{ fontSize: isMobile ? 14 : 16, fontWeight: 600, color: 'var(--text-primary, #F8FAFC)', margin: 0 }}>Catálogo de Obras</h1>
             {!isMobile && <p style={{ fontSize: 11, color: 'var(--text-tertiary, #64748B)', margin: 0, marginTop: 1 }}>{fmtMoney ? totalCount || 17268 : 17268} obras visíveis catalogadas · (Obras físicas: 38.403)</p>}
           </div>
 
