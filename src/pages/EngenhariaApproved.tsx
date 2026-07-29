@@ -189,14 +189,14 @@ export default function EngenhariaApproved() {
               <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>15.787 obras qualificadas comercialmente</span>
             </div>
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14, cursor: 'pointer' }} onClick={() => navigate('/engenharia/decisores')}>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Decisores e Contatos</span>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#8B5CF6', margin: '2px 0' }}>24.819 decisores</div>
-              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>18.420 com contato corporativo verificado</span>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Pessoas Mapeadas</span>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#8B5CF6', margin: '2px 0' }}>24.819 pessoas mapeadas</div>
+              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>18.420 com contato verificado · 119 decisores documentais</span>
             </div>
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14, cursor: 'pointer' }} onClick={() => navigate('/engenharia/fornecedores')}>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Prestadores Compatíveis</span>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#3B82F6', margin: '2px 0' }}>17.268 obras com matchmaker</div>
-              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>119 com vínculo documental confirmável</span>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Obras com prestadores compatíveis</span>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#3B82F6', margin: '2px 0' }}>17.268</div>
+              <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Cobertura calculada pelo matchmaker v2.1</span>
             </div>
           </div>
 
@@ -230,9 +230,9 @@ export default function EngenhariaApproved() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5, 1fr)', gap: 10 }}>
               <div style={{ padding: 12, background: 'rgba(34,197,94,0.1)', borderRadius: 6, border: '1px solid rgba(34,197,94,0.3)' }}>
-                <div style={{ fontSize: 10, color: '#22C55E', fontWeight: 600 }}>Cobertura Confirmada</div>
+                <div style={{ fontSize: 10, color: '#22C55E', fontWeight: 600 }}>Decisores Documentais</div>
                 <div style={{ fontSize: 18, fontWeight: 700, color: '#22C55E', margin: '4px 0' }}>119</div>
-                <div style={{ fontSize: 9, color: 'rgba(34,197,94,0.7)' }}>obras com vínculo documental</div>
+                <div style={{ fontSize: 9, color: 'rgba(34,197,94,0.7)' }}>pessoas com vínculo contratual direto</div>
               </div>
               <div style={{ padding: 12, background: 'rgba(59,130,246,0.1)', borderRadius: 6, border: '1px solid rgba(59,130,246,0.3)' }}>
                 <div style={{ fontSize: 10, color: '#3B82F6', fontWeight: 600 }}>Cobertura Provável</div>
