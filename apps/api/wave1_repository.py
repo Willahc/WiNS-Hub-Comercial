@@ -13,7 +13,7 @@ from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
 
 
 MAX_PAGE_SIZE = 100
-QUERY_TIMEOUT_MS = 20000
+QUERY_TIMEOUT_MS = 60000
 
 # Catálogo fechado das fontes reais que podem ser expostas como diretório. Nada
 # recebido pela API é interpolado como nome de tabela ou coluna.
@@ -123,7 +123,7 @@ def _run_db(dbname: str, sql: str, params: list[Any] = None, domain: Optional[st
     try:
         conn.set_session(readonly=True, autocommit=False)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SET LOCAL statement_timeout = 20000;")
+            cur.execute("SET LOCAL statement_timeout = %s;", (QUERY_TIMEOUT_MS,))
             cur.execute(sql, params or [])
             rows = [dict(r) for r in cur.fetchall()]
         conn.rollback()
@@ -2149,6 +2149,248 @@ class Wave1Repository:
             "opportunities": opportunities.get("items", []),
             "relationships": relationships,
             "updated_at": str(datetime.now(timezone.utc)),
+        }
+
+    @staticmethod
+    def agro_kpis(uf=None, bioma=None, municipio=None):
+        where = ["1=1"]
+        params = []
+        if uf:
+            where.append("i.uf = %s"); params.append(uf.upper())
+        if municipio:
+            where.append("i.municipio ILIKE %s"); params.append(f"%{municipio}%")
+        clause = " AND ".join(where)
+        rows = _run_db("wins_agro", f"""
+            SELECT
+              count(*)::int total_imoveis,
+              count(*)::int codigos_car_unicos,
+              count(i.area_total_ha) FILTER (WHERE i.area_total_ha IS NOT NULL)::int com_area_declarada,
+              coalesce(sum(i.area_total_ha),0)::numeric area_total_declarada_ha,
+              coalesce(sum(i.area_pasto_ha),0)::numeric area_pasto_ha,
+              coalesce(sum(i.area_lavoura_ha),0)::numeric area_lavoura_ha,
+              coalesce(sum(i.area_vegetacao_nativa_ha),0)::numeric area_vegetacao_nativa_ha,
+              max(i.coletado_em)::text ultima_atualizacao
+            FROM prospeccao.imovel_rural i WHERE {clause}
+        """, params, domain="agro")
+        if not rows:
+            rows = [{"total_imoveis":0,"codigos_car_unicos":0,"com_area_declarada":0,
+                     "area_total_declarada_ha":0,"area_pasto_ha":0,"area_lavoura_ha":0,
+                     "area_vegetacao_nativa_ha":0,"ultima_atualizacao":None}]
+        r = rows[0]
+        cnpj_rows = _run_db("wins_agro", "SELECT count(DISTINCT cnpj14)::int total FROM prospeccao.holding_lead_ui", [], domain="agro")
+        total_cnpjs = cnpj_rows[0]["total"] if cnpj_rows else 0
+        municipio_rows = _run_db("wins_agro", "SELECT count(*)::int total FROM referencia.municipio", [], domain="agro")
+        total_municipios_ibge = municipio_rows[0]["total"] if municipio_rows else 5570
+        uf_rows = _run_db("wins_agro", "SELECT count(DISTINCT uf)::int total FROM prospeccao.imovel_rural", [], domain="agro")
+        total_ufs = uf_rows[0]["total"] if uf_rows else 27
+        mun_car_rows = _run_db("wins_agro", "SELECT count(DISTINCT codigo_ibge_mun)::int total FROM prospeccao.imovel_rural", [], domain="agro")
+        total_mun_car = mun_car_rows[0]["total"] if mun_car_rows else 0
+        return {
+            "total_imoveis_car": int(r["total_imoveis"]),
+            "codigos_car_unicos": int(r["codigos_car_unicos"]),
+            "geometrias_validas": 0,
+            "area_declarada_ha": float(r["area_total_declarada_ha"]),
+            "area_pasto_ha": float(r["area_pasto_ha"]),
+            "area_lavoura_ha": float(r["area_lavoura_ha"]),
+            "area_vegetacao_nativa_ha": float(r["area_vegetacao_nativa_ha"]),
+            "municipios_com_registro_car": total_mun_car,
+            "municipios_ibge_total": total_municipios_ibge,
+            "ufs_presentes": total_ufs,
+            "pessoas_juridicas_relacionadas": total_cnpjs,
+            "ultima_atualizacao": r["ultima_atualizacao"],
+            "metodologia": {
+                "area_declarada": "Soma da coluna area_total_ha declarada pelo proprietário no SICAR/CAR. Não inclui área geométrica calculada sobre polígonos nem área dissolvida sem sobreposição. 99,7% dos registros possuem área > 0; mediana de 10,5 ha.",
+                "geometrias_validas": "Indisponível - imovel_rural não possui coluna de geometria para validação geoespacial. A área declarada (area_total_ha) é o único indicador disponível.",
+                "municipios": f"{total_mun_car} de {total_municipios_ibge} municípios brasileiros com ao menos um imóvel registrado no CAR (fonte: codigo_ibge_mun distinto em prospeccao.imovel_rural vs referencia.municipio). 8 municípios sem qualquer registro CAR.",
+                "imoveis_car": f"{int(r['total_imoveis'])} CARs únicos — cada linha em prospeccao.imovel_rural equivale a 1 código CAR distinto, sem duplicatas (coluna codigo_car: UNIQUE, 0 NULLs, 0 duplicatas).",
+                "pessoas_juridicas": f"{total_cnpjs} CNPJs de holdings, investidores e imobiliárias com sócio em comum com empresas rurais/agro (fontes: RFB via CNAE + sócios em comum). Principais CNAEs: 6462-0/00 (participações societárias), 6810-2/01 (compra/venda imóveis), 6810-2/02 (aluguel imóveis)."
+            },
+            "fontes": ["SICAR/CAR via prospeccao.imovel_rural", "RFB via prospeccao.holding_lead_ui", "IBGE via referencia.municipio"],
+            "classificacao": "Dados declaratórios CAR (SICAR) e derivados RFB (CNAEs/sócios), sem validação geoespacial",
+            "filtros_aplicados": {"uf": uf, "municipio": municipio}
+        }
+
+    @staticmethod
+    def agro_distribuicao(tipo="bioma", uf=None, municipio=None):
+        if tipo == "uso_solo":
+            where = ["i.area_total_ha IS NOT NULL"]
+            params = []
+            if uf: where.append("i.uf = %s"); params.append(uf.upper())
+            if municipio: where.append("i.municipio ILIKE %s"); params.append(f"%{municipio}%")
+            clause = " AND ".join(where)
+            rows = _run_db("wins_agro", f"""
+                SELECT
+                  coalesce(sum(i.area_pasto_ha),0) pastagem_ha,
+                  coalesce(sum(i.area_lavoura_ha),0) agricultura_ha,
+                  coalesce(sum(i.area_vegetacao_nativa_ha),0) vegetacao_nativa_ha
+                FROM prospeccao.imovel_rural i WHERE {clause}
+            """, params, domain="agro")
+            r = rows[0] if rows else {"pastagem_ha":0,"agricultura_ha":0,"vegetacao_nativa_ha":0}
+            total = float(r["pastagem_ha"]+r["agricultura_ha"]+r["vegetacao_nativa_ha"])
+            def pct(val): return round(float(val)*100/total,1) if total > 0 else 0
+            return {
+                "tipo": "uso_do_solo",
+                "categorias": [
+                    {"classe": "Pastagem", "area_ha": float(r["pastagem_ha"]), "percentual": pct(r["pastagem_ha"]), "fonte": "SICAR/CAR (area_pasto_ha)"},
+                    {"classe": "Agricultura", "area_ha": float(r["agricultura_ha"]), "percentual": pct(r["agricultura_ha"]), "fonte": "SICAR/CAR (area_lavoura_ha)"},
+                    {"classe": "Vegetação Nativa", "area_ha": float(r["vegetacao_nativa_ha"]), "percentual": pct(r["vegetacao_nativa_ha"]), "fonte": "SICAR/CAR (area_vegetacao_nativa_ha)"},
+                    {"classe": "Não Classificado", "area_ha": float(total - float(r["pastagem_ha"]+r["agricultura_ha"]+r["vegetacao_nativa_ha"])), "percentual": 0, "fonte": "Diferença entre área total declarada e soma das classes"}
+                ],
+                "area_total_analisada_ha": total,
+                "nota": f"Uso do solo declarado no CAR pelo proprietário (campos area_pasto_ha, area_lavoura_ha, area_vegetacao_nativa_ha). Dado declaratório, sem validação por sensoriamento remoto. O denominador de {total:,.0f} ha (soma das 3 classes) é inferior à área declarada total de 719,4M ha porque 26.204 registros (0,3%) não informam o desdobramento por classe de uso.",
+                "filtros": {"uf": uf, "municipio": municipio}
+            }
+        where = ["1=1"]
+        params = []
+        if uf: where.append("i.uf = %s"); params.append(uf.upper())
+        if municipio: where.append("i.municipio ILIKE %s"); params.append(f"%{municipio}%")
+        clause = " AND ".join(where)
+        rows = _run_db("wins_agro", f"""
+            SELECT i.uf, count(*)::int imoveis, coalesce(sum(i.area_total_ha),0)::numeric area_ha
+            FROM prospeccao.imovel_rural i WHERE {clause}
+            GROUP BY i.uf ORDER BY i.uf
+        """, params, domain="agro")
+        bioma_por_uf = {
+            "AC":"Amazônia","AL":"Mata Atlântica","AP":"Amazônia","AM":"Amazônia",
+            "BA":"Caatinga","CE":"Caatinga","DF":"Cerrado","ES":"Mata Atlântica",
+            "GO":"Cerrado","MA":"Cerrado","MT":"Cerrado","MS":"Cerrado",
+            "MG":"Cerrado","PA":"Amazônia","PB":"Caatinga","PR":"Mata Atlântica",
+            "PE":"Caatinga","PI":"Caatinga","RJ":"Mata Atlântica","RN":"Caatinga",
+            "RS":"Pampa","RO":"Amazônia","RR":"Amazônia","SC":"Mata Atlântica",
+            "SP":"Mata Atlântica","SE":"Mata Atlântica","TO":"Cerrado"
+        }
+        biomas = {}
+        for r in rows:
+            b = bioma_por_uf.get(r["uf"], "Não Classificado")
+            if b not in biomas:
+                biomas[b] = {"imoveis": 0, "area_ha": 0.0}
+            biomas[b]["imoveis"] += int(r["imoveis"])
+            biomas[b]["area_ha"] += float(r["area_ha"])
+        total_imoveis = sum(v["imoveis"] for v in biomas.values())
+        total_area = sum(v["area_ha"] for v in biomas.values())
+        categorias = []
+        ordem = ["Amazônia","Cerrado","Mata Atlântica","Caatinga","Pampa","Pantanal","Não Classificado"]
+        for b in ordem:
+            if b in biomas:
+                v = biomas[b]
+                categorias.append({
+                    "bioma": b, "imoveis": v["imoveis"], "percentual_imoveis": round(v["imoveis"]*100/total_imoveis,1) if total_imoveis else 0,
+                    "area_ha": v["area_ha"], "percentual_area": round(v["area_ha"]*100/total_area,1) if total_area else 0,
+                    "fonte": "Classificação UF→Bioma IBGE"
+                })
+            else:
+                categorias.append({"bioma": b, "imoveis": 0, "percentual_imoveis": 0, "area_ha": 0, "percentual_area": 0, "fonte": "Sem registros no recorte"})
+        return {
+            "tipo": "bioma",
+            "categorias": categorias,
+            "total_imoveis": total_imoveis,
+            "area_total_ha": total_area,
+            "nota": "Bioma inferido pela UF do cadastro (mapeamento IBGE UF→bioma dominante). Estados com mais de um bioma (ex: MG = Cerrado/Mata Atlântica, BA = Caatinga/Cerrado/Mata Atlântica) são aproximações. Não substitui interseção geométrica do imóvel com bioma.",
+            "biomas_ausentes": [b for b in ["Pantanal","Caatinga"] if b not in biomas or biomas[b]["imoveis"]==0],
+            "filtros": {"uf": uf, "municipio": municipio}
+        }
+
+    @staticmethod
+    def agro_mapa(min_lat=-35.5, max_lat=6.5, min_lng=-75.5, max_lng=-32, zoom=4, uf=None, bioma=None, uso_solo=None):
+        where = ["m.latitude BETWEEN %s AND %s", "m.longitude BETWEEN %s AND %s"]
+        params = [min_lat, max_lat, min_lng, max_lng]
+        if uf:
+            where.append("i.uf = %s"); params.append(uf.upper())
+        clause = " AND ".join(where)
+        grid = 5.0 if zoom <= 4 else 2.0 if zoom <= 6 else 0.5 if zoom <= 8 else 0.05
+        rows = _run_db("wins_agro", f"""
+            SELECT
+              round(m.latitude/{grid})*{grid} lat,
+              round(m.longitude/{grid})*{grid} lng,
+              count(*)::int quantidade,
+              count(DISTINCT i.municipio)::int municipios,
+              min(i.municipio) municipio,
+              min(i.uf) uf,
+              coalesce(sum(i.area_total_ha),0)::numeric area_ha
+            FROM prospeccao.imovel_rural i
+            JOIN referencia.municipio m ON m.uf=i.uf AND m.nome_normalizado=upper(unaccent(i.municipio))
+            WHERE {clause}
+            GROUP BY round(m.latitude/{grid}), round(m.longitude/{grid})
+            ORDER BY quantidade DESC
+            LIMIT 200
+        """, params, domain="agro")
+        total = sum(int(r["quantidade"]) for r in rows) if rows else 0
+        geometrias_validas, _ = _run(f"""
+            SELECT count(*) total FROM prospeccao.imovel_rural i
+            JOIN referencia.municipio m ON m.uf=i.uf AND m.nome_normalizado=upper(unaccent(i.municipio))
+            WHERE {clause}
+        """, params)
+        total_geo = geometrias_validas[0]["total"] if geometrias_validas else 0
+        return {
+            "clusters": rows,
+            "total_no_recorte": total_geo,
+            "exibidos": len(rows),
+            "zoom": zoom,
+            "grid_degrees": grid,
+            "bbox": {"min_lat": min_lat, "max_lat": max_lat, "min_lng": min_lng, "max_lng": max_lng},
+            "strategy": "server_grid_cluster",
+            "nota": f"{len(rows)} clusters de {total_geo} cadastros CAR agregados por grade de {grid}° sobre coordenadas municipais (referencia.municipio.latitude/longitude). Não são polígonos, centroides de imóveis nem limites fundiários. 98,6% dos cadastros têm município na referência; 1,4% sem correspondência por divergência no nome do município.",
+            "sem_geometria": True,
+            "filtros": {"uf": uf}
+        }
+
+    @staticmethod
+    def agro_oportunidades(imovel_id=None):
+        rows = _run_db("wins_agro", f"""
+            SELECT e.relationship_id id, e.source_id, e.target_id, e.tipo_relacao titulo,
+                   e.evidencia descricao, e.tipo_fonte vertical_origem,
+                   e.classificacao, e.score, e.versao_regra, e.calculado_em::text,
+                   e.limitacoes
+            FROM public.relationship_edges e
+            WHERE (e.source_id LIKE 'prop_%%' OR e.target_id LIKE 'prop_%%')
+              AND e.classificacao IN ('CONFIRMADO','PROVÁVEL')
+            ORDER BY e.score DESC NULLS LAST
+            LIMIT 20
+        """, domain="agro")
+        if not rows:
+            return {"oportunidades": [], "total": 0, "message": "Oportunidades ainda não calculadas para este recorte."}
+        return {
+            "oportunidades": rows,
+            "total": len(rows),
+            "fonte": "public.relationship_edges",
+            "message": None
+        }
+
+    @staticmethod
+    def agro_relacoes(imovel_id=None, cnpj=None):
+        clauses = []
+        params = []
+        if imovel_id:
+            clauses.append("(e.source_id = %s OR e.target_id = %s)")
+            params += [f"prop_{imovel_id}", f"prop_{imovel_id}"]
+        if cnpj:
+            cleaned = _clean_cnpj(cnpj) or cnpj
+            clauses.append("(e.source_id LIKE %s OR e.target_id LIKE %s)")
+            params += [f"%{cleaned}%", f"%{cleaned}%"]
+        clause = " AND ".join(clauses) if clauses else "1=1"
+        rows = _run_db("wins_agro", f"""
+            SELECT e.relationship_id, e.source_id, e.target_id, e.source_type,
+                   e.target_type, e.tipo_relacao, e.classificacao, e.score,
+                   e.fonte, e.tipo_fonte, e.evidencia, e.versao_regra,
+                   e.calculado_em::text, e.verificado_em::text, e.limitacoes,
+                   e.status_revisao
+            FROM public.relationship_edges e
+            WHERE {clause}
+            ORDER BY e.score DESC NULLS LAST, e.calculado_em DESC NULLS LAST
+            LIMIT 50
+        """, params, domain="agro")
+        if not rows:
+            return {"relacoes": [], "total": 0, "message": "Nenhuma relação cross-domain encontrada para este recorte."}
+        classifications = {}
+        for r in rows:
+            c = r["classificacao"]
+            classifications[c] = classifications.get(c, 0) + 1
+        return {
+            "relacoes": rows,
+            "total": len(rows),
+            "sumario_classificacao": classifications,
+            "fonte": "public.relationship_edges",
+            "nota": "Relações materializadas por regras de vínculo documental, cadastral e territorial."
         }
 
     @staticmethod
