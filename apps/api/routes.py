@@ -623,12 +623,46 @@ def get_agro_relacoes(request: Request, imovel_id: Optional[str] = None,
         logger.error(f"Erro ao buscar relações cross-domain agro: {e} reqId={req_id}")
         return standard_error("AGRO_RELATIONSHIPS_UNAVAILABLE", "Não foi possível carregar as relações neste momento.", req_id, 500, retryable=True)
 
+@router.get("/agro/imoveis")
+def get_agro_imoveis_catalog(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+                             search: Optional[str] = None, uf: Optional[str] = None,
+                             min_area: Optional[float] = None, max_area: Optional[float] = None,
+                             user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_imoveis_catalog(page=page, page_size=page_size, search=search, uf=uf, min_area=min_area, max_area=max_area)
+
 @router.get("/agro/imoveis/{id}")
 def get_agro_imovel_detail(id: str, request: Request, user=Depends(require_permission("agro"))):
-    item = Wave1Repository.agro_imovel(id)
+    item = Wave1Repository.agro_imovel_360_detail(id) or Wave1Repository.agro_imovel(id)
     if not item:
         raise HTTPException(404, "Imóvel rural não encontrado")
     return item
+
+@router.get("/agro/decisores")
+def get_agro_decisores(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+                       search: Optional[str] = None, uf: Optional[str] = None,
+                       user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_decisores(page=page, page_size=page_size, search=search, uf=uf)
+
+@router.get("/agro/holdings")
+def get_agro_holdings(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+                      search: Optional[str] = None, uf: Optional[str] = None,
+                      user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_holdings(page=page, page_size=page_size, search=search, uf=uf)
+
+@router.get("/agro/oportunidades/calculadas")
+def get_agro_oportunidades_calculadas(request: Request, categoria: Optional[str] = None, min_score: int = Query(70, ge=0, le=100),
+                                      uf: Optional[str] = None, user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_oportunidades_calculadas(categoria=categoria, min_score=min_score, uf=uf)
+
+@router.get("/agro/logistica/correlacao")
+def get_agro_logistica_correlacao(request: Request, uf: Optional[str] = None, municipio: Optional[str] = None,
+                                  user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_logistica_correlacao(uf=uf, municipio=municipio)
+
+@router.get("/agro/genetica/simulador")
+def get_agro_genetica_simulador(request: Request, touro_id: Optional[str] = None, raca: Optional[str] = None,
+                                user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_genetica_simulador(touro_id=touro_id, raca=raca)
 
 @router.get("/agro/produtores/{id}")
 def get_agro_produtor_detail(id: str, request: Request, user=Depends(require_permission("agro"))):

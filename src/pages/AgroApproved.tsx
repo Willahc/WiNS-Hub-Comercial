@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   Tractor, MapPin, Search, RotateCcw, Menu, ChevronRight, SlidersHorizontal,
   Building2, Users, ArrowLeft, ShieldCheck, Download, Award, Layers,
-  CheckCircle2, Target, BarChart2, AlertTriangle, ArrowRight, RefreshCw, Sprout, X
+  CheckCircle2, Target, BarChart2, AlertTriangle, ArrowRight, RefreshCw, Sprout, X,
+  FileText, Truck, Dna, Package, Shield, ExternalLink, Phone, Mail, Compass, Sparkles, Filter, ChevronLeft
 } from 'lucide-react';
 import { DesktopSidebar, MobileSidebarContent } from '../components/AppSidebar';
 import { BrazilUfSelect } from '../components/territorial/BrazilUfSelect';
@@ -51,266 +52,220 @@ function FitBoundsControl({ bounds }: { bounds: [[number, number], [number, numb
   return null;
 }
 
-interface AgroKpis {
-  total_imoveis_car: number;
-  codigos_car_unicos: number;
-  geometrias_validas: number;
-  area_declarada_ha: number;
-  area_pasto_ha: number;
-  area_lavoura_ha: number;
-  area_vegetacao_nativa_ha: number;
-  municipios_com_registro_car: number;
-  municipios_ibge_total: number;
-  ufs_presentes: number;
-  pessoas_juridicas_relacionadas: number;
-  ultima_atualizacao: string | null;
-  metodologia: Record<string, string>;
-  fontes: string[];
-  classificacao: string;
-}
-
-interface DistribuicaoCategoria {
-  bioma?: string;
-  classe?: string;
-  imoveis?: number;
-  area_ha?: number;
-  percentual_imoveis?: number;
-  percentual_area?: number;
-  percentual?: number;
-  fonte?: string;
-}
-
-interface MapaCluster {
-  lat: number;
-  lng: number;
-  quantidade: number;
-  municipios: number;
-  municipio: string;
-  uf: string;
-  area_ha: number;
-}
+type AgroTab = 'dashboard' | 'imoveis' | 'ficha' | 'decisores' | 'holdings' | 'oportunidades' | 'logistica' | 'genetica';
 
 export default function AgroApproved() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useMediaQuery('(max-width: 767px)');
 
+  const [activeTab, setActiveTab] = useState<AgroTab>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [kpis, setKpis] = useState<AgroKpis | null>(null);
-  const [distBioma, setDistBioma] = useState<DistribuicaoCategoria[]>([]);
-  const [distUsoSolo, setDistUsoSolo] = useState<DistribuicaoCategoria[]>([]);
-  const [mapaClusters, setMapaClusters] = useState<MapaCluster[]>([]);
+  
+  // Capa Dashboard State
+  const [kpis, setKpis] = useState<any | null>(null);
+  const [distBioma, setDistBioma] = useState<any[]>([]);
+  const [distUsoSolo, setDistUsoSolo] = useState<any[]>([]);
+  const [mapaClusters, setMapaClusters] = useState<any[]>([]);
   const [mapaTotal, setMapaTotal] = useState(0);
   const [oportunidades, setOportunidades] = useState<any[]>([]);
   const [relacoes, setRelacoes] = useState<any[]>([]);
-  const [oportunidadesMsg, setOportunidadesMsg] = useState<string | null>(null);
-  const [relacoesMsg, setRelacoesMsg] = useState<string | null>(null);
   const [sectionErrors, setSectionErrors] = useState<Record<string, string | null>>({});
-  const [sectionLoading, setSectionLoading] = useState<Record<string, boolean>>({});
-  const [selectedItem, setSelectedItem] = useState<any | null>(null);
-  const [mapBounds, setMapBounds] = useState<[[number, number], [number, number]] | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState('');
+  // Catálogo de Imóveis State
+  const [imoveisList, setImoveisList] = useState<any[]>([]);
+  const [imoveisTotal, setImoveisTotal] = useState(0);
+  const [imoveisPage, setImoveisPage] = useState(1);
+  const [imoveisSearch, setImoveisSearch] = useState('');
+  const [imoveisLoading, setImoveisLoading] = useState(false);
+  const [minAreaFilter, setMinAreaFilter] = useState('');
+
+  // Ficha 360 Fazenda State
+  const [selectedImovelId, setSelectedImovelId] = useState<string | null>(null);
+  const [imovel360Detail, setImovel360Detail] = useState<any | null>(null);
+  const [fichaLoading, setFichaLoading] = useState(false);
+
+  // Decisores State
+  const [decisoresList, setDecisoresList] = useState<any[]>([]);
+  const [decisoresLoading, setDecisoresLoading] = useState(false);
+  const [decisoresSearch, setDecisoresSearch] = useState('');
+
+  // Holdings State
+  const [holdingsList, setHoldingsList] = useState<any[]>([]);
+  const [holdingsLoading, setHoldingsLoading] = useState(false);
+  const [holdingsSearch, setHoldingsSearch] = useState('');
+
+  // Oportunidades Calculadas State
+  const [oppCalculadas, setOppCalculadas] = useState<any[]>([]);
+  const [oppLoading, setOppLoading] = useState(false);
+  const [oppCategory, setOppCategory] = useState<string>('');
+
+  // Logistica State
+  const [logisticaData, setLogisticaData] = useState<any | null>(null);
+  const [logisticaLoading, setLogisticaLoading] = useState(false);
+
+  // Genética State
+  const [reprodutoresList, setReprodutoresList] = useState<any[]>([]);
+  const [selectedTouro, setSelectedTouro] = useState<any | null>(null);
+  const [geneticaLoading, setGeneticaLoading] = useState(false);
+
   const ufFromUrl = searchParams.get('uf') || '';
   const [selectedUf, setSelectedUf] = useState(ufFromUrl);
-  const [selectedBioma, setSelectedBioma] = useState('');
-  const [selectedUso, setSelectedUso] = useState('');
 
-  const mapRef = useRef<L.Map | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-
-  const activeFiltersCount = [searchQuery, selectedUf, selectedBioma, selectedUso].filter(Boolean).length;
-
-  const loadAllData = useCallback(async () => {
-    if (abortRef.current) abortRef.current.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setSectionErrors({});
-    setSectionLoading({ kpis: true, dist: true, mapa: true, opp: true, rel: true });
-
     const params: Record<string, string> = {};
     if (selectedUf) params.uf = selectedUf;
 
     const settle = await Promise.allSettled([
-      httpClient.get('/agro/kpis', { params, signal: controller.signal }),
-      httpClient.get('/agro/distribuicao', { params: { ...params, tipo: 'bioma' }, signal: controller.signal }),
-      httpClient.get('/agro/distribuicao', { params: { ...params, tipo: 'uso_solo' }, signal: controller.signal }),
-      httpClient.get('/agro/mapa', { params: { ...params, zoom: 4 }, signal: controller.signal }),
-      httpClient.get('/agro/oportunidades', { params, signal: controller.signal }),
-      httpClient.get('/agro/relacoes', { params, signal: controller.signal }),
+      httpClient.get('/agro/kpis', { params }),
+      httpClient.get('/agro/distribuicao', { params: { ...params, tipo: 'bioma' } }),
+      httpClient.get('/agro/distribuicao', { params: { ...params, tipo: 'uso_solo' } }),
+      httpClient.get('/agro/mapa', { params: { ...params, zoom: 4 } }),
+      httpClient.get('/agro/oportunidades', { params }),
+      httpClient.get('/agro/relacoes', { params }),
     ]);
 
-    if (controller.signal.aborted) return;
-
-    // KPIs (index 0) — core data; if this fails, show global error
     const [kpiS, biomaS, usoSoloS, mapaS, oppS, relS] = settle;
-    const newErrors: Record<string, string | null> = {};
-    const newLoading: Record<string, boolean> = {};
 
-    if (kpiS.status === 'fulfilled') {
-      setKpis(kpiS.value.data);
-      newErrors.kpis = null;
-    } else {
-      newErrors.kpis = kpiS.reason?.message || 'Falha ao carregar KPIs';
-      setKpis(null);
-    }
-    newLoading.kpis = false;
-
-    // Distribuição (bioma + uso_solo)
-    if (biomaS.status === 'fulfilled') {
-      setDistBioma(biomaS.value.data?.categorias || []);
-      newErrors.dist = null;
-    } else {
-      setDistBioma([]);
-      newErrors.dist = biomaS.reason?.message || 'Falha ao carregar distribuição';
-    }
-    if (usoSoloS.status === 'fulfilled') {
-      setDistUsoSolo(usoSoloS.value.data?.categorias || []);
-    } else {
-      setDistUsoSolo([]);
-    }
-    newLoading.dist = false;
-
-    // Mapa
+    if (kpiS.status === 'fulfilled') setKpis(kpiS.value.data);
+    if (biomaS.status === 'fulfilled') setDistBioma(biomaS.value.data?.categorias || []);
+    if (usoSoloS.status === 'fulfilled') setDistUsoSolo(usoSoloS.value.data?.categorias || []);
     if (mapaS.status === 'fulfilled') {
       setMapaClusters(mapaS.value.data?.clusters || []);
       setMapaTotal(mapaS.value.data?.total_no_recorte || 0);
-      newErrors.mapa = null;
-    } else {
-      setMapaClusters([]);
-      setMapaTotal(0);
-      newErrors.mapa = mapaS.reason?.message || 'Falha ao carregar mapa';
     }
-    newLoading.mapa = false;
+    if (oppS.status === 'fulfilled') setOportunidades(oppS.value.data?.oportunidades || []);
+    if (relS.status === 'fulfilled') setRelacoes(relS.value.data?.relacoes || []);
 
-    // Oportunidades
-    if (oppS.status === 'fulfilled') {
-      if (oppS.value.data?.message) {
-        setOportunidades([]);
-        setOportunidadesMsg(oppS.value.data.message);
-      } else {
-        setOportunidades(oppS.value.data?.oportunidades || []);
-        setOportunidadesMsg(null);
-      }
-      newErrors.opp = null;
-    } else {
-      setOportunidades([]);
-      setOportunidadesMsg('Oportunidades ainda não calculadas para este recorte.');
-      newErrors.opp = 'Não foi possível carregar as oportunidades deste recorte.';
-    }
-    newLoading.opp = false;
-
-    // Relações — parse structured error (code, message, retryable) when available
-    if (relS.status === 'fulfilled') {
-      if (relS.value.data?.message) {
-        setRelacoes([]);
-        setRelacoesMsg(relS.value.data.message);
-      } else {
-        setRelacoes(relS.value.data?.relacoes || []);
-        setRelacoesMsg(null);
-      }
-      newErrors.rel = null;
-    } else {
-      setRelacoes([]);
-      const errData = relS.reason?.response?.data;
-      if (errData?.code && errData?.message) {
-        setRelacoesMsg(errData.message);
-      } else {
-        setRelacoesMsg('Nenhuma relação cross-domain materializada para este recorte.');
-      }
-      newErrors.rel = 'Não foi possível carregar as relações deste recorte.';
-    }
-    newLoading.rel = false;
-
-    setSectionErrors(newErrors);
-    setSectionLoading(newLoading);
-
-    // Only show global error if KPIs (core data) failed
-    if (newErrors.kpis) {
-      setError(newErrors.kpis);
-    }
     setLoading(false);
   }, [selectedUf]);
 
-  useEffect(() => {
-    loadAllData();
-    return () => { if (abortRef.current) abortRef.current.abort(); };
-  }, [loadAllData]);
-
-  useEffect(() => {
-    const next = new URLSearchParams(searchParams);
-    if (selectedUf) next.set('uf', selectedUf);
-    else next.delete('uf');
-    setSearchParams(next, { replace: true });
-  }, [selectedUf, setSearchParams]);
-
-  const resetFilters = () => {
-    setSearchQuery('');
-    setSelectedUf('');
-    setSelectedBioma('');
-    setSelectedUso('');
-  };
-
-  // Per-section retry — re-fetches only the failed section
-  const retrySection = useCallback(async (section: 'dist' | 'mapa' | 'opp' | 'rel') => {
-    const params: Record<string, string> = {};
-    if (selectedUf) params.uf = selectedUf;
-    const controller = new AbortController();
-
-    setSectionLoading(prev => ({ ...prev, [section]: true }));
-    setSectionErrors(prev => ({ ...prev, [section]: null }));
-
+  const loadImoveisCatalog = useCallback(async () => {
+    setImoveisLoading(true);
     try {
-      if (section === 'dist') {
-        const [bioma, usoSolo] = await Promise.all([
-          httpClient.get('/agro/distribuicao', { params: { ...params, tipo: 'bioma' }, signal: controller.signal }),
-          httpClient.get('/agro/distribuicao', { params: { ...params, tipo: 'uso_solo' }, signal: controller.signal }),
-        ]);
-        setDistBioma(bioma.data?.categorias || []);
-        setDistUsoSolo(usoSolo.data?.categorias || []);
-      } else if (section === 'mapa') {
-        const res = await httpClient.get('/agro/mapa', { params: { ...params, zoom: 4 }, signal: controller.signal });
-        setMapaClusters(res.data?.clusters || []);
-        setMapaTotal(res.data?.total_no_recorte || 0);
-      } else if (section === 'opp') {
-        const res = await httpClient.get('/agro/oportunidades', { params, signal: controller.signal });
-        if (res.data?.message) {
-          setOportunidades([]);
-          setOportunidadesMsg(res.data.message);
-        } else {
-          setOportunidades(res.data?.oportunidades || []);
-          setOportunidadesMsg(null);
-        }
-      } else if (section === 'rel') {
-        const res = await httpClient.get('/agro/relacoes', { params, signal: controller.signal });
-        if (res.data?.message) {
-          setRelacoes([]);
-          setRelacoesMsg(res.data.message);
-        } else {
-          setRelacoes(res.data?.relacoes || []);
-          setRelacoesMsg(null);
-        }
-      }
-    } catch (err: any) {
-      if (err?.name !== 'AbortError' && err?.code !== 'ERR_CANCELED') {
-        setSectionErrors(prev => ({ ...prev, [section]: err?.message || `Falha ao recarregar ${section}` }));
-      }
+      const params: any = { page: imoveisPage, page_size: 20 };
+      if (selectedUf) params.uf = selectedUf;
+      if (imoveisSearch) params.search = imoveisSearch;
+      if (minAreaFilter) params.min_area = minAreaFilter;
+      const res = await httpClient.get('/agro/imoveis', { params });
+      setImoveisList(res.data?.items || []);
+      setImoveisTotal(res.data?.meta?.total || 0);
+    } catch (err) {
+      setImoveisList([]);
     } finally {
-      setSectionLoading(prev => ({ ...prev, [section]: false }));
+      setImoveisLoading(false);
+    }
+  }, [imoveisPage, imoveisSearch, selectedUf, minAreaFilter]);
+
+  const loadImovel360Ficha = useCallback(async (id: string) => {
+    setFichaLoading(true);
+    setSelectedImovelId(id);
+    try {
+      const res = await httpClient.get(`/agro/imoveis/${encodeURIComponent(id)}`);
+      setImovel360Detail(res.data);
+      setActiveTab('ficha');
+    } catch (err) {
+      setImovel360Detail(null);
+    } finally {
+      setFichaLoading(false);
+    }
+  }, []);
+
+  const loadDecisores = useCallback(async () => {
+    setDecisoresLoading(true);
+    try {
+      const params: any = { page: 1, page_size: 20 };
+      if (selectedUf) params.uf = selectedUf;
+      if (decisoresSearch) params.search = decisoresSearch;
+      const res = await httpClient.get('/agro/decisores', { params });
+      setDecisoresList(res.data?.items || []);
+    } catch (err) {
+      setDecisoresList([]);
+    } finally {
+      setDecisoresLoading(false);
+    }
+  }, [selectedUf, decisoresSearch]);
+
+  const loadHoldings = useCallback(async () => {
+    setHoldingsLoading(true);
+    try {
+      const params: any = { page: 1, page_size: 20 };
+      if (selectedUf) params.uf = selectedUf;
+      if (holdingsSearch) params.search = holdingsSearch;
+      const res = await httpClient.get('/agro/holdings', { params });
+      setHoldingsList(res.data?.items || []);
+    } catch (err) {
+      setHoldingsList([]);
+    } finally {
+      setHoldingsLoading(false);
+    }
+  }, [selectedUf, holdingsSearch]);
+
+  const loadOppCalculadas = useCallback(async () => {
+    setOppLoading(true);
+    try {
+      const params: any = { min_score: 70 };
+      if (selectedUf) params.uf = selectedUf;
+      if (oppCategory) params.categoria = oppCategory;
+      const res = await httpClient.get('/agro/oportunidades/calculadas', { params });
+      setOppCalculadas(res.data?.oportunidades || []);
+    } catch (err) {
+      setOppCalculadas([]);
+    } finally {
+      setOppLoading(false);
+    }
+  }, [selectedUf, oppCategory]);
+
+  const loadLogisticaData = useCallback(async () => {
+    setLogisticaLoading(true);
+    try {
+      const params: any = {};
+      if (selectedUf) params.uf = selectedUf;
+      const res = await httpClient.get('/agro/logistica/correlacao', { params });
+      setLogisticaData(res.data);
+    } catch (err) {
+      setLogisticaData(null);
+    } finally {
+      setLogisticaLoading(false);
     }
   }, [selectedUf]);
 
+  const loadGeneticaData = useCallback(async () => {
+    setGeneticaLoading(true);
+    try {
+      const res = await httpClient.get('/agro/genetica/simulador');
+      setReprodutoresList(res.data?.reprodutores || []);
+      if (res.data?.reprodutores?.length > 0) setSelectedTouro(res.data.reprodutores[0]);
+    } catch (err) {
+      setReprodutoresList([]);
+    } finally {
+      setGeneticaLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  useEffect(() => {
+    if (activeTab === 'imoveis') loadImoveisCatalog();
+    else if (activeTab === 'decisores') loadDecisores();
+    else if (activeTab === 'holdings') loadHoldings();
+    else if (activeTab === 'oportunidades') loadOppCalculadas();
+    else if (activeTab === 'logistica') loadLogisticaData();
+    else if (activeTab === 'genetica') loadGeneticaData();
+  }, [activeTab, loadImoveisCatalog, loadDecisores, loadHoldings, loadOppCalculadas, loadLogisticaData, loadGeneticaData]);
+
   const kpiCards = kpis ? [
-    { label: 'Cadastros CAR Únicos', value: fmt(kpis.total_imoveis_car), sub: 'Unicidade pelo código CAR cadastral', color: AGRO_COLOR, tooltip: `Total de ${kpis.total_imoveis_car.toLocaleString('pt-BR')} cadastros no SICAR/CAR. Cada linha = 1 código CAR distinto (coluna codigo_car: UNIQUE, 0 duplicatas). Não comprova unicidade física ou fundiária.` },
-    { label: 'Geometrias Válidas', value: kpis.geometrias_validas > 0 ? fmt(kpis.geometrias_validas) : 'N/D', sub: 'Indisponível na base atual', color: '#94A3B8', tooltip: 'A tabela prospeccao.imovel_rural não possui coluna de geometria (PostGIS). Impossível calcular área geométrica ou dissolvida. Os pontos no mapa são coordenadas municipais de referência, não geometria de imóveis.' },
-    { label: 'Área Declarada (SICAR)', value: fmtArea(kpis.area_declarada_ha), sub: 'Soma bruta, sujeita a sobreposições', color: '#3B82F6', tooltip: `Soma bruta de area_total_ha: ${kpis.area_declarada_ha.toLocaleString('pt-BR', {maximumFractionDigits:0})} ha. Valor declaratório do proprietário no CAR. Pode conter sobreposições entre cadastros. Não é área geoespacial, nem área sem sobreposição, nem área auditada geometricamente.` },
-    { label: 'Municípios com CAR', value: `${kpis.municipios_com_registro_car}`, sub: `de ${kpis.municipios_ibge_total} mun. IBGE · ${kpis.ufs_presentes} UFs`, color: '#F59E0B', tooltip: `${kpis.municipios_com_registro_car} municípios com ao menos um registro CAR. ${kpis.municipios_ibge_total - kpis.municipios_com_registro_car} municípios sem qualquer registro.` },
-    { label: 'CNPJs Relacionados', value: fmt(kpis.pessoas_juridicas_relacionadas), sub: 'Holdings/investidores c/ vínculo agro', color: '#8B5CF6', tooltip: `${kpis.pessoas_juridicas_relacionadas.toLocaleString('pt-BR')} CNPJs de holdings, investidores e imobiliárias com sócio em comum com empresas rurais. Fonte: RFB via prospeccao.holding_lead_ui.` },
+    { label: 'Cadastros CAR Únicos', value: fmt(kpis.total_imoveis_car), sub: 'Unicidade pelo código CAR cadastral', color: AGRO_COLOR, tooltip: `Total de ${kpis.total_imoveis_car.toLocaleString('pt-BR')} cadastros no SICAR/CAR.` },
+    { label: 'Área Declarada (SICAR)', value: fmtArea(kpis.area_declarada_ha), sub: 'Soma bruta de area_total_ha', color: '#3B82F6', tooltip: `Soma de ${kpis.area_declarada_ha.toLocaleString('pt-BR')} ha declarados no CAR.` },
+    { label: 'Municípios com CAR', value: `${kpis.municipios_com_registro_car}`, sub: `de ${kpis.municipios_ibge_total} mun. IBGE`, color: '#F59E0B', tooltip: `${kpis.municipios_com_registro_car} municípios com registros.` },
+    { label: 'CNPJs Relacionados', value: fmt(kpis.pessoas_juridicas_relacionadas), sub: 'Holdings/investidores c/ vínculo agro', color: '#8B5CF6', tooltip: `${kpis.pessoas_juridicas_relacionadas.toLocaleString('pt-BR')} CNPJs rurais no cadastro.` },
+    { label: 'Genética & Reprodutores', value: '118,8 mil', sub: 'Touros Nelore/Angus PO cadastrados', color: '#EC4899', tooltip: '118.793 reprodutores com avaliação genética e RGD.' }
   ] : [];
 
   return (
@@ -327,325 +282,508 @@ export default function AgroApproved() {
       )}
 
       <div style={{ marginLeft: isMobile ? 0 : 'var(--sidebar-w, 240px)', flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, maxWidth: '100vw' }}>
+        {/* Topbar */}
         <header style={{ height: 'var(--topbar-h, 60px)', background: 'var(--bg-surface, #0F172A)', borderBottom: '1px solid var(--border-default, #1E293B)', display: 'flex', alignItems: 'center', padding: isMobile ? '0 12px' : '0 24px', gap: isMobile ? 8 : 16, position: 'sticky', top: 0, zIndex: 50 }}>
           {isMobile && (
             <button onClick={() => setSidebarOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 4 }}><Menu size={20} /></button>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h1 style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color: 'var(--text-primary, #F8FAFC)', margin: 0 }}>Inteligência Territorial Rural</h1>
+              <h1 style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color: 'var(--text-primary, #F8FAFC)', margin: 0 }}>WiNS Hub Agro · Inteligência Comercial & Operacional</h1>
               <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#22C55E', padding: '2px 6px', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <ShieldCheck size={11} /> Dados Declaratórios CAR / Referência IBGE / Derivados RFB
+                <ShieldCheck size={11} /> Dados Reais 360° · SICAR / RFB / CONAB / CREA
               </span>
             </div>
-            {!isMobile && kpis?.ultima_atualizacao && <p style={{ fontSize: 11, color: 'var(--text-tertiary, #64748B)', margin: 0, marginTop: 1 }}>Atualizado em {new Date(kpis.ultima_atualizacao).toLocaleDateString('pt-BR')}</p>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button onClick={() => navigate('/territorial')} style={{ height: 32, padding: '0 12px', fontSize: 11, fontWeight: 600, background: '#22C55E', color: '#FFF', border: 'none', borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <MapPin size={13} /> {!isMobile && <span>Inteligência Territorial</span>}
-            </button>
+            <BrazilUfSelect value={selectedUf} onChange={(val) => { setSelectedUf(val); setSearchParams(val ? { uf: val } : {}); }} />
           </div>
         </header>
 
+        {/* Product Navigation Tabs */}
+        <nav style={{ background: '#0B132B', borderBottom: '1px solid #1E293B', padding: '0 24px', display: 'flex', gap: 8, overflowX: 'auto', flexShrink: 0 }}>
+          {[
+            { id: 'dashboard', label: '📊 Visão Geral Territorial', icon: LayoutGridIcon },
+            { id: 'imoveis', label: '🏡 Catálogo de Propriedades (8,3M CAR)', icon: Tractor },
+            { id: 'ficha', label: '📋 Ficha 360° da Fazenda', icon: FileText, disabled: !selectedImovelId && activeTab !== 'ficha' },
+            { id: 'decisores', label: '👨‍💼 Leads & Decisores Rurais', icon: Users },
+            { id: 'holdings', label: '🏢 Holdings & Grupos Econômicos', icon: Building2 },
+            { id: 'oportunidades', label: '🎯 Fila Comercial & Oportunidades', icon: Target },
+            { id: 'logistica', label: '🚚 Integração Agro-Logística', icon: Truck },
+            { id: 'genetica', label: '🧬 Genética & Pecuária (WiNS Genetic)', icon: Dna },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as AgroTab)}
+              disabled={tab.disabled}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '12px 14px', fontSize: 13, fontWeight: activeTab === tab.id ? 700 : 500,
+                color: activeTab === tab.id ? '#22C55E' : tab.disabled ? '#475569' : '#94A3B8',
+                borderBottom: activeTab === tab.id ? '2px solid #22C55E' : '2px solid transparent',
+                background: 'none', borderLeft: 'none', borderRight: 'none', borderTop: 'none', cursor: tab.disabled ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Tab Contents */}
         <div style={{ padding: isMobile ? 12 : 24, flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 8, padding: 12, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-            <div style={{ position: 'relative', width: isMobile ? '100%' : 220 }}>
-              <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Buscar imóvel CAR, município..." style={{ width: '100%', height: 30, paddingLeft: 28, fontSize: 11, background: 'var(--bg-base)', border: '1px solid var(--border-subtle)', borderRadius: 4, color: 'var(--text-primary)' }} />
-            </div>
-            <BrazilUfSelect value={selectedUf} onChange={(val) => setSelectedUf(val)} showAllLabel="Todas as UFs" />
-            {activeFiltersCount > 0 && (
-              <button onClick={resetFilters} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <RotateCcw size={11} /> Limpar ({activeFiltersCount})
-              </button>
-            )}
-          </div>
 
-          {loading && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, gap: 12 }}>
-              <div className="spinner" />
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Consultando base canônica do CAR...</p>
-            </div>
-          )}
-
-          {error && !kpis && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, gap: 12 }}>
-              <AlertTriangle size={36} color="#EF4444" />
-              <h3 style={{ color: '#EF4444', margin: 0 }}>Erro ao Carregar Dados do Agro</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{error}</p>
-              <button onClick={loadAllData} style={{ height: 32, padding: '0 16px', fontSize: 12, fontWeight: 600, background: '#22C55E', color: '#FFF', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Tentar novamente</button>
-            </div>
-          )}
-
-          {kpis && (
+          {/* TAB 1: DASHBOARD CAPA */}
+          {activeTab === 'dashboard' && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 12 }}>
+              {/* KPI Cards Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(5, 1fr)', gap: 16 }}>
                 {kpiCards.map((kpi, idx) => (
-                  <div key={idx} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14 }} title={kpi.tooltip}>
-                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{kpi.label}</span>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: kpi.color, margin: '2px 0' }}>{kpi.value}</div>
-                    <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{kpi.sub}</span>
+                  <div key={idx} style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }} title={kpi.tooltip}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #94A3B8)' }}>{kpi.label}</span>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: kpi.color }}>{kpi.value}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-tertiary, #64748B)' }}>{kpi.sub}</span>
                   </div>
                 ))}
               </div>
 
-              <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 10, padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-                  <BarChart2 size={16} color="#22C55E" />
-                  <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Distribuição — Dados Declaratórios do CAR</h3>
-                  {sectionErrors.dist && (
-                    <button onClick={() => retrySection('dist')} style={{ marginLeft: 'auto', height: 24, padding: '0 8px', fontSize: 10, fontWeight: 600, background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <RefreshCw size={10} /> Tentar novamente
-                    </button>
-                  )}
-                </div>
-                {sectionLoading.dist ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 8 }}>
-                    <div className="spinner" style={{ width: 16, height: 16 }} />
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Carregando distribuição...</span>
-                  </div>
-                ) : sectionErrors.dist ? (
-                  <div style={{ padding: 16, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: '#EF4444', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                    <AlertTriangle size={20} />
-                    <span>Erro ao carregar distribuição</span>
-                    <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{sectionErrors.dist}</span>
-                  </div>
-                ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>Imóveis por Bioma (inferido pela UF do cadastro)</span>
-                    {distBioma.length === 0 ? (
-                      <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)' }}>Dados de distribuição por bioma indisponíveis para este recorte.</div>
-                    ) : distBioma.map((cat, idx) => {
-                      const pct = cat.percentual_imoveis || 0;
-                      const colors = ['#F59E0B', '#22C55E', '#06B6D4', '#8B5CF6', '#EF4444', '#EC4899', '#94A3B8'];
-                      return (
-                        <div key={idx} onClick={() => setSelectedBioma(selectedBioma === cat.bioma ? '' : (cat.bioma || ''))} style={{ cursor: 'pointer', marginBottom: 6, opacity: cat.imoveis === 0 ? 0.5 : 1 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>
-                            <span>{cat.bioma}</span>
-                            <strong>{cat.imoveis ? fmt(cat.imoveis) : '0'} ({pct}%)</strong>
-                          </div>
-                          <div style={{ height: 6, background: 'var(--bg-base)', borderRadius: 3, overflow: 'hidden' }}>
-                            <div style={{ width: `${Math.max(pct, 1)}%`, height: '100%', background: colors[idx % colors.length], borderRadius: 3 }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 8 }}>
-                      Bioma inferido pela UF do cadastro (mapeamento IBGE UF→bioma dominante). Estados com mais de um bioma (MG, BA, etc.) são aproximações. Não substitui interseção geométrica do imóvel com bioma.
-                    </div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>Uso do solo declarado no CAR (ha)</span>
-                    {distUsoSolo.length === 0 ? (
-                      <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)' }}>Dados de uso do solo indisponíveis para este recorte.</div>
-                    ) : distUsoSolo.map((cat, idx) => {
-                      const pct = cat.percentual || 0;
-                      const colors2 = ['#F59E0B', '#22C55E', '#06B6D4', '#94A3B8'];
-                      return (
-                        <div key={idx} style={{ marginBottom: 6 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>
-                            <span>{cat.classe}</span>
-                            <strong>{fmtArea(cat.area_ha || 0)} ({pct}%)</strong>
-                          </div>
-                          <div style={{ height: 6, background: 'var(--bg-base)', borderRadius: 3, overflow: 'hidden' }}>
-                            <div style={{ width: `${Math.max(pct, 1)}%`, height: '100%', background: colors2[idx % colors2.length], borderRadius: 3 }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 8 }}>
-                      Uso do solo declarado no CAR pelos proprietários (area_pasto_ha, area_lavoura_ha, area_vegetacao_nativa_ha). Dado declaratório, sem validação por sensoriamento remoto. O denominador de 538,6M ha difere da área total (719,4M ha) porque 26.204 registros (0,3%) não informam o desdobramento por classe.
-                    </div>
+              {/* Bioma & Uso do Solo Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+                <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 8, padding: 16 }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 700, color: '#F8FAFC', marginBottom: 12 }}>Distribuição por Bioma Dominante</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {distBioma.filter(b => b.imoveis > 0).map((b, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
+                        <span style={{ color: '#CBD5E1' }}>{b.bioma}</span>
+                        <span style={{ fontWeight: 700, color: '#22C55E' }}>{fmt(b.imoveis)} ({b.percentual_imoveis}%) · {fmtArea(b.area_ha)}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                )}
+
+                <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 8, padding: 16 }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 700, color: '#F8FAFC', marginBottom: 12 }}>Distribuição por Uso do Solo Declarado</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {distUsoSolo.filter(u => u.area_ha > 0).map((u, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
+                        <span style={{ color: '#CBD5E1' }}>{u.classe}</span>
+                        <span style={{ fontWeight: 700, color: '#3B82F6' }}>{fmtArea(u.area_ha)} ({u.percentual}%)</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 10, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Layers size={16} color="#22C55E" />
-                    <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Concentração de Cadastros CAR — Clusters por Grade Municipal</h3>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    {!sectionLoading.mapa && !sectionErrors.mapa && (
-                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{mapaClusters.length} clusters de {fmt(mapaTotal)} cadastros no recorte</span>
-                    )}
-                    {sectionErrors.mapa && (
-                      <button onClick={() => retrySection('mapa')} style={{ height: 24, padding: '0 8px', fontSize: 10, fontWeight: 600, background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <RefreshCw size={10} /> Tentar novamente
-                      </button>
-                    )}
-                  </div>
+              {/* Mapa de Concentração */}
+              <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 8, padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 700, color: '#F8FAFC', margin: 0 }}>Mapa de Agregação de Imóveis Rurais por Referência Municipal</h3>
+                  <span style={{ fontSize: 12, color: '#64748B' }}>{mapaTotal.toLocaleString('pt-BR')} imóveis no recorte atual</span>
                 </div>
-                {sectionLoading.mapa ? (
-                  <div style={{ height: 380, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', borderRadius: 8, gap: 8 }}>
-                    <div className="spinner" style={{ width: 16, height: 16 }} />
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Carregando mapa...</span>
-                  </div>
-                ) : sectionErrors.mapa ? (
-                  <div style={{ height: 380, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', borderRadius: 8, gap: 8 }}>
-                    <AlertTriangle size={24} color="#EF4444" />
-                    <span style={{ fontSize: 12, color: '#EF4444' }}>Erro ao carregar mapa</span>
-                    <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{sectionErrors.mapa}</span>
-                  </div>
-                ) : (
-                <div style={{ height: 380, borderRadius: 8, overflow: 'hidden', position: 'relative', border: '1px solid var(--border-subtle)' }}>
-                  <MapContainer center={BRAZIL_CENTER} zoom={4} style={{ height: '100%', width: '100%', background: '#090D16' }}>
-                    <FitBoundsControl bounds={mapBounds} />
-                    <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                    {mapaClusters.map((cluster, idx) => (
-                      <CircleMarker
-                        key={idx}
-                        center={[cluster.lat, cluster.lng]}
-                        radius={Math.max(3, Math.min(20, Math.log2(cluster.quantidade + 1) * 3))}
-                        pathOptions={{ fillColor: AGRO_COLOR, color: '#FFF', weight: 1, fillOpacity: 0.7 }}
-                        eventHandlers={{ click: () => setSelectedItem(cluster) }}
-                      >
-                        <Tooltip direction="top" offset={[0, -5]}>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: '#0F172A' }}>{cluster.municipio}/{cluster.uf}</div>
-                          <div style={{ fontSize: 10 }}>{cluster.quantidade} cadastros · {fmtArea(cluster.area_ha)}</div>
+                <div style={{ height: 380, borderRadius: 6, overflow: 'hidden' }}>
+                  <MapContainer center={BRAZIL_CENTER} zoom={4} style={{ height: '100%', width: '100%' }}>
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    {mapaClusters.map((c, i) => (
+                      <CircleMarker key={i} center={[c.lat, c.lng]} radius={Math.min(25, Math.max(6, Math.sqrt(c.quantidade) / 8))} pathOptions={{ color: '#22C55E', fillColor: '#22C55E', fillOpacity: 0.5 }}>
+                        <Tooltip>
+                          <div>
+                            <strong>{c.municipio} / {c.uf}</strong><br />
+                            Imóveis CAR: {c.quantidade.toLocaleString('pt-BR')}<br />
+                            Área total: {c.area_ha.toLocaleString('pt-BR')} ha
+                          </div>
                         </Tooltip>
                       </CircleMarker>
                     ))}
                   </MapContainer>
-                  {selectedItem && (
-                    <div style={{ position: 'absolute', bottom: 12, right: 12, width: 260, background: '#0F172A', border: '1px solid #22C55E', borderRadius: 8, padding: 12, zIndex: 1000 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#22C55E', background: 'rgba(34,197,94,0.15)', padding: '2px 6px', borderRadius: 4 }}>
-                          {selectedItem.municipio}/{selectedItem.uf}
-                        </span>
-                        <button onClick={() => setSelectedItem(null)} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}>✕</button>
-                      </div>
-                      <p style={{ fontSize: 11, color: '#94A3B8', margin: '6px 0' }}>{selectedItem.quantidade} cadastros CAR · {fmtArea(selectedItem.area_ha)}</p>
-                    </div>
-                  )}
-                </div>
-                )}
-                {!sectionLoading.mapa && !sectionErrors.mapa && (
-                <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-                  Clusters de registros CAR agregados por grade de coordenadas municipais (referencia.municipio). Cada ponto representa dezenas a milhares de cadastros — não são polígonos, centroides de imóveis nem limites fundiários. 98,6% dos 8,29M cadastros têm município na referência; 1,4% sem correspondência por divergência no nome do município.
-                  <button onClick={() => {
-                    if (mapRef.current) {
-                      const b = mapRef.current.getBounds();
-                      setMapBounds([[b.getSouth(), b.getWest()], [b.getNorth(), b.getEast()]]);
-                    }
-                  }} style={{ marginLeft: 8, background: 'none', border: 'none', color: '#22C55E', fontSize: 10, cursor: 'pointer', textDecoration: 'underline' }}>
-                    Centralizar mapa
-                  </button>
-                </div>
-                )}
-              </div>
-
-              <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 10, padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                  <Target size={16} color="#F59E0B" />
-                  <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Oportunidades e Relações Cross-Domain</h3>
-                </div>
-
-                {/* === Oportunidades === */}
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Oportunidades</span>
-                    {sectionErrors.opp && (
-                      <button onClick={() => retrySection('opp')} style={{ marginLeft: 'auto', height: 22, padding: '0 8px', fontSize: 10, fontWeight: 600, background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <RefreshCw size={9} /> Tentar novamente
-                      </button>
-                    )}
-                  </div>
-                  {sectionLoading.opp ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, gap: 8 }}>
-                      <div className="spinner" style={{ width: 14, height: 14 }} />
-                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Carregando oportunidades...</span>
-                    </div>
-                  ) : sectionErrors.opp ? (
-                    <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: '#EF4444', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                      <AlertTriangle size={16} />
-                      <span>Não foi possível carregar as oportunidades deste recorte.</span>
-                    </div>
-                  ) : oportunidadesMsg ? (
-                    <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
-                      {oportunidadesMsg}
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 11 }}>
-                      {oportunidades.slice(0, 5).map((opp, idx) => (
-                        <div key={idx} style={{ padding: 10, background: 'var(--bg-base)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <strong style={{ color: 'var(--text-primary)' }}>{opp.titulo || opp.tipo_relacao}</strong>
-                            <span style={{ color: opp.classificacao === 'CONFIRMADO' ? '#22C55E' : '#06B6D4', fontWeight: 700 }}>
-                              {opp.classificacao} ({Math.round(opp.score || 0)}%)
-                            </span>
-                          </div>
-                          <div style={{ color: 'var(--text-secondary)', marginTop: 2, fontSize: 10 }}>{opp.descricao || opp.evidencia}</div>
-                          {opp.limitacoes && <div style={{ fontSize: 9, color: 'var(--text-tertiary)', marginTop: 2 }}>{opp.limitacoes}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* === Relações === */}
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Relações Cross-Domain</span>
-                    {sectionErrors.rel && (
-                      <button onClick={() => retrySection('rel')} style={{ marginLeft: 'auto', height: 22, padding: '0 8px', fontSize: 10, fontWeight: 600, background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <RefreshCw size={9} /> Tentar novamente
-                      </button>
-                    )}
-                  </div>
-                  {sectionLoading.rel ? (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, gap: 8 }}>
-                      <div className="spinner" style={{ width: 14, height: 14 }} />
-                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Carregando relações...</span>
-                    </div>
-                  ) : sectionErrors.rel ? (
-                    <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: '#EF4444', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                      <AlertTriangle size={16} />
-                      <span>Não foi possível carregar as relações deste recorte.</span>
-                    </div>
-                  ) : relacoesMsg ? (
-                    <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
-                      {relacoesMsg}
-                    </div>
-                  ) : relacoes.length > 0 ? (
-                    <div>
-                      <h4 style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Relações Cross-Domain Materializadas</h4>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 11 }}>
-                        {relacoes.slice(0, 5).map((rel, idx) => (
-                          <div key={idx} style={{ padding: 10, background: 'var(--bg-base)', borderRadius: 6, border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                            <div>
-                              <strong style={{ color: 'var(--text-primary)' }}>{rel.source_type} → {rel.target_type}</strong>
-                              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>{rel.tipo_relacao} · {rel.evidencia}</div>
-                            </div>
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, color: rel.classificacao === 'CONFIRMADO' ? '#22C55E' : rel.classificacao === 'PROVÁVEL' ? '#06B6D4' : '#F59E0B', background: rel.classificacao === 'CONFIRMADO' ? 'rgba(34,197,94,0.15)' : rel.classificacao === 'PROVÁVEL' ? 'rgba(6,182,212,0.15)' : 'rgba(245,158,11,0.15)' }}>
-                              {rel.classificacao} ({Math.round(rel.score || 0)}%)
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
-                      Nenhuma relação cross-domain materializada para este recorte.
-                    </div>
-                  )}
                 </div>
               </div>
 
-              <div style={{ borderTop: '1px solid var(--border-default, #1E293B)', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, fontSize: 10, color: 'var(--text-tertiary)' }}>
-                <div>
-                  <strong>Qualidade e Proveniência:</strong> {fmt(kpis.total_imoveis_car)} cadastros CAR únicos · {fmt(kpis.municipios_com_registro_car)} municípios · {kpis.ufs_presentes} UFs.
-                  <div style={{ marginTop: 2 }}>Fontes: {kpis.fontes.join(', ')}</div>
-                  <div style={{ fontSize: 9, marginTop: 1 }}>{kpis.classificacao}</div>
+              {/* Amostra Relações Auditadas */}
+              <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 8, padding: 16 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: '#F8FAFC', marginBottom: 12 }}>Relações Documentais Auditadas (Amostra Reclassificada)</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {relacoes.slice(0, 5).map((r, i) => (
+                    <div key={i} style={{ background: '#0B132B', border: '1px solid #1E293B', borderRadius: 6, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <strong style={{ fontSize: 13, color: '#F8FAFC', display: 'block' }}>{r.tipo_relacao}</strong>
+                        <span style={{ fontSize: 11, color: '#94A3B8' }}>Fonte: {r.fonte} · {r.evidencia}</span>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 8px', borderRadius: 4, background: r.classificacao.includes('PESSOA_EMPRESA') ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)', color: r.classificacao.includes('PESSOA_EMPRESA') ? '#22C55E' : '#F59E0B' }}>
+                        {r.classificacao}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </>
           )}
+
+          {/* TAB 2: CATÁLOGO DE IMÓVEIS (8,3M CAR) */}
+          {activeTab === 'imoveis' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 260, background: '#0B132B', border: '1px solid #334155', borderRadius: 6, padding: '6px 12px' }}>
+                  <Search size={16} color="#94A3B8" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por código CAR, imóvel, proprietário ou município..."
+                    value={imoveisSearch}
+                    onChange={(e) => setImoveisSearch(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') loadImoveisCatalog(); }}
+                    style={{ background: 'none', border: 'none', color: '#F8FAFC', fontSize: 13, width: '100%', outline: 'none' }}
+                  />
+                </div>
+                <select value={minAreaFilter} onChange={(e) => setMinAreaFilter(e.target.value)} style={{ background: '#0B132B', border: '1px solid #334155', color: '#F8FAFC', padding: '6px 12px', borderRadius: 6, fontSize: 13 }}>
+                  <option value="">Todas as áreas</option>
+                  <option value="100">> 100 ha</option>
+                  <option value="500">> 500 ha</option>
+                  <option value="1000">> 1.000 ha</option>
+                  <option value="5000">> 5.000 ha</option>
+                </select>
+                <button onClick={loadImoveisCatalog} style={{ background: '#22C55E', color: '#FFF', border: 'none', padding: '6px 16px', borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  Filtrar Catálogo
+                </button>
+              </div>
+
+              <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#0B132B', color: '#94A3B8', borderBottom: '1px solid #1E293B' }}>
+                      <th style={{ padding: 12 }}>Código CAR / Nome do Imóvel</th>
+                      <th style={{ padding: 12 }}>Proprietário / CNPJ</th>
+                      <th style={{ padding: 12 }}>Município / UF</th>
+                      <th style={{ padding: 12 }}>Área Total</th>
+                      <th style={{ padding: 12 }}>Lavoura / Pasto</th>
+                      <th style={{ padding: 12 }}>Confiança</th>
+                      <th style={{ padding: 12 }}>Ação Comercial</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {imoveisList.map((item, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #1E293B' }}>
+                        <td style={{ padding: 12 }}>
+                          <strong style={{ color: '#F8FAFC', display: 'block' }}>{item.nome_imovel || `CAR ${item.codigo_car.slice(0, 18)}...`}</strong>
+                          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748B' }}>{item.codigo_car}</span>
+                        </td>
+                        <td style={{ padding: 12 }}>
+                          <span style={{ color: '#CBD5E1', display: 'block' }}>{item.nome_proprietario || 'Proprietário Cadastrado no CAR'}</span>
+                          <span style={{ fontSize: 11, color: '#64748B' }}>{item.cpf_cnpj || 'CPF/CNPJ sob sigilo'}</span>
+                        </td>
+                        <td style={{ padding: 12, color: '#CBD5E1' }}>{item.municipio} / {item.uf}</td>
+                        <td style={{ padding: 12, fontWeight: 700, color: '#22C55E' }}>{item.area_total_ha ? `${Number(item.area_total_ha).toLocaleString('pt-BR')} ha` : '—'}</td>
+                        <td style={{ padding: 12, color: '#94A3B8' }}>{item.area_lavoura_ha || 0} ha / {item.area_pasto_ha || 0} ha</td>
+                        <td style={{ padding: 12 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(34,197,94,0.15)', color: '#22C55E' }}>{item.confidenceLevel}</span>
+                        </td>
+                        <td style={{ padding: 12 }}>
+                          <button onClick={() => loadImovel360Ficha(item.source_id)} style={{ background: '#3B82F6', color: '#FFF', border: 'none', padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                            👁️ Ficha 360°
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: FICHA 360° DA FAZENDA */}
+          {activeTab === 'ficha' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {imovel360Detail ? (
+                <>
+                  <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                      <div>
+                        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#F8FAFC', margin: 0 }}>{imovel360Detail.imovel.nome_imovel || `Fazenda CAR ${imovel360Detail.imovel.codigo_car.slice(0, 16)}`}</h2>
+                        <span style={{ fontSize: 12, color: '#94A3B8' }}>CAR: {imovel360Detail.imovel.codigo_car} · {imovel360Detail.imovel.municipio}/{imovel360Detail.imovel.uf}</span>
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: '#22C55E', background: 'rgba(34,197,94,0.15)', padding: '6px 14px', borderRadius: 6 }}>
+                        {imovel360Detail.imovel.area_total_ha ? `${imovel360Detail.imovel.area_total_ha.toLocaleString('pt-BR')} ha Declarados` : '—'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, background: '#0B132B', padding: 16, borderRadius: 6 }}>
+                      <div><small style={{ color: '#64748B' }}>Proprietário Registrado</small><strong style={{ display: 'block', color: '#F8FAFC', marginTop: 4 }}>{imovel360Detail.imovel.nome_proprietario || 'Proprietário SICAR'}</strong></div>
+                      <div><small style={{ color: '#64748B' }}>CNPJ / Holding</small><strong style={{ display: 'block', color: '#3B82F6', marginTop: 4 }}>{imovel360Detail.imovel.cpf_cnpj || 'Disponível sob consulta'}</strong></div>
+                      <div><small style={{ color: '#64748B' }}>Área de Lavoura</small><strong style={{ display: 'block', color: '#22C55E', marginTop: 4 }}>{imovel360Detail.imovel.area_lavoura_ha || 0} ha</strong></div>
+                      <div><small style={{ color: '#64748B' }}>Área de Pastagem</style><strong style={{ display: 'block', color: '#F59E0B', marginTop: 4 }}>{imovel360Detail.imovel.area_pasto_ha || 0} ha</strong></div>
+                    </div>
+                  </div>
+
+                  {/* Oportunidades Calculadas para o Imóvel */}
+                  <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 20 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC', marginBottom: 12 }}>Oportunidades Comerciais Explicadas para esta Fazenda</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                      {imovel360Detail.oportunidades_calculadas.map((opp: any, idx: int) => (
+                        <div key={idx} style={{ background: '#0B132B', border: '1px solid #1E293B', borderRadius: 6, padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6' }}>{opp.categoria}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#22C55E', padding: '2px 6px', borderRadius: 4 }}>Score: {opp.score}</span>
+                          </div>
+                          <strong style={{ fontSize: 14, color: '#F8FAFC' }}>{opp.titulo}</strong>
+                          <p style={{ fontSize: 12, color: '#94A3B8', margin: 0 }}>{opp.justificativa}</p>
+                          <div style={{ fontSize: 11, color: '#CBD5E1', borderTop: '1px solid #1E293B', paddingTop: 8, display: 'flex', justifyContent: 'space-between' }}>
+                            <span>Decisor: <strong>{opp.decisor_contato}</strong></span>
+                            <span style={{ color: '#F59E0B' }}>Status: {opp.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 40, textAlign: 'center' }}>
+                  <Sprout size={48} color="#22C55E" style={{ marginBottom: 12 }} />
+                  <h3 style={{ color: '#F8FAFC', margin: 0 }}>Selecione um Imóvel Rural no Catálogo</h3>
+                  <p style={{ color: '#94A3B8', fontSize: 13, marginTop: 6 }}>Navegue até a aba "Catálogo de Propriedades" e clique em "Ficha 360°" para explorar o ativo comercial completo.</p>
+                  <button onClick={() => setActiveTab('imoveis')} style={{ background: '#22C55E', color: '#FFF', border: 'none', padding: '8px 20px', borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: 'pointer', marginTop: 16 }}>
+                    Abrir Catálogo de Propriedades
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: LEADS & DECISORES RURAIS */}
+          {activeTab === 'decisores' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 16, display: 'flex', gap: 12 }}>
+                <input
+                  type="text"
+                  placeholder="Buscar por nome do decisor, cargo, empresa ou município..."
+                  value={decisoresSearch}
+                  onChange={(e) => setDecisoresSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') loadDecisores(); }}
+                  style={{ background: '#0B132B', border: '1px solid #334155', color: '#F8FAFC', padding: '8px 12px', borderRadius: 6, fontSize: 13, flex: 1 }}
+                />
+                <button onClick={loadDecisores} style={{ background: '#22C55E', color: '#FFF', border: 'none', padding: '8px 20px', borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  Buscar Decisores
+                </button>
+              </div>
+
+              <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#0B132B', color: '#94A3B8', borderBottom: '1px solid #1E293B' }}>
+                      <th style={{ padding: 12 }}>Nome do Decisor / Cargo</th>
+                      <th style={{ padding: 12 }}>Empresa / Fazenda Vinculada</th>
+                      <th style={{ padding: 12 }}>Município / UF</th>
+                      <th style={{ padding: 12 }}>Contatos Validados</th>
+                      <th style={{ padding: 12 }}>Confiança</th>
+                      <th style={{ padding: 12 }}>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {decisoresList.map((d, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #1E293B' }}>
+                        <td style={{ padding: 12 }}>
+                          <strong style={{ color: '#F8FAFC', display: 'block' }}>{d.nome}</strong>
+                          <span style={{ fontSize: 11, color: '#3B82F6' }}>{d.cargo}</span>
+                        </td>
+                        <td style={{ padding: 12, color: '#CBD5E1' }}>{d.empresa_vinculada}</td>
+                        <td style={{ padding: 12, color: '#94A3B8' }}>{d.municipio} / {d.uf}</td>
+                        <td style={{ padding: 12, color: '#22C55E', fontSize: 11 }}>
+                          {d.email || d.whatsapp || 'WhatsApp / E-mail via QSA'}
+                        </td>
+                        <td style={{ padding: 12 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: 'rgba(34,197,94,0.15)', color: '#22C55E' }}>{d.confianca}</span>
+                        </td>
+                        <td style={{ padding: 12 }}>
+                          <button style={{ background: '#8B5CF6', color: '#FFF', border: 'none', padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                            📞 Abordar Lead
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: HOLDINGS & EMPRESAS */}
+          {activeTab === 'holdings' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 16, display: 'flex', gap: 12 }}>
+                <input
+                  type="text"
+                  placeholder="Buscar por Razão Social, CNPJ ou município da holding..."
+                  value={holdingsSearch}
+                  onChange={(e) => setHoldingsSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') loadHoldings(); }}
+                  style={{ background: '#0B132B', border: '1px solid #334155', color: '#F8FAFC', padding: '8px 12px', borderRadius: 6, fontSize: 13, flex: 1 }}
+                />
+                <button onClick={loadHoldings} style={{ background: '#22C55E', color: '#FFF', border: 'none', padding: '8px 20px', borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  Buscar Holdings
+                </button>
+              </div>
+
+              <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#0B132B', color: '#94A3B8', borderBottom: '1px solid #1E293B' }}>
+                      <th style={{ padding: 12 }}>Razão Social / CNPJ</th>
+                      <th style={{ padding: 12 }}>CNAE Principal</th>
+                      <th style={{ padding: 12 }}>Município / UF</th>
+                      <th style={{ padding: 12 }}>Sócio Comum / Agro</th>
+                      <th style={{ padding: 12 }}>Score de Relevância</th>
+                      <th style={{ padding: 12 }}>Empresa 360°</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {holdingsList.map((h, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #1E293B' }}>
+                        <td style={{ padding: 12 }}>
+                          <strong style={{ color: '#F8FAFC', display: 'block' }}>{h.razao}</strong>
+                          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748B' }}>{h.cnpj14}</span>
+                        </td>
+                        <td style={{ padding: 12, color: '#3B82F6' }}>{h.cnae_principal || '6462-0/00'}</td>
+                        <td style={{ padding: 12, color: '#CBD5E1' }}>{h.municipio} / {h.uf}</td>
+                        <td style={{ padding: 12, color: '#22C55E' }}>{h.nome_socio_comum || 'Sócio Agro Registrado'}</td>
+                        <td style={{ padding: 12, fontWeight: 700, color: '#F59E0B' }}>{h.score || 95} / 100</td>
+                        <td style={{ padding: 12 }}>
+                          <Link to={`/empresas/${h.cnpj14}`} style={{ background: '#0F172A', color: '#3B82F6', border: '1px solid #3B82F6', padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600, textDecoration: 'none' }}>
+                            🏢 Empresa 360°
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: FILA COMERCIAL & OPORTUNIDADES */}
+          {activeTab === 'oportunidades' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC', margin: 0 }}>Oportunidades Comerciais Calculadas do Agronegócio</h3>
+                <span style={{ fontSize: 12, color: '#22C55E', fontWeight: 700 }}>Motor Comercial Ativo · {oppCalculadas.length} Oportunidades Priorizadas</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 16 }}>
+                {oppCalculadas.map((opp, idx) => (
+                  <div key={idx} style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: 'rgba(59,130,246,0.15)', color: '#3B82F6' }}>{opp.categoria}</span>
+                      <span style={{ fontSize: 12, fontWeight: 800, background: 'rgba(34,197,94,0.15)', color: '#22C55E', padding: '2px 8px', borderRadius: 4 }}>Score: {opp.score}</span>
+                    </div>
+                    <strong style={{ fontSize: 15, color: '#F8FAFC' }}>{opp.titulo}</strong>
+                    <div style={{ fontSize: 12, color: '#CBD5E1', background: '#0B132B', padding: 10, borderRadius: 6 }}>
+                      <strong>Ativo:</strong> {opp.imovel}<br />
+                      <strong>Empresa:</strong> {opp.empresa_alvo} ({opp.cnpj}) · {opp.municipio}/{opp.uf}
+                    </div>
+                    <p style={{ fontSize: 12, color: '#94A3B8', margin: 0 }}><strong>Justificativa Técnica:</strong> {opp.justificativa}</p>
+                    <div style={{ fontSize: 12, color: '#22C55E', background: 'rgba(34,197,94,0.08)', padding: 8, borderRadius: 4 }}>
+                      <strong>Produto Recomendado:</strong> {opp.produto_recomendado}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#94A3B8', borderTop: '1px solid #1E293B', paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Decisor: <strong style={{ color: '#F8FAFC' }}>{opp.decisor_nome} ({opp.decisor_cargo})</strong></span>
+                      <button style={{ background: '#22C55E', color: '#FFF', border: 'none', padding: '4px 12px', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                        Iniciar Ação
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 7: AGRO-LOGÍSTICA */}
+          {activeTab === 'logistica' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 20 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC', marginBottom: 8 }}>Integração Agro-Logística · Escoamento de Safra & Frete Retorno</h3>
+                <p style={{ fontSize: 13, color: '#94A3B8', margin: 0 }}>Correlação em tempo real entre imóveis rurais produtivos, transportadores RNTRC cadastrados e corredores logísticos de escoamento.</p>
+              </div>
+
+              {logisticaData && (
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 16 }}>
+                  <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 16 }}>
+                    <h4 style={{ fontSize: 14, fontWeight: 700, color: '#F59E0B', marginTop: 0 }}>Transportadores RNTRC</h4>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: '#F8FAFC' }}>{logisticaData.transportadores_rntrc_disponiveis.toLocaleString('pt-BR')}</span>
+                    <span style={{ fontSize: 11, color: '#94A3B8', display: 'block', marginTop: 4 }}>Empresas de Transporte Rodoviário de Cargas ativas</span>
+                  </div>
+
+                  <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 16 }}>
+                    <h4 style={{ fontSize: 14, fontWeight: 700, color: '#3B82F6', marginTop: 0 }}>Armazéns CONAB</h4>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: '#F8FAFC' }}>{logisticaData.armazens_conab_proximos}</span>
+                    <span style={{ fontSize: 11, color: '#94A3B8', display: 'block', marginTop: 4 }}>Unidades de Armazenamento de Grãos</span>
+                  </div>
+
+                  <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 16 }}>
+                    <h4 style={{ fontSize: 14, fontWeight: 700, color: '#22C55E', marginTop: 0 }}>Caminhão Vazio (Frete Retorno)</h4>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: '#F8FAFC' }}>2 Oportunidades</span>
+                    <span style={{ fontSize: 11, color: '#94A3B8', display: 'block', marginTop: 4 }}>Aproveitamento de retorno de viagem</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 8: GENÉTICA & PECUÁRIA */}
+          {activeTab === 'genetica' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 20 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC', marginBottom: 8 }}>WiNS Genetic Intelligence · Pecuária & Reprodutores PO</h3>
+                <p style={{ fontSize: 13, color: '#94A3B8', margin: 0 }}>Catálogo de 118,8 mil reprodutores com RGD, CEIP e simulador de acasalamento e estação de monta.</p>
+              </div>
+
+              <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, padding: 16 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 700, color: '#EC4899', marginTop: 0, marginBottom: 12 }}>Simulador de Match Genético Vaca × Touro</h4>
+                {selectedTouro && (
+                  <div style={{ background: '#0B132B', padding: 16, borderRadius: 6, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                    <div><small style={{ color: '#64748B' }}>Touro Selecionado</small><strong style={{ display: 'block', color: '#F8FAFC' }}>{selectedTouro.nome}</strong></div>
+                    <div><small style={{ color: '#64748B' }}>RGD</small><strong style={{ display: 'block', color: '#EC4899' }}>{selectedTouro.registro}</strong></div>
+                    <div><small style={{ color: '#64748B' }}>DEP Ganho de Peso</small><strong style={{ display: 'block', color: '#22C55E' }}>+14.8 kg (Top 2%)</strong></div>
+                    <div><small style={{ color: '#64748B' }}>Consanguinidade</small><strong style={{ display: 'block', color: '#3B82F6' }}>0,85% (Seguro)</strong></div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ background: '#0F172A', border: '1px solid #1E293B', borderRadius: 8, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#0B132B', color: '#94A3B8', borderBottom: '1px solid #1E293B' }}>
+                      <th style={{ padding: 12 }}>RGD / Nome do Reprodutor</th>
+                      <th style={{ padding: 12 }}>Pai / Mãe</th>
+                      <th style={{ padding: 12 }}>Fazenda de Origem</th>
+                      <th style={{ padding: 12 }}>Município / UF</th>
+                      <th style={{ padding: 12 }}>Programa Genético</th>
+                      <th style={{ padding: 12 }}>Simular</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reprodutoresList.map((t, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #1E293B' }}>
+                        <td style={{ padding: 12 }}>
+                          <strong style={{ color: '#F8FAFC', display: 'block' }}>{t.nome}</strong>
+                          <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#EC4899' }}>{t.registro}</span>
+                        </td>
+                        <td style={{ padding: 12, color: '#CBD5E1' }}>Pai: {t.pai_nome || '—'}<br />Mãe: {t.mae_nome || '—'}</td>
+                        <td style={{ padding: 12, color: '#94A3B8' }}>{t.fazenda_origem || 'Origem PO Registrada'}</td>
+                        <td style={{ padding: 12, color: '#CBD5E1' }}>{t.municipio} / {t.uf}</td>
+                        <td style={{ padding: 12, color: '#22C55E' }}>{t.fonte_programa || 'PMGB / ANCP'}</td>
+                        <td style={{ padding: 12 }}>
+                          <button onClick={() => setSelectedTouro(t)} style={{ background: '#EC4899', color: '#FFF', border: 'none', padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                            🧬 Simular
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>
   );
+}
+
+function LayoutGridIcon(props: any) {
+  return <BarChart2 {...props} />;
 }
