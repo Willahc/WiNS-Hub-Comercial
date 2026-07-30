@@ -916,6 +916,38 @@ class Wave1Repository:
         for h in health_units:
             nodes.append({"id": f"health_{h['cnes_id']}", "type": "Estabelecimento Saúde", "label": h.get("nome_fantasia") or h.get("razao_social"), "sub": f"CNES {h['cnes_id']} · {h.get('municipio_nome') or 'não informado'}/{h.get('uf') or '—'}", "source": "wins_saude_staging.estabelecimentos", "updatedAt": ""})
 
+        # Assemble materialized edges matching nodes or filters
+        node_ids = set(n["id"] for n in nodes)
+        if node_ids:
+            try:
+                edges_raw = _run_db("wins_agro", """
+                    SELECT e.relationship_id as id, e.source_id as source, e.target_id as target,
+                           e.source_type as "sourceType", e.target_type as "targetType",
+                           e.tipo_relacao, COALESCE(r.classificacao_nova, e.classificacao) as classification,
+                           e.score as confidence, e.fonte, e.tipo_fonte, e.evidencia as evidence,
+                           e.versao_regra, e.calculado_em, e.verificado_em, e.limitacoes,
+                           CASE WHEN r.id IS NOT NULL THEN 'concluida' ELSE e.status_revisao END as status_revisao
+                    FROM public.relationship_edges e
+                    LEFT JOIN (
+                        SELECT DISTINCT ON (relationship_id) id, relationship_id, classificacao_nova
+                        FROM public.relationship_reviews
+                        ORDER BY relationship_id, created_at DESC
+                    ) r ON r.relationship_id = e.relationship_id
+                    WHERE e.source_id = ANY(%s) OR e.target_id = ANY(%s)
+                    LIMIT 100;
+                """, [list(node_ids), list(node_ids)])
+                for er in edges_raw:
+                    er_dict = dict(er)
+                    if er_dict.get("confidence") is not None:
+                        er_dict["confidence"] = float(er_dict["confidence"])
+                    if er_dict.get("calculado_em"):
+                        er_dict["calculado_em"] = str(er_dict["calculado_em"])
+                    if er_dict.get("verificado_em"):
+                        er_dict["verificado_em"] = str(er_dict["verificado_em"])
+                    edges.append(er_dict)
+            except Exception as ex:
+                print(f"Erro ao carregar arestas materializadas: {ex}")
+
         # Territorial co-occurrence is discovery evidence, never proof of an
         # operational relationship.  Keep the classification explicit so the
         # API and UI cannot accidentally promote proximity to confirmation.
