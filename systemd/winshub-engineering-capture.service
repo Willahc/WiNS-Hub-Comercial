@@ -1,0 +1,28 @@
+[Unit]
+Description=WiNS Hub daily canonical engineering work capture
+After=network-online.target docker.service
+Wants=network-online.target
+OnFailure=winshub-engineering-capture-alert@%n.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/winshub/engineering-capture/current
+EnvironmentFile=/root/wins_agro_v1/.env
+Environment=DB_HOST=127.0.0.1
+Environment=DB_PORT=5432
+Environment=DB_NAME=wins_agro
+ExecStart=/usr/bin/flock -n -E 75 /run/lock/winshub-engineering-capture.lock /usr/bin/python3 -m engineering_capture.runner --days 3 --max-pages 20
+TimeoutStartSec=2h
+UMask=0027
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/log/winshub/engineering-capture /run/lock
+
+[Install]
+WantedBy=multi-user.target

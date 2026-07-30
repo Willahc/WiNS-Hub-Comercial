@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}WiNS Hub Agro{% endblock %}</title>
+  <link rel="manifest" href="{{ prefix }}/manifest.webmanifest">
+  <link rel="icon" href="{{ prefix }}/static/vendor/icon-192.png">
+  <link rel="stylesheet" href="{{ prefix }}/static/assets/app.css">
+  {% block head %}{% endblock %}
+</head>
+<body x-data="{ mobileNav:false }">
+<div class="app">
+  <!-- ===== sidebar (4 mercados) ===== -->
+  <nav class="sidebar" :class="{open: mobileNav}">
+    <div class="brand"><span class="logo">W</span> WiNS&nbsp;Agro</div>
+
+    <div class="nav-group">WiNS Hub</div>
+    <a class="nav-item" href="/" title="Voltar para a Visão Geral do WiNS Hub">Visão Geral</a>
+    <a class="nav-item" href="/engenharia/">Engenharia</a>
+    <a class="nav-item" href="/log/">Log</a>
+    <a class="nav-item" href="/saude/">Saúde</a>
+
+    <div class="nav-group">Mercados</div>
+    <a class="nav-item {% if active=='fazendas' %}active{% endif %}" href="{{ prefix }}/fazendas">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-6h6v6"/></svg>
+      Fazendas</a>
+    <a class="nav-item {% if active=='tecnica' %}active{% endif %}" href="{{ prefix }}/tecnica">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l2 6 4-12 2 6h6"/></svg>
+      Técnica</a>
+    <a class="nav-item {% if active=='mapa' %}active{% endif %}" href="{{ prefix }}/mapa">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3 3 5v16l6-2 6 2 6-2V3l-6 2-6-2z"/><path d="M9 3v16M15 5v16"/></svg>
+      Mapa</a>
+    <a class="nav-item {% if active=='cruzamento' %}active{% endif %}" href="{{ prefix }}/cruzamento">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="7" r="4"/><circle cx="17" cy="17" r="4"/><path d="M10 10l4 4"/></svg>
+      Cruzamento</a>
+    <a class="nav-item {% if active=='comercial' %}active{% endif %}" href="{{ prefix }}/comercial">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      Comercial</a>
+    <a class="nav-item {% if active=='holdings' %}active{% endif %}" href="{{ prefix }}/holdings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg>
+      Holdings</a>
+    <a class="nav-item {% if active=='prospeccao' %}active{% endif %}" href="{{ prefix }}/prospeccao">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+      Prospecção</a>
+
+    <div class="nav-group">Gestão Agro</div>
+    {% if agro_overview_enabled %}
+    <a class="nav-item {% if active=='visao_geral_agro' %}active{% endif %}" href="{{ prefix }}/visao-geral-agro">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Visão Geral</a>
+    {% endif %}
+    {% if enable_food_autonomy %}
+    <a class="nav-item {% if active=='autonomia_alimentar' %}active{% endif %}" href="{{ prefix }}/autonomia-alimentar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      Autonomia Alimentar</a>
+    {% endif %}
+    {% if enable_pasture_live %}
+    <a class="nav-item {% if active=='pasto_vivo' %}active{% endif %}" href="{{ prefix }}/pasto-vivo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a7 7 0 0 1-10 10"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg>
+      Pasto Vivo</a>
+    {% endif %}
+    <a class="nav-item {% if active=='pasto_limpo' %}active{% endif %}" href="{{ prefix }}/pasto-limpo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8a7 7 0 0 1-10 10"/><path d="M2 21c0-3 1.85-5.36 5.08-6"/></svg>
+      ROI Pasto Limpo</a>
+    {% if enable_feed_inventory %}
+    <a class="nav-item {% if active=='feed_inventory' %}active{% endif %}" href="{{ prefix }}/silagem-estoques">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20h20"/><path d="M5 20V8l7-5 7 5v12"/><path d="M9 20v-6h6v6"/></svg>
+      Silagem e Estoques</a>
+    {% endif %}
+    {% if enable_harvest_silos %}
+    <a class="nav-item {% if active=='harvest_silos' %}active{% endif %}" href="{{ prefix }}/colheita-silos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20h18M5 20V9l7-6 7 6v11M8 13h8M8 16h8"/></svg>
+      Colheita e Silos</a>
+    {% endif %}
+    {% if enable_weather_operations %}
+    <a class="nav-item {% if active=='weather_operations' %}active{% endif %}" href="{{ prefix }}/clima-operacoes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+      Clima e Operações</a>
+    {% endif %}
+
+    <div class="nav-group">Ferramentas</div>
+    <a class="nav-item {% if active=='empresa_360' %}active{% endif %}" href="{{ prefix }}/empresa-360">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><circle cx="12" cy="12" r="9"/></svg>
+      Empresa 360°</a>
+    <a class="nav-item {% if active=='campo' %}active{% endif %}" href="{{ prefix }}/campo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+      WiNS Campo</a>
+
+    <div class="nav-group">Hubs</div>
+    <a class="nav-item" href="/saude/" title="WiNS Hub Saúde (autenticação própria)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20"/><path d="M5 8h14"/><path d="M5 16h14"/><path d="M8 5v3M16 5v3M8 16v3M16 16v3"/></svg>
+      Saúde</a>
+
+    <div class="spacer"></div>
+    <a class="nav-item" href="{{ prefix }}/logout">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>
+      Sair</a>
+  </nav>
+
+  <!-- ===== main ===== -->
+  <div class="main">
+    <header class="topbar">
+      <button class="btn btn-ghost nav-toggle" style="padding:8px" @click="mobileNav=!mobileNav" aria-label="menu">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
+      <div class="title">{% block topbar %}{% endblock %}</div>
+      <div class="right">
+        <span class="secure-note" title="Sessão segura, acesso auditado">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          conexão segura</span>
+        <button class="btn btn-ghost" style="padding:6px 10px" title="Registrar login por digital neste aparelho" onclick="winsBioRegister()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 11c-1.1 0-2 .9-2 2 0 2-.5 4-1.5 5.5"/><path d="M7 13a5 5 0 0 1 8-4"/><path d="M5 11a7 7 0 0 1 11-5.5"/><path d="M12 13c0 3-.7 5.5-2 8"/><path d="M15 13.5c0 2.5-.4 4.3-1 6"/></svg>
+          Digital</button>
+        <span class="user-chip"><span class="av">{{ (user.name or 'U')[0]|upper }}</span>{{ user.name or user.sub }}</span>
+      </div>
+    </header>
+    <main class="content">{% block content %}{% endblock %}</main>
+  </div>
+</div>
+<script src="/static/vendor/alpine.min.js" defer></script>
+<script src="/static/assets/webauthn.js"></script>
+<script>
+  async function winsBioRegister(){
+    if(!window.winsPasskeySupported()){ alert('Este navegador/aparelho não suporta login por digital.'); return; }
+    try{ await window.winsPasskeyRegister(navigator.userAgent.slice(0,40)); alert('✅ Digital registrada neste aparelho. Na próxima, use "Entrar com digital".'); }
+    catch(e){ alert('Não foi possível registrar a digital: '+(e.message||e)); }
+  }
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

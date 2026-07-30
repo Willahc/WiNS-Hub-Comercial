@@ -1,0 +1,173 @@
+# ==============================================================================
+# WiNS Hub Comercial — nginx config CORRIGIDA (security headers)
+# ==============================================================================
+# Correções (vs. script enable_tls_winshubcomercial.sh original):
+#   1. CSP + Permissions-Policy adicionados
+#   2. HSTS com includeSubDomains; preload
+#   3. Headers de segurança REPETIDOS em todo location com add_header próprio
+#      (nginx não herda add_header de server p/ location quando o location tem
+#       add_header próprio — cada location que define add_header perde os do pai)
+#   4. Cache-Control definido APENAS onde necessário (shell estático)
+# ==============================================================================
+
+limit_req_zone $binary_remote_addr zone=hub_api:10m rate=20r/s;
+limit_req_zone $binary_remote_addr zone=hub_gen:10m rate=30r/s;
+
+upstream hub_agro_api   { server 127.0.0.1:18083; keepalive 16; }
+upstream hub_saude_api  { server 127.0.0.1:18080; keepalive 8; }
+upstream hub_engenharia { server 127.0.0.1:18081; keepalive 8; }
+upstream hub_log_api    { server 127.0.0.1:18082; keepalive 8; }
+
+# ---------------------------------------------------------------------------
+# HTTP -> HTTPS
+# ---------------------------------------------------------------------------
+server {
+    listen 80;
+    listen [::]:80;
+    server_name winshubcomercial.com.br www.winshubcomercial.com.br;
+    location ^~ /.well-known/acme-challenge/ { root /var/www/certbot; default_type text/plain; }
+    location / { return 301 https://winshubcomercial.com.br$request_uri; }
+}
+
+# ---------------------------------------------------------------------------
+# www -> apex
+# ---------------------------------------------------------------------------
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name www.winshubcomercial.com.br;
+    ssl_certificate     /etc/letsencrypt/live/winshubcomercial.com.br/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/winshubcomercial.com.br/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    return 301 https://winshubcomercial.com.br$request_uri;
+}
+
+# ---------------------------------------------------------------------------
+# HTTPS principal
+# ---------------------------------------------------------------------------
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name winshubcomercial.com.br;
+    ssl_certificate     /etc/letsencrypt/live/winshubcomercial.com.br/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/winshubcomercial.com.br/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    access_log /var/log/nginx/winshubcomercial_access.log;
+    error_log  /var/log/nginx/winshubcomercial_error.log;
+    server_tokens off;
+    client_max_body_size 12m;
+
+    # === HEADERS DE SEGURANÇA GLOBAIS ===
+    # NOTA: Estes headers SÓ valem para locations SEM add_header próprio.
+    # Locations com add_header próprio precisam repeti-los (ver abaixo).
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" always;
+
+    # --- Bloqueio de arquivos sensíveis ---
+    location ~* (\.env|\.git|\.sql|\.dump|\.gpg|Dockerfile|requirements\.txt|\.bak) { return 404; }
+    location ~ /\. { return 404; }
+    location ^~ /caminhao-vazio { return 404; }
+    location ^~ /comercial { return 404; }
+    location ^~ /cliente-inteligente { return 404; }
+
+    # --- SAÚDE ---
+    location = /saude { return 301 /saude/; }
+    location = /saude/login.html { return 404; }
+    location = /saude/login { return 404; }
+    location ^~ /saude/ {
+        limit_req zone=hub_api burst=40 nodelay;
+        auth_basic "WiNS Hub Saude";
+        auth_basic_user_file /etc/nginx/.htpasswd_saude;
+        rewrite ^/saude/(.*)$ /$1 break;
+        proxy_pass http://hub_saude_api;
+        include /etc/nginx/snippets/wins-saude-proxy-headers.conf;
+        proxy_set_header X-Forwarded-Prefix /saude;
+        proxy_set_header X-Script-Name /saude;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    # --- AGRO ---
+    location = /agro { return 301 /agro/; }
+    location ^~ /agro/ {
+        limit_req zone=hub_api burst=40 nodelay;
+        rewrite ^/agro/(.*)$ /$1 break;
+        proxy_pass http://hub_agro_api;
+        include /etc/nginx/snippets/wins-saude-proxy-headers.conf;
+        proxy_set_header X-Forwarded-Prefix /agro;
+        proxy_set_header X-Forwarded-Proto https;
+        # Headers de segurança (repetidos — nginx não herda quando location
+        # tem add_header, mas este location NÃO tem add_header, então herda
+        # os do server block — mantido assim para não quebrar herança)
+    }
+
+    # --- ENGENHARIA ---
+    location = /engenharia { return 301 /engenharia/; }
+    location ^~ /engenharia/ {
+        limit_req zone=hub_api burst=40 nodelay;
+        rewrite ^/engenharia/(.*)$ /$1 break;
+        proxy_pass http://hub_engenharia;
+        include /etc/nginx/snippets/wins-saude-proxy-headers.conf;
+        proxy_set_header X-Forwarded-Prefix /engenharia;
+        proxy_set_header X-Script-Name /engenharia;
+        proxy_set_header X-Forwarded-Proto https;
+        # === HEADERS REPETIDOS (add_header próprio existe abaixo) ===
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" always;
+        add_header Cache-Control "no-store" always;
+    }
+
+    # --- LOG ---
+    location = /log { return 301 /log/; }
+    location ^~ /log/ {
+        limit_req zone=hub_api burst=40 nodelay;
+        rewrite ^/log/(.*)$ /$1 break;
+        proxy_pass http://hub_log_api;
+        include /etc/nginx/snippets/wins-saude-proxy-headers.conf;
+        proxy_set_header X-Forwarded-Prefix /log;
+        proxy_set_header X-Script-Name /log;
+        proxy_set_header X-Forwarded-Proto https;
+        # === HEADERS REPETIDOS ===
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" always;
+        add_header Cache-Control "no-store" always;
+    }
+
+    # --- Shell estático (home / SPA) ---
+    location = / {
+        root /opt/winshub/shell;
+        try_files /index.html =404;
+        # === HEADERS REPETIDOS ===
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" always;
+        add_header Cache-Control "no-store" always;
+    }
+    location / {
+        root /opt/winshub/shell;
+        try_files $uri $uri/ /index.html;
+        # === HEADERS REPETIDOS ===
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'" always;
+        add_header Cache-Control "no-store" always;
+    }
+}
