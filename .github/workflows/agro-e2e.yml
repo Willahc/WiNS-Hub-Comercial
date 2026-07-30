@@ -1,0 +1,41 @@
+name: Agro E2E Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  agro-e2e:
+    runs-on: ubuntu-latest
+    env:
+      WINS_HUB_BASE: https://winshubcomercial.com.br
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install playwright
+          python3 -m playwright install chromium
+
+      - name: E2E — Agro External Gate
+        env:
+          WINS_HUB_GATE_USER: ${{ secrets.WINS_HUB_GATE_USER }}
+          WINS_HUB_GATE_PASSWORD: ${{ secrets.WINS_HUB_GATE_PASSWORD }}
+        run: python3 staging/agro_external_gate.py
+
+      - name: Secret scan — ensure no credentials leaked
+        run: |
+          if grep -rE '(WINS_HUB_GATE_USER|WINS_HUB_GATE_PASSWORD|password|senha|secret)' \
+            --include='*.py' --include='*.yml' --include='*.yaml' \
+            --include='*.json' --include='*.ts' --include='*.tsx' \
+            .github/ staging/agro_external_gate.py | grep -vE 'os\.environ|secrets\.' | grep -v 'node_modules' ; then
+            echo "ERRO: Possível credencial hardcoded detectada"
+            exit 1
+          fi
+          echo "Nenhum segredo hardcoded encontrado"
