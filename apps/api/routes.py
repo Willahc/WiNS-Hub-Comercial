@@ -363,12 +363,15 @@ def review_relationship(relationship_id: str, body: ReviewRequest,
                         request: Request, user=Depends(get_current_user)):
     req_id = getattr(request.state, "request_id", "unknown")
 
-    # VIEWER check: must have at least one non-viewer role to reclassify
+    # Explicit ALLOWLIST check: user must explicitly possess a review role ('admin' or 'relationship_reviewer')
     user_roles = set(user.get("roles", [])) if isinstance(user, dict) else set()
     user_perms = set(user.get("permissions", [])) if isinstance(user, dict) else set()
-    has_write_role = bool(user_roles - {"viewer", "uma_authorization"}) or bool(user_perms - {"viewer"})
-    if not has_write_role:
-        raise HTTPException(status_code=403, detail="Apenas usuários autorizados podem reclassificar relações")
+    user_all_roles = user_roles | user_perms
+
+    REVIEW_ALLOWED_ROLES = {"admin", "relationship_reviewer"}
+    if not bool(user_all_roles.intersection(REVIEW_ALLOWED_ROLES)):
+        logger.warning(f"[{req_id}] Usuário sem papel de revisão (Allowlist) tentou reclassificar relação: {user.get('sub')}")
+        raise HTTPException(status_code=403, detail="Apenas usuários autorizados (admin, relationship_reviewer) podem reclassificar relações")
 
     # Validate body
     nova = body.classificacao_nova.upper().strip()
