@@ -433,10 +433,10 @@ export default function AgroApproved() {
                 </div>
                 <select value={minAreaFilter} onChange={(e) => setMinAreaFilter(e.target.value)} style={{ background: '#0B132B', border: '1px solid #334155', color: '#F8FAFC', padding: '6px 12px', borderRadius: 6, fontSize: 13 }}>
                   <option value="">Todas as áreas</option>
-                  <option value="100">> 100 ha</option>
-                  <option value="500">> 500 ha</option>
-                  <option value="1000">> 1.000 ha</option>
-                  <option value="5000">> 5.000 ha</option>
+                  <option value="100">&gt; 100 ha</option>
+                  <option value="500">&gt; 500 ha</option>
+                  <option value="1000">&gt; 1.000 ha</option>
+                  <option value="5000">&gt; 5.000 ha</option>
                 </select>
                 <button onClick={loadImoveisCatalog} style={{ background: '#22C55E', color: '#FFF', border: 'none', padding: '6px 16px', borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                   Filtrar Catálogo
@@ -506,7 +506,7 @@ export default function AgroApproved() {
                       <div><small style={{ color: '#64748B' }}>Proprietário Registrado</small><strong style={{ display: 'block', color: '#F8FAFC', marginTop: 4 }}>{imovel360Detail.imovel.nome_proprietario || 'Proprietário SICAR'}</strong></div>
                       <div><small style={{ color: '#64748B' }}>CNPJ / Holding</small><strong style={{ display: 'block', color: '#3B82F6', marginTop: 4 }}>{imovel360Detail.imovel.cpf_cnpj || 'Disponível sob consulta'}</strong></div>
                       <div><small style={{ color: '#64748B' }}>Área de Lavoura</small><strong style={{ display: 'block', color: '#22C55E', marginTop: 4 }}>{imovel360Detail.imovel.area_lavoura_ha || 0} ha</strong></div>
-                      <div><small style={{ color: '#64748B' }}>Área de Pastagem</style><strong style={{ display: 'block', color: '#F59E0B', marginTop: 4 }}>{imovel360Detail.imovel.area_pasto_ha || 0} ha</strong></div>
+                      <div><small style={{ color: '#64748B' }}>Área de Pastagem</small><strong style={{ display: 'block', color: '#F59E0B', marginTop: 4 }}>{imovel360Detail.imovel.area_pasto_ha || 0} ha</strong></div>
                     </div>
                   </div>
 

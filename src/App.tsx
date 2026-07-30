@@ -9,7 +9,7 @@ import {TerritorialReal} from './pages/TerritorialReal';
 import {DecisionMakerDetail,EngineeringOpportunityDetail,SupplierDetail} from './pages/EngineeringRelations';
 
 import { DecisionMakersPage, SuppliersPage } from './pages/Wave1Directories';
-import { AgroPage } from './pages/AgroPage';
+import AgroApproved from './pages/AgroApproved';
 import { LogisticaPage } from './pages/LogisticaPage';
 import { SaudePage } from './pages/SaudePage';
 import { RelacionamentosPage } from './pages/RelacionamentosPage';
@@ -500,7 +500,7 @@ function App() {
         } />
 
         <Route path="/agro" element={
-          <ProtectedWrapper><AgroPage /></ProtectedWrapper>
+          <ProtectedWrapper><AgroApproved /></ProtectedWrapper>
         } />
         <Route path="/agro/imoveis/:id" element={<ProtectedWrapper><AgroImovelDetail /></ProtectedWrapper>} />
         <Route path="/agro/reprodutores/:id" element={<ProtectedWrapper><AgroReprodutorDetail /></ProtectedWrapper>} />
