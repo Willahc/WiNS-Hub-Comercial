@@ -15,23 +15,65 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const isKeycloakEnabled = import.meta.env.VITE_AUTH_PROVIDER === 'keycloak' || !!import.meta.env.VITE_KEYCLOAK_URL;
+const url = import.meta.env.VITE_KEYCLOAK_URL;
+const realm = import.meta.env.VITE_KEYCLOAK_REALM;
+const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID;
 
-// Keycloak Client Instance (instantiated dynamically if enabled)
-let keycloakInstance: Keycloak | null = null;
+let keycloakInstance: Keycloak | null = new Keycloak({ url, realm, clientId });
+let tokenRefreshPromise: Promise<string | undefined> | null = null;
+
 export const getAccessToken = (): string | undefined => keycloakInstance?.token;
 
-if (isKeycloakEnabled) {
-  const url = import.meta.env.VITE_KEYCLOAK_URL || 'https://winshubcomercial.com.br:18443/auth';
-  const realm = import.meta.env.VITE_KEYCLOAK_REALM || 'wins-hub-staging';
-  const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'wins-hub-spa';
+export const ensureValidToken = async (): Promise<string | undefined> => {
+  if (!keycloakInstance || !keycloakInstance.authenticated) {
+    return keycloakInstance?.token;
+  }
 
-  keycloakInstance = new Keycloak({ url, realm, clientId });
+  if (tokenRefreshPromise) {
+    return tokenRefreshPromise;
+  }
+
+  tokenRefreshPromise = (async () => {
+    try {
+      // Refresh token if expiring within 30 seconds
+      const refreshed = await keycloakInstance.updateToken(30);
+      if (refreshed) {
+        console.log('[Keycloak] Token de acesso renovado proativamente');
+      }
+      return keycloakInstance.token;
+    } catch (err) {
+      console.error('[Keycloak] Falha na renovação proativa do token:', err);
+      return keycloakInstance.token;
+    } finally {
+      tokenRefreshPromise = null;
+    }
+  })();
+
+  return tokenRefreshPromise;
+};
+
+export const forceTokenRefresh = async (): Promise<string | undefined> => {
+  if (!keycloakInstance || !keycloakInstance.authenticated) return undefined;
+  try {
+    await keycloakInstance.updateToken(-1);
+    return keycloakInstance.token;
+  } catch (err) {
+    console.error('[Keycloak] Falha ao forçar refresh do token:', err);
+    return undefined;
+  }
+};
+
+let initStarted = false;
+
+const savedUserInit = typeof window !== 'undefined' ? localStorage.getItem('wins_user') : null;
+let parsedUserInit: User | null = null;
+if (savedUserInit) {
+  try { parsedUserInit = JSON.parse(savedUserInit); } catch (e) {}
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState<boolean>(!isKeycloakEnabled);
+  const [user, setUser] = useState<User | null>(parsedUserInit);
+  const [authReady, setAuthReady] = useState<boolean>(!!parsedUserInit);
 
   const updateUserFromToken = (tokenParsed: any) => {
     if (!tokenParsed) return;
@@ -62,15 +104,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  // Single authoritative Keycloak initialization
   useEffect(() => {
-    // Immediate authReady in test environment to avoid jsdom iframe network timeouts
+    // In unit test or local saved session environment, restore user from localStorage immediately
+    const savedSession = typeof window !== 'undefined' ? localStorage.getItem('wins_user') : null;
+    if (savedSession) {
+      try {
+        setUser(JSON.parse(savedSession));
+        setAuthReady(true);
+        return;
+      } catch (e) {}
+    }
+
     if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
       setAuthReady(true);
       return;
     }
 
-    if (keycloakInstance && !(keycloakInstance as any).didInitialize) {
+    if (keycloakInstance && !initStarted && !(keycloakInstance as any).didInitialize) {
+      initStarted = true;
       keycloakInstance
         .init({
           onLoad: 'check-sso',
@@ -79,21 +130,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           silentCheckSsoRedirectUri: window.location.origin + `${import.meta.env.BASE_URL}silent-check-sso.html`
         })
         .then((authenticated) => {
+          if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
+            try {
+              const u = new URL(window.location.href);
+              let mod = false;
+              ['code', 'state', 'session_state', 'iss'].forEach((p) => {
+                if (u.searchParams.has(p)) { u.searchParams.delete(p); mod = true; }
+              });
+              if (u.hash) {
+                let h = u.hash.substring(1);
+                ['code', 'state', 'session_state', 'iss'].forEach((p) => {
+                  if (h.includes(p + '=')) {
+                    const sp = new URLSearchParams(h);
+                    sp.delete(p);
+                    h = sp.toString();
+                    mod = true;
+                  }
+                });
+                u.hash = h ? '#' + h : '';
+              }
+              if (mod) {
+                const cleanUrl = u.pathname + (u.searchParams.toString() ? '?' + u.searchParams.toString() : '') + u.hash;
+                window.history.replaceState(null, document.title, cleanUrl);
+              }
+            } catch (e) {}
+          }
           if (authenticated && keycloakInstance?.tokenParsed) {
             updateUserFromToken(keycloakInstance.tokenParsed);
-          } else if (window.location.search.includes('test_auth=true') || localStorage.getItem('test_auth') === 'true') {
-            setUser({
-              id: 'test-user-id',
-              name: 'William (Automated Audit)',
-              email: 'william@winshub.com.br',
-              roles: ['admin'],
-              permissions: ['engenharia', 'empresa360', 'comercial', 'logistica', 'agro', 'saude', 'relatorios']
-            });
+          } else {
+            const saved = localStorage.getItem('wins_user');
+            if (saved) {
+              try { setUser(JSON.parse(saved)); } catch (e) {}
+            }
           }
           setAuthReady(true);
         })
         .catch((err) => {
-          console.error('[Keycloak] Erro de inicialização SSO:', err);
+          console.error('[Keycloak] Erro na inicialização SSO:', err);
+          const saved = localStorage.getItem('wins_user');
+          if (saved) {
+            try { setUser(JSON.parse(saved)); } catch (e) {}
+          }
           setAuthReady(true);
         });
 
@@ -111,7 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(null);
           });
       };
-    } else {
+    } else if (!keycloakInstance) {
       setAuthReady(true);
     }
   }, []);
@@ -119,7 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = () => {
     if (keycloakInstance) {
       keycloakInstance.login({
-        redirectUri: window.location.origin + import.meta.env.BASE_URL + 'engenharia'
+        redirectUri: window.location.origin + import.meta.env.BASE_URL + 'engenharia/'
       });
     }
   };
@@ -160,7 +237,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
-  if (!authReady) {
+  // Skip Keycloak loading for review routes — they don't need SSO
+  const isReviewRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/review/');
+  if (!authReady && !isReviewRoute) {
     return (
       <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}>
         <div style={{ textAlign: 'center' }}>
@@ -201,8 +280,19 @@ export const RequireAuth: React.FC<{ children: React.ReactNode; fallback?: React
   children,
   fallback
 }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authReady } = useAuth();
   
+  if (!authReady) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div className="spinner" style={{ marginBottom: '16px' }}></div>
+          <p style={{ fontSize: '14px', fontWeight: 600 }}>Validando sessão corporativa SSO Keycloak...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return fallback ? <>{fallback}</> : (
       <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-primary)' }}>
