@@ -22,15 +22,18 @@ logger = logging.getLogger("wins_hub_api.routes")
 router = APIRouter(prefix="/api/v1")
 
 # Standardized Error response helper
-def standard_error(code: str, message: str, req_id: str, status_code: int = 400):
+def standard_error(code: str, message: str, req_id: str, status_code: int = 400, retryable: bool = None):
+    content = {
+        "code": code,
+        "message": message,
+        "requestId": req_id,
+        "details": None
+    }
+    if retryable is not None:
+        content["retryable"] = retryable
     return JSONResponse(
         status_code=status_code,
-        content={
-            "code": code,
-            "message": message,
-            "requestId": req_id,
-            "details": None
-        }
+        content=content
     )
 
 @router.get("/health")
@@ -597,7 +600,7 @@ def get_agro_oportunidades(request: Request, imovel_id: Optional[str] = None,
         return Wave1Repository.agro_oportunidades(imovel_id=imovel_id)
     except Exception as e:
         logger.error(f"Erro ao buscar oportunidades agro: {e} reqId={req_id}")
-        return {"oportunidades": [], "message": "Oportunidades ainda não calculadas para este recorte.", "error": str(e)}
+        return standard_error("AGRO_OPPORTUNITIES_UNAVAILABLE", "Não foi possível carregar as oportunidades neste momento.", req_id, 500, retryable=True)
 
 @router.get("/agro/relacoes")
 def get_agro_relacoes(request: Request, imovel_id: Optional[str] = None,
@@ -608,7 +611,7 @@ def get_agro_relacoes(request: Request, imovel_id: Optional[str] = None,
         return Wave1Repository.agro_relacoes(imovel_id=imovel_id, cnpj=cnpj)
     except Exception as e:
         logger.error(f"Erro ao buscar relações cross-domain agro: {e} reqId={req_id}")
-        return {"relacoes": [], "message": "Nenhuma relação cross-domain materializada para este recorte.", "error": str(e)}
+        return standard_error("AGRO_RELATIONSHIPS_UNAVAILABLE", "Não foi possível carregar as relações neste momento.", req_id, 500, retryable=True)
 
 @router.get("/agro/imoveis/{id}")
 def get_agro_imovel_detail(id: str, request: Request, user=Depends(require_permission("agro"))):

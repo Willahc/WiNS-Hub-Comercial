@@ -201,7 +201,7 @@ export default function AgroApproved() {
     } else {
       setOportunidades([]);
       setOportunidadesMsg('Oportunidades ainda não calculadas para este recorte.');
-      newErrors.opp = oppS.reason?.message || 'Falha ao carregar oportunidades';
+      newErrors.opp = 'Não foi possível carregar as oportunidades deste recorte.';
     }
     newLoading.opp = false;
 
@@ -218,7 +218,7 @@ export default function AgroApproved() {
     } else {
       setRelacoes([]);
       setRelacoesMsg('Nenhuma relação cross-domain materializada para este recorte.');
-      newErrors.rel = relS.reason?.message || 'Falha ao carregar relações';
+      newErrors.rel = 'Não foi possível carregar as relações deste recorte.';
     }
     newLoading.rel = false;
 
@@ -537,59 +537,97 @@ export default function AgroApproved() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
                   <Target size={16} color="#F59E0B" />
                   <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Oportunidades e Relações Cross-Domain</h3>
-                  {(sectionErrors.opp || sectionErrors.rel) && (
-                    <button onClick={() => { if (sectionErrors.opp) retrySection('opp'); if (sectionErrors.rel) retrySection('rel'); }} style={{ marginLeft: 'auto', height: 24, padding: '0 8px', fontSize: 10, fontWeight: 600, background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <RefreshCw size={10} /> Retentar seções com falha
-                    </button>
-                  )}
                 </div>
-                {sectionLoading.opp ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, gap: 8 }}>
-                    <div className="spinner" style={{ width: 14, height: 14 }} />
-                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Carregando oportunidades...</span>
+
+                {/* === Oportunidades === */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Oportunidades</span>
+                    {sectionErrors.opp && (
+                      <button onClick={() => retrySection('opp')} style={{ marginLeft: 'auto', height: 22, padding: '0 8px', fontSize: 10, fontWeight: 600, background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <RefreshCw size={9} /> Tentar novamente
+                      </button>
+                    )}
                   </div>
-                ) : oportunidadesMsg ? (
-                  <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
-                    {oportunidadesMsg}
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 11 }}>
-                    {oportunidades.slice(0, 5).map((opp, idx) => (
-                      <div key={idx} style={{ padding: 10, background: 'var(--bg-base)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <strong style={{ color: 'var(--text-primary)' }}>{opp.titulo || opp.tipo_relacao}</strong>
-                          <span style={{ color: opp.classificacao === 'CONFIRMADO' ? '#22C55E' : '#06B6D4', fontWeight: 700 }}>
-                            {opp.classificacao} ({Math.round(opp.score || 0)}%)
-                          </span>
-                        </div>
-                        <div style={{ color: 'var(--text-secondary)', marginTop: 2, fontSize: 10 }}>{opp.descricao || opp.evidencia}</div>
-                        {opp.limitacoes && <div style={{ fontSize: 9, color: 'var(--text-tertiary)', marginTop: 2 }}>{opp.limitacoes}</div>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {relacoesMsg ? (
-                  <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)', marginTop: 12 }}>
-                    {relacoesMsg}
-                  </div>
-                ) : relacoes.length > 0 && (
-                  <div style={{ marginTop: 12 }}>
-                    <h4 style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Relações Cross-Domain Materializadas</h4>
+                  {sectionLoading.opp ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, gap: 8 }}>
+                      <div className="spinner" style={{ width: 14, height: 14 }} />
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Carregando oportunidades...</span>
+                    </div>
+                  ) : sectionErrors.opp ? (
+                    <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: '#EF4444', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                      <AlertTriangle size={16} />
+                      <span>Não foi possível carregar as oportunidades deste recorte.</span>
+                    </div>
+                  ) : oportunidadesMsg ? (
+                    <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
+                      {oportunidadesMsg}
+                    </div>
+                  ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 11 }}>
-                      {relacoes.slice(0, 5).map((rel, idx) => (
-                        <div key={idx} style={{ padding: 10, background: 'var(--bg-base)', borderRadius: 6, border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                          <div>
-                            <strong style={{ color: 'var(--text-primary)' }}>{rel.source_type} → {rel.target_type}</strong>
-                            <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>{rel.tipo_relacao} · {rel.evidencia}</div>
+                      {oportunidades.slice(0, 5).map((opp, idx) => (
+                        <div key={idx} style={{ padding: 10, background: 'var(--bg-base)', borderRadius: 6, border: '1px solid var(--border-subtle)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <strong style={{ color: 'var(--text-primary)' }}>{opp.titulo || opp.tipo_relacao}</strong>
+                            <span style={{ color: opp.classificacao === 'CONFIRMADO' ? '#22C55E' : '#06B6D4', fontWeight: 700 }}>
+                              {opp.classificacao} ({Math.round(opp.score || 0)}%)
+                            </span>
                           </div>
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, color: rel.classificacao === 'CONFIRMADO' ? '#22C55E' : rel.classificacao === 'PROVÁVEL' ? '#06B6D4' : '#F59E0B', background: rel.classificacao === 'CONFIRMADO' ? 'rgba(34,197,94,0.15)' : rel.classificacao === 'PROVÁVEL' ? 'rgba(6,182,212,0.15)' : 'rgba(245,158,11,0.15)' }}>
-                            {rel.classificacao} ({Math.round(rel.score || 0)}%)
-                          </span>
+                          <div style={{ color: 'var(--text-secondary)', marginTop: 2, fontSize: 10 }}>{opp.descricao || opp.evidencia}</div>
+                          {opp.limitacoes && <div style={{ fontSize: 9, color: 'var(--text-tertiary)', marginTop: 2 }}>{opp.limitacoes}</div>}
                         </div>
                       ))}
                     </div>
+                  )}
+                </div>
+
+                {/* === Relações === */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>Relações Cross-Domain</span>
+                    {sectionErrors.rel && (
+                      <button onClick={() => retrySection('rel')} style={{ marginLeft: 'auto', height: 22, padding: '0 8px', fontSize: 10, fontWeight: 600, background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <RefreshCw size={9} /> Tentar novamente
+                      </button>
+                    )}
                   </div>
-                )}
+                  {sectionLoading.rel ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, gap: 8 }}>
+                      <div className="spinner" style={{ width: 14, height: 14 }} />
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Carregando relações...</span>
+                    </div>
+                  ) : sectionErrors.rel ? (
+                    <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: '#EF4444', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                      <AlertTriangle size={16} />
+                      <span>Não foi possível carregar as relações deste recorte.</span>
+                    </div>
+                  ) : relacoesMsg ? (
+                    <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
+                      {relacoesMsg}
+                    </div>
+                  ) : relacoes.length > 0 ? (
+                    <div>
+                      <h4 style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Relações Cross-Domain Materializadas</h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 11 }}>
+                        {relacoes.slice(0, 5).map((rel, idx) => (
+                          <div key={idx} style={{ padding: 10, background: 'var(--bg-base)', borderRadius: 6, border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                            <div>
+                              <strong style={{ color: 'var(--text-primary)' }}>{rel.source_type} → {rel.target_type}</strong>
+                              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>{rel.tipo_relacao} · {rel.evidencia}</div>
+                            </div>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, color: rel.classificacao === 'CONFIRMADO' ? '#22C55E' : rel.classificacao === 'PROVÁVEL' ? '#06B6D4' : '#F59E0B', background: rel.classificacao === 'CONFIRMADO' ? 'rgba(34,197,94,0.15)' : rel.classificacao === 'PROVÁVEL' ? 'rgba(6,182,212,0.15)' : 'rgba(245,158,11,0.15)' }}>
+                              {rel.classificacao} ({Math.round(rel.score || 0)}%)
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
+                      Nenhuma relação cross-domain materializada para este recorte.
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div style={{ borderTop: '1px solid var(--border-default, #1E293B)', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, fontSize: 10, color: 'var(--text-tertiary)' }}>
