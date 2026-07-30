@@ -1,0 +1,30 @@
+import asyncio,hashlib,json,os
+from datetime import datetime,timezone
+from pathlib import Path
+from playwright.async_api import async_playwright
+BASE='https://winshubcomercial.com.br:18443';USER=os.environ['WINS_HUB_GATE_USER'];PASSWORD=os.environ['WINS_HUB_GATE_PASSWORD'];OUT=Path('screenshots/final-navigation-20260722')
+if USER.casefold() == 'williamvnvn@gmail.com': raise RuntimeError('Usuários humanos não podem ser usados por gates automatizados')
+WORK='646f5228-6bed-4a33-bf72-9246989c7a26';CNES='2216221'
+async def main():
+ OUT.mkdir(parents=True,exist_ok=True);result={'host':'winshubcomercial.com.br:18443','startedAt':datetime.now(timezone.utc).isoformat(),'api':[],'httpErrors':[],'consoleErrors':[],'steps':[],'screens':[]}
+ async with async_playwright() as p:
+  browser=await p.chromium.launch(executable_path='/usr/bin/chromium-browser',headless=True,args=['--no-sandbox']);ctx=await browser.new_context(viewport={'width':1440,'height':1000});page=await ctx.new_page()
+  page.on('response',lambda r:result['api'].append({'status':r.status,'url':r.url}) if '/api/v1/' in r.url else None);page.on('response',lambda r:result['httpErrors'].append({'status':r.status,'url':r.url}) if r.status>=400 else None);page.on('console',lambda m:result['consoleErrors'].append({'text':m.text,'url':page.url}) if m.type=='error' else None)
+  await page.goto(BASE+'/demo/login',wait_until='networkidle');await page.get_by_role('button',name='Entrar com Keycloak').click();await page.locator('#username').fill(USER);await page.locator('#password').fill(PASSWORD);await page.locator('#kc-login').click();await page.wait_for_url('**/demo/**')
+  async def shot(name,selector):
+   path=OUT/f'{name}.png';loc=page.locator(selector);await loc.wait_for(timeout=45000);await loc.screenshot(path=str(path));raw=path.read_bytes();box=await loc.bounding_box();result['screens'].append({'name':name,'file':str(path),'bytes':len(raw),'dimensions':[round(box['width']),round(box['height'])],'sha256':hashlib.sha256(raw).hexdigest(),'timestamp':datetime.now(timezone.utc).isoformat(),'url':page.url,'selector':selector})
+  async def click_step(name,locator,expected):
+   href=await locator.get_attribute('href');await locator.click();await page.locator(expected).wait_for(timeout=45000);result['steps'].append({'name':name,'href':href,'landedUrl':page.url,'selector':expected})
+  await page.goto(f'{BASE}/demo/engenharia/obras/{WORK}',wait_until='domcontentloaded');await page.locator('.engineering-page').wait_for()
+  await click_step('obra-fornecedor',page.get_by_text('Abrir fornecedor relacionado').first,'[data-testid="supplier-detail"]');await shot('fornecedor-detalhe','[data-testid="supplier-detail"]')
+  await click_step('fornecedor-oportunidade',page.locator('[data-testid="supplier-detail"] a',has_text='Oportunidade').first,'[data-testid="engineering-opportunity-detail"]');await shot('oportunidade-detalhe','[data-testid="engineering-opportunity-detail"]')
+  await click_step('oportunidade-obra',page.get_by_role('link',name='Obra relacionada'),'.engineering-page');result['steps'][-1]['workValidated']='/engenharia/obras/' in page.url
+  await page.goto(f'{BASE}/demo/engenharia/obras/{WORK}',wait_until='domcontentloaded');await click_step('obra-decisor',page.locator('section.card').filter(has_text='Decisores').locator('a').first,'[data-testid="decision-maker-detail"]');await shot('decisor-detalhe','[data-testid="decision-maker-detail"]')
+  result['steps'].append({'name':'decisor-obra-empresa','workLink':await page.get_by_role('link',name='Construção do CEU da Cultura em Dourados/MS').get_attribute('href'),'companyLinkCount':await page.locator('a[href*="/empresas/"]').count()})
+  for entity,source,label in [('rodovias','BR-381','Pedágios desta rodovia'),('pedagios','3 (Cambuí)','Abrir rodovia'),('postos','1315603','Pedágios do município'),('bases-apoio','AUTOPISTA PLANALTO SUL','Pedágios da concessionária')]:
+   await page.goto(f'{BASE}/demo/logistica/diretorios/{entity}/{source}',wait_until='domcontentloaded');await page.locator('[data-testid="real-directory-detail"]').wait_for(timeout=45000);await shot(f'logistica-{entity}','[data-testid="real-directory-detail"]');await click_step(f'{entity}-relacao',page.locator('a',has_text=label),'[data-testid="real-directory"]')
+  await page.goto(f'{BASE}/demo/logistica/diretorios/pedagios/3%20(Cambu%C3%AD)',wait_until='domcontentloaded');await page.locator('[data-testid="real-directory-detail"] .card',has_text='Vínculo entre entidades').wait_for(timeout=45000);result['steps'].append({'name':'pedagio-posto-base','postos':await page.locator('a',has_text='Postos do município').count(),'bases':await page.locator('a',has_text='Bases da concessionária').count()})
+  await page.goto(f'{BASE}/demo/saude/estabelecimentos/{CNES}',wait_until='domcontentloaded');await page.locator('[data-testid="cnes-professionals"]').wait_for(timeout=45000);await shot('cnes-profissionais','[data-testid="saude-cnes-detail"]');await click_step('cnes-medico',page.locator('[data-testid="cnes-professionals"] a.related-row').first,'[data-testid="real-directory-detail"]');await shot('medico-detalhe','[data-testid="real-directory-detail"]');await click_step('medico-cnes',page.locator('a',has_text='Voltar ao CNES de origem'),'[data-testid="saude-cnes-detail"]')
+  result['endedAt']=datetime.now(timezone.utc).isoformat();result['uniqueHashes']=len({x['sha256'] for x in result['screens']})==len(result['screens']);result['invalidStatuses']=[x for x in result['api'] if x['status'] in (401,503)];chain_ok=any(x.get('workValidated') for x in result['steps']) and any(x.get('postos')==1 and x.get('bases')==1 for x in result['steps']);result['verdict']='PASS' if chain_ok and result['uniqueHashes'] and not result['invalidStatuses'] and not result['httpErrors'] and not result['consoleErrors'] else 'FAIL';await browser.close()
+ Path('staging/final_navigation_gate.json').write_text(json.dumps(result,ensure_ascii=False,indent=2));print(json.dumps({k:result[k] for k in ('verdict','uniqueHashes','invalidStatuses','httpErrors','consoleErrors','steps')},ensure_ascii=False,indent=2))
+asyncio.run(main())

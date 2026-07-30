@@ -1,0 +1,5 @@
+{
+  "host": "winshubcomercial.com.br:18443",
+  "verdict": "FAIL",
+  "error": "TimeoutError: Timeout 30000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation to \"**/demo/**\" until 'load'\n  navigated to \"https://winshubcomercial.com.br/auth/realms/wins-hub-staging/login-actions/authenticate?execution=f77187d4-1ecc-42ad-881e-ec176058c5c8&client_id=wins-hub-spa&tab_id=VRkz5-azv8k&client_data=eyJydSI6Imh0dHBzOi8vd2luc2h1YmNvbWVyY2lhbC5jb20uYnIvZW5nZW5oYXJpYSIsInJ0IjoiY29kZSIsInJtIjoiZnJhZ21lbnQiLCJzdCI6Ijg1ZjUyOWQ1LWMxZjEtNDBmOS1iNTFjLTViY2RkOTBiNmZjYiJ9\"\n============================================================"
+}

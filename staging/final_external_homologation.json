@@ -1,0 +1,697 @@
+{
+  "base": "https://winshubcomercial.com.br:18443/demo/",
+  "auth": {
+    "flow": "authorization_code + PKCE S256",
+    "token_issued": true,
+    "refresh_token_issued": true,
+    "issuer": "https://winshubcomercial.com.br:18443/auth/realms/wins-hub-staging",
+    "audience": [
+      "wins-hub-spa",
+      "account"
+    ],
+    "subject": "2311e7c4-8a21-48fd-aa96-3cb2a636a6c5",
+    "roles": [
+      "comercial",
+      "empresa360",
+      "engenharia",
+      "offline_access",
+      "analista",
+      "default-roles-wins-hub-staging",
+      "saude",
+      "logistica",
+      "uma_authorization",
+      "relatorios",
+      "agro"
+    ],
+    "expires_at": 1784724735,
+    "authorization_code_exchanges": [
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      },
+      {
+        "status": 200,
+        "request_keys": [
+          "client_id",
+          "code",
+          "code_verifier",
+          "grant_type",
+          "redirect_uri"
+        ],
+        "error": null
+      }
+    ],
+    "session_cookies": [
+      {
+        "name": "AUTH_SESSION_ID",
+        "domain": "winshubcomercial.com.br",
+        "secure": true,
+        "sameSite": "None"
+      },
+      {
+        "name": "KC_AUTH_SESSION_HASH",
+        "domain": "winshubcomercial.com.br",
+        "secure": true,
+        "sameSite": "None"
+      },
+      {
+        "name": "KEYCLOAK_IDENTITY",
+        "domain": "winshubcomercial.com.br",
+        "secure": true,
+        "sameSite": "None"
+      },
+      {
+        "name": "KEYCLOAK_SESSION",
+        "domain": "winshubcomercial.com.br",
+        "secure": true,
+        "sameSite": "None"
+      }
+    ],
+    "server_date": "Wed, 22 Jul 2026 12:50:19 GMT",
+    "refresh_status": 200,
+    "refresh_token_rotated": true,
+    "logout_url": "https://winshubcomercial.com.br:18443/demo/login"
+  },
+  "screens": [
+    {
+      "name": "engenharia",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/01-engenharia.png",
+      "sha256": "a0563f0517338d73cb1aa7509b02998f3adbb8d9ef9ea5b1038dd4eb160f512c",
+      "bytes": 188422,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:26.001474+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "h1",
+      "entity": "Campo de Petróleo: Búzios (Transfer of Rights) (Santos)",
+      "source": "wins_agro.engenharia.obras",
+      "api": [
+        {
+          "screen": "engenharia",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/obras?page=1&page_size=100&sort=investment_desc"
+        },
+        {
+          "screen": "engenharia",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/fornecedores?page=1&page_size=100&active=true"
+        },
+        {
+          "screen": "engenharia",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/oportunidades?page=1&page_size=100&min_score=70"
+        }
+      ]
+    },
+    {
+      "name": "detalhe-obra",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/02-detalhe-obra.png",
+      "sha256": "22e707d6924f3a0c9acccfb0d3be58240f1d07360def1befaf6c509f0737a522",
+      "bytes": 424264,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:28.404316+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/obras/44f06f4a-fde2-4ae3-a0a4-f1b85eff0835",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "h1",
+      "entity": "Campo de Petróleo: Búzios (Transfer of Rights) (Santos)",
+      "source": "wins_agro.engenharia.obras",
+      "api": [
+        {
+          "screen": "detalhe-obra",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/obras/44f06f4a-fde2-4ae3-a0a4-f1b85eff0835"
+        }
+      ]
+    },
+    {
+      "name": "empresa-360",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/03-empresa-360.png",
+      "sha256": "b9ba1ef7d2feaf85c2a09a954c7db616643cffe56cda5d545870f336cc469aad",
+      "bytes": 216100,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:30.505289+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/empresas/00860254001232",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "h1",
+      "entity": "Multilab Laboratorio De Analises Clinicas Ltda",
+      "source": "wins_agro.core.empresa",
+      "api": [
+        {
+          "screen": "empresa-360",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/empresas/00860254001232"
+        }
+      ]
+    },
+    {
+      "name": "agro",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/04-agro.png",
+      "sha256": "a2236937c25bdd635f8ebb9de07bc867744c57d14146fca037f339115c4357cd",
+      "bytes": 221837,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:33.305425+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "h1",
+      "entity": "Inteligência Agro Real",
+      "source": "SICAR / CAR / CREA / RFB",
+      "api": [
+        {
+          "screen": "agro",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/agro/imoveis?page_size=20"
+        },
+        {
+          "screen": "agro",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/agro/tecnicos?page_size=15"
+        },
+        {
+          "screen": "agro",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/agro/veterinaria/classificacao"
+        }
+      ]
+    },
+    {
+      "name": "detalhe-imovel",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/05-detalhe-imovel.png",
+      "sha256": "c6d0db9f087af4fec803a3ba69064b7fb1994eccbfa17d7d8f727f8efa850407",
+      "bytes": 94466,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:35.311795+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/imoveis/8995552",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "[data-testid=\"agro-imovel-detail\"]",
+      "entity": "MA-2114007-3F4B6D3F20B24FDA94262C6FB8DAF727",
+      "source": "wins_agro.prospeccao.imovel_rural",
+      "api": [
+        {
+          "screen": "detalhe-imovel",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/agro/imoveis/8995552"
+        }
+      ]
+    },
+    {
+      "name": "ficha-reprodutor",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/06-ficha-reprodutor.png",
+      "sha256": "ca4e89286e2c79bf11d7e36472672cee30b7f078ba9a21bfad83317f672653c7",
+      "bytes": 84623,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:37.080314+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/reprodutores/CXP0272",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "[data-testid=\"agro-reprodutor-detail\"]",
+      "entity": "CAFE · CXP0272",
+      "source": "wins_agro.mercado.reprodutor",
+      "api": [
+        {
+          "screen": "ficha-reprodutor",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/agro/reprodutores/CXP0272"
+        }
+      ]
+    },
+    {
+      "name": "genealogia-ausente",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/07-genealogia-ausente.png",
+      "sha256": "6b75c0a355c5b4fe48be08796dbd41ac1cfeb123383bb2a3e54f886d869adb41",
+      "bytes": 78821,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:39.584051+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/genealogia/JCVL3176",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "[data-testid=\"genealogia-ausente\"]",
+      "entity": "JCVL3176",
+      "source": "wins_agro.mercado.reprodutor",
+      "api": [
+        {
+          "screen": "genealogia-ausente",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/agro/genealogia/JCVL3176"
+        }
+      ]
+    },
+    {
+      "name": "genealogia-completa",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/08-genealogia-completa.png",
+      "sha256": "6aad085713daa7123f1f4ff4157eb338542311036f16315d74eecd4d7885d4b2",
+      "bytes": 83709,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:41.472884+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/genealogia/CXP0272",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "[data-testid=\"genealogia-arvore\"]",
+      "entity": "CXP0272",
+      "source": "wins_agro.mercado.reprodutor",
+      "api": [
+        {
+          "screen": "genealogia-completa",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/agro/genealogia/CXP0272"
+        }
+      ]
+    },
+    {
+      "name": "doadoras",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/09-doadoras.png",
+      "sha256": "ce8e2ca859d83bbd6fbb98defff7622c4da53e7f7741f805a0304f077ffe73eb",
+      "bytes": 77584,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:43.701565+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/doadoras",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "[data-testid=\"agro-doadoras\"]",
+      "entity": "6 doadoras",
+      "source": "wins_agro.mercado.doadora",
+      "api": [
+        {
+          "screen": "doadoras",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/agro/doadoras"
+        }
+      ]
+    },
+    {
+      "name": "embrioes",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/10-embrioes.png",
+      "sha256": "a77b05feaffb59ace4d1dbb599b776d3706e4da752f6fe7cfd32c629d9f7d718",
+      "bytes": 93958,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:45.688349+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/agro/embrioes",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "[data-testid=\"agro-embrioes\"]",
+      "entity": "34 lotes",
+      "source": "wins_agro.mercado.oferta_embriao",
+      "api": [
+        {
+          "screen": "embrioes",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/agro/embrioes"
+        }
+      ]
+    },
+    {
+      "name": "logistica",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/11-logistica.png",
+      "sha256": "d9f091a75a58dd550b7544575e4de90ca269b4e58783537af6774a1e5c17e8a0",
+      "bytes": 190780,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:50.009154+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "h1",
+      "entity": "Inteligência Logística Real",
+      "source": "caminhao_vazio_staging.rntrc_transportadores",
+      "api": [
+        {
+          "screen": "logistica",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/logistica/transportadores?page_size=25"
+        }
+      ]
+    },
+    {
+      "name": "saude",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/12-saude.png",
+      "sha256": "0bc8fa4b5f73c79cae67a835a458c3792f6c41e1dbf6bcc91ef4c15c18748b5a",
+      "bytes": 207321,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:52.782657+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/saude",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "h1",
+      "entity": "Inteligência em Saúde Real",
+      "source": "wins_saude_staging.estabelecimentos",
+      "api": [
+        {
+          "screen": "saude",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos?page_size=25"
+        }
+      ]
+    },
+    {
+      "name": "detalhe-cnes",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/13-detalhe-cnes.png",
+      "sha256": "a248db0066e4629343ad201f732d213b2c1bc9c6d8a3318c516e411a70ce74db",
+      "bytes": 87327,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:54.794628+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/saude/estabelecimentos/9999981",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "[data-testid=\"saude-cnes-detail\"]",
+      "entity": "AME ATENDIMENTO DE MEDICINA ESPECIALIZADA",
+      "source": "DATASUS CNES",
+      "api": [
+        {
+          "screen": "detalhe-cnes",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos/9999981/capacidade"
+        },
+        {
+          "screen": "detalhe-cnes",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos/9999981/equipamentos"
+        },
+        {
+          "screen": "detalhe-cnes",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos/9999981"
+        },
+        {
+          "screen": "detalhe-cnes",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos/9999981/profissionais"
+        }
+      ]
+    },
+    {
+      "name": "relacionamentos",
+      "file": "/root/wins_hub_unificado/screenshots/final-external-20260722/14-relacionamentos.png",
+      "sha256": "a3900afaaf5c6694d0783a66094c55e3e8f2195427e928a50a3c7a5a5c530aff",
+      "bytes": 211676,
+      "width": 1440,
+      "height": 900,
+      "timestamp": "2026-07-22T12:50:59.992328+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/relacionamentos",
+      "host": "winshubcomercial.com.br:18443",
+      "selector": "h1",
+      "entity": "Relacionamentos",
+      "source": "fontes reais multiverticais",
+      "api": [
+        {
+          "screen": "relacionamentos",
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/relacionamentos?municipality=Rondon%C3%B3polis"
+        }
+      ]
+    }
+  ],
+  "console_errors": [],
+  "http_errors": [],
+  "genealogy": {
+    "absent": {
+      "registro": "JCVL3176",
+      "classification": "AUSENTE",
+      "message": "Genealogia não disponível na fonte.",
+      "parents_null": true
+    },
+    "complete": {
+      "registro": "CXP0272",
+      "classification": "COMPLETA",
+      "sire": {
+        "registro": "JHVM5812",
+        "nome": "SAMARITANO DO JHV"
+      },
+      "dam": {
+        "registro": "CXP0039",
+        "nome": "GATINHA"
+      },
+      "maternalGrandSire": {
+        "registro": "MOZA1261",
+        "nome": "1261 DA SORRISO"
+      },
+      "source": "geneplus",
+      "evaluations": 20
+    }
+  },
+  "veterinary_categories": [
+    {
+      "category": "médico veterinário com CRMV comprovado",
+      "table": "nenhuma fonte oficial de conselho",
+      "identifier": "CRMV + UF + situação",
+      "fields": [
+        "nome",
+        "crmv",
+        "uf_conselho",
+        "situacao",
+        "titulo",
+        "fonte_profissional"
+      ],
+      "count": 0,
+      "confidence": "não comprovado"
+    },
+    {
+      "category": "registro com número CRMV sem situação do conselho",
+      "table": "prospeccao.v_tecnico_full",
+      "identifier": "crmv/crmv_uf",
+      "fields": [
+        "nome",
+        "crmv",
+        "crmv_uf",
+        "profissao",
+        "fonte_nome"
+      ],
+      "count": 502,
+      "confidence": "indício; não declarar ativo"
+    },
+    {
+      "category": "registro nominal sem CRMV",
+      "table": "prospeccao.vet_nome",
+      "identifier": "cnpj_basico",
+      "fields": [
+        "nome_pf",
+        "fonte_nome",
+        "socio_qualif"
+      ],
+      "count": 48299,
+      "confidence": "nominal"
+    },
+    {
+      "category": "empresa de serviços veterinários",
+      "table": "cnpj.empresa_vet",
+      "identifier": "cnpj_basico",
+      "fields": [
+        "razao_social",
+        "natureza_juridica",
+        "porte"
+      ],
+      "count": 50861,
+      "confidence": "RFB"
+    },
+    {
+      "category": "estabelecimento veterinário",
+      "table": "cnpj.estabelecimento_vet",
+      "identifier": "CNPJ completo",
+      "fields": [
+        "nome_fantasia",
+        "CNAE",
+        "municipio",
+        "UF",
+        "situacao_cadastral"
+      ],
+      "count": 77740,
+      "confidence": "RFB"
+    },
+    {
+      "category": "decisor empresarial",
+      "table": "cnpj.socio_vet",
+      "identifier": "cnpj_basico + socio",
+      "fields": [
+        "nome_socio",
+        "qualificacao_socio"
+      ],
+      "count": 60511,
+      "confidence": "vínculo societário RFB; não é CRMV"
+    }
+  ],
+  "veterinary_companies_sample": [
+    {
+      "cnpj": "66674216000140",
+      "razao_social": "ARTEMIS LTDA",
+      "cnae": "7500100",
+      "municipio": "BELO HORIZONTE",
+      "uf": "MG",
+      "tipo_entidade": "empresa de serviços veterinários",
+      "fonte": "RFB / CNPJ",
+      "atualizacao": "20260508"
+    },
+    {
+      "cnpj": "66674261000103",
+      "razao_social": "LANNA COZENDEY MACHADO PEREIRA",
+      "cnae": "7500100",
+      "municipio": "MIMOSO DO SUL",
+      "uf": "ES",
+      "tipo_entidade": "empresa de serviços veterinários",
+      "fonte": "RFB / CNPJ",
+      "atualizacao": "20260508"
+    },
+    {
+      "cnpj": "66674451000112",
+      "razao_social": "SAGRILLO PERFORMANCE EQUINA LTDA",
+      "cnae": "7500100",
+      "municipio": "UBERABA",
+      "uf": "MG",
+      "tipo_entidade": "empresa de serviços veterinários",
+      "fonte": "RFB / CNPJ",
+      "atualizacao": "20260508"
+    }
+  ],
+  "unique_hashes": true
+}

@@ -1,0 +1,296 @@
+{
+  "host": "winshubcomercial.com.br:18443",
+  "startedAt": "2026-07-22T14:29:02.878371+00:00",
+  "api": [
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/obras/646f5228-6bed-4a33-bf72-9246989c7a26"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/fornecedores/00437218000370"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/oportunidades/cb74315f-822b-4c1d-ad21-32390764347c-00437218000370"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/obras/cb74315f-822b-4c1d-ad21-32390764347c"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/obras/646f5228-6bed-4a33-bf72-9246989c7a26"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/decisores/84136f62-e864-45e0-8755-0f2803fe8c3b"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/rodovias/BR-381"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/pedagios?page=1&page_size=25&search=BR-381&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/pedagios/3%20(Cambu%C3%AD)"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/rodovias?page=1&page_size=25&search=BR-381&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/postos/1315603"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/bases-apoio/AUTOPISTA%20PLANALTO%20SUL"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/pedagios?page=1&page_size=25&search=AUTOPISTA+PLANALTO+SUL&sort=updated_desc"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/pedagios/3%20(Cambu%C3%AD)"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos/2216221"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos/2216221/capacidade"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos/2216221/profissionais"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos/2216221/equipamentos"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/medicos/248"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos/2216221/profissionais"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos/2216221/capacidade"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos/2216221"
+    },
+    {
+      "status": 200,
+      "url": "https://winshubcomercial.com.br:18443/api/v1/saude/estabelecimentos/2216221/equipamentos"
+    }
+  ],
+  "httpErrors": [],
+  "consoleErrors": [],
+  "steps": [
+    {
+      "name": "obra-fornecedor",
+      "href": "/demo/fornecedores/00437218000370",
+      "landedUrl": "https://winshubcomercial.com.br:18443/demo/fornecedores/00437218000370",
+      "selector": "[data-testid=\"supplier-detail\"]"
+    },
+    {
+      "name": "fornecedor-oportunidade",
+      "href": "/demo/engenharia/oportunidades/cb74315f-822b-4c1d-ad21-32390764347c-00437218000370",
+      "landedUrl": "https://winshubcomercial.com.br:18443/demo/engenharia/oportunidades/cb74315f-822b-4c1d-ad21-32390764347c-00437218000370",
+      "selector": "[data-testid=\"engineering-opportunity-detail\"]"
+    },
+    {
+      "name": "oportunidade-obra",
+      "href": "/demo/engenharia/obras/cb74315f-822b-4c1d-ad21-32390764347c",
+      "landedUrl": "https://winshubcomercial.com.br:18443/demo/engenharia/obras/cb74315f-822b-4c1d-ad21-32390764347c",
+      "selector": ".engineering-page",
+      "workValidated": true
+    },
+    {
+      "name": "obra-decisor",
+      "href": "/demo/decisores/84136f62-e864-45e0-8755-0f2803fe8c3b",
+      "landedUrl": "https://winshubcomercial.com.br:18443/demo/decisores/84136f62-e864-45e0-8755-0f2803fe8c3b",
+      "selector": "[data-testid=\"decision-maker-detail\"]"
+    },
+    {
+      "name": "decisor-obra-empresa",
+      "workLink": "/demo/engenharia/obras/646f5228-6bed-4a33-bf72-9246989c7a26",
+      "companyLinkCount": 1
+    },
+    {
+      "name": "rodovias-relacao",
+      "href": "/demo/logistica/diretorios/pedagios?search=BR-381",
+      "landedUrl": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/pedagios?search=BR-381",
+      "selector": "[data-testid=\"real-directory\"]"
+    },
+    {
+      "name": "pedagios-relacao",
+      "href": "/demo/logistica/diretorios/rodovias?search=BR-381",
+      "landedUrl": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/rodovias?search=BR-381",
+      "selector": "[data-testid=\"real-directory\"]"
+    },
+    {
+      "name": "postos-relacao",
+      "href": "/demo/logistica/diretorios/pedagios?search=TERESINA",
+      "landedUrl": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/pedagios?search=TERESINA",
+      "selector": "[data-testid=\"real-directory\"]"
+    },
+    {
+      "name": "bases-apoio-relacao",
+      "href": "/demo/logistica/diretorios/pedagios?search=AUTOPISTA PLANALTO SUL",
+      "landedUrl": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/pedagios?search=AUTOPISTA%20PLANALTO%20SUL",
+      "selector": "[data-testid=\"real-directory\"]"
+    },
+    {
+      "name": "pedagio-posto-base",
+      "postos": 1,
+      "bases": 1
+    },
+    {
+      "name": "cnes-medico",
+      "href": "/demo/saude/diretorios/medicos/248?originCnes=2216221",
+      "landedUrl": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/medicos/248?originCnes=2216221",
+      "selector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "name": "medico-cnes",
+      "href": "/demo/saude/estabelecimentos/2216221",
+      "landedUrl": "https://winshubcomercial.com.br:18443/demo/saude/estabelecimentos/2216221",
+      "selector": "[data-testid=\"saude-cnes-detail\"]"
+    }
+  ],
+  "screens": [
+    {
+      "name": "fornecedor-detalhe",
+      "file": "screenshots/final-navigation-20260722/fornecedor-detalhe.png",
+      "bytes": 306351,
+      "dimensions": [
+        1152,
+        2147
+      ],
+      "sha256": "89068d829f3d2ff4c4fdaa46745074bb08204a2afc7e129634b5e70777e1515f",
+      "timestamp": "2026-07-22T14:29:14.664146+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/fornecedores/00437218000370",
+      "selector": "[data-testid=\"supplier-detail\"]"
+    },
+    {
+      "name": "oportunidade-detalhe",
+      "file": "screenshots/final-navigation-20260722/oportunidade-detalhe.png",
+      "bytes": 160436,
+      "dimensions": [
+        1152,
+        402
+      ],
+      "sha256": "ae33733f44901b2974a501b0d5cd32f5f0a8f79bf9a7507408562c9d7d03e29f",
+      "timestamp": "2026-07-22T14:29:15.757145+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/engenharia/oportunidades/cb74315f-822b-4c1d-ad21-32390764347c-00437218000370",
+      "selector": "[data-testid=\"engineering-opportunity-detail\"]"
+    },
+    {
+      "name": "decisor-detalhe",
+      "file": "screenshots/final-navigation-20260722/decisor-detalhe.png",
+      "bytes": 126803,
+      "dimensions": [
+        1152,
+        366
+      ],
+      "sha256": "134f192dfe5a0d066f27f3cd0b5cd877ecb3e5e253e75a7ba9afc0c87b623121",
+      "timestamp": "2026-07-22T14:29:18.586669+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/decisores/84136f62-e864-45e0-8755-0f2803fe8c3b",
+      "selector": "[data-testid=\"decision-maker-detail\"]"
+    },
+    {
+      "name": "logistica-rodovias",
+      "file": "screenshots/final-navigation-20260722/logistica-rodovias.png",
+      "bytes": 61813,
+      "dimensions": [
+        1152,
+        715
+      ],
+      "sha256": "ec146c65674d317efd7865756b197d6b5382f41290ee43b393b3eb961f2aa94b",
+      "timestamp": "2026-07-22T14:29:20.058436+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/rodovias/BR-381",
+      "selector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "name": "logistica-pedagios",
+      "file": "screenshots/final-navigation-20260722/logistica-pedagios.png",
+      "bytes": 76180,
+      "dimensions": [
+        1152,
+        850
+      ],
+      "sha256": "8f3d832b96f8ed9a7a43177e359d1524ff4e8b4f8f53d54debc92d4edb5de0ec",
+      "timestamp": "2026-07-22T14:29:21.958447+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/pedagios/3%20(Cambu%C3%AD)",
+      "selector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "name": "logistica-postos",
+      "file": "screenshots/final-navigation-20260722/logistica-postos.png",
+      "bytes": 97254,
+      "dimensions": [
+        1152,
+        908
+      ],
+      "sha256": "d771720cafe813c1f4766cfa6ae57fb658176f179bb79f8dcc9eaefd0d4803d5",
+      "timestamp": "2026-07-22T14:29:23.565990+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/postos/1315603",
+      "selector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "name": "logistica-bases-apoio",
+      "file": "screenshots/final-navigation-20260722/logistica-bases-apoio.png",
+      "bytes": 68743,
+      "dimensions": [
+        1152,
+        715
+      ],
+      "sha256": "43152eff67a7eb674ba847113529cd50f1247bbcca254fc64653d0ecca30f473",
+      "timestamp": "2026-07-22T14:29:25.086256+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/logistica/diretorios/bases-apoio/AUTOPISTA%20PLANALTO%20SUL",
+      "selector": "[data-testid=\"real-directory-detail\"]"
+    },
+    {
+      "name": "cnes-profissionais",
+      "file": "screenshots/final-navigation-20260722/cnes-profissionais.png",
+      "bytes": 91394,
+      "dimensions": [
+        1152,
+        1466
+      ],
+      "sha256": "adfc947b977667b67f37b95425d3565f5c048e7a4d89baa6183566cb7eb23422",
+      "timestamp": "2026-07-22T14:29:29.061594+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/saude/estabelecimentos/2216221",
+      "selector": "[data-testid=\"saude-cnes-detail\"]"
+    },
+    {
+      "name": "medico-detalhe",
+      "file": "screenshots/final-navigation-20260722/medico-detalhe.png",
+      "bytes": 91663,
+      "dimensions": [
+        1152,
+        908
+      ],
+      "sha256": "b5824b68c1894e1e883ed5ce9981d47417c45a948f1c7d1f93bb28c5ab44cb1b",
+      "timestamp": "2026-07-22T14:29:29.669167+00:00",
+      "url": "https://winshubcomercial.com.br:18443/demo/saude/diretorios/medicos/248?originCnes=2216221",
+      "selector": "[data-testid=\"real-directory-detail\"]"
+    }
+  ],
+  "endedAt": "2026-07-22T14:29:31.167021+00:00",
+  "uniqueHashes": true,
+  "invalidStatuses": [],
+  "verdict": "PASS"
+}

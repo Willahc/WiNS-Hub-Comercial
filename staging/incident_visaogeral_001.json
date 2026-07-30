@@ -1,0 +1,34 @@
+{
+  "incident_id": "SR-2026-07-21-001",
+  "type": "shadow_run",
+  "severity": "alta",
+  "status": "corrigido",
+  "title": "Carregamento infinito na Visão Geral + perfil VIEWER incorreto",
+  "cause": {
+    "root_cause_loading": "useHub() sem catch() — promessa rejeitada mantinha data=null infinitamente",
+    "root_cause_viewer": "auth.tsx lia roles de resource_access.wins-hub-spa.roles (inexistente) em vez de realm_access.roles"
+  },
+  "affected_endpoints": {
+    "frontend_route": "/demo/visao-geral",
+    "api_health": "GET /api/v1/health → 200 OK",
+    "jwt_issuer": "https://winshubcomercial.com.br:18443/auth/realms/wins-hub-staging"
+  },
+  "duration_minutes": 45,
+  "corrections": [
+    "useHub() agora possui catch(), timeout de 30s, estado de erro com botão 'Tentar novamente'",
+    "auth.tsx lê realm_access.roles para perfil (analista) e mapeia permissões (engenharia, empresa360, comercial)",
+    "refreshSession() corrigido com mesma lógica de mapeamento de perfil",
+    "Todas as páginas que usam useHub() tratam loading, error e empty states"
+  ],
+  "impact": "Usuário autenticado via Keycloak via perfil 'VIEWER' sem acesso aos módulos contratados. Tela ficava em loading infinito em caso de falha de API.",
+  "needs_restart": false,
+  "verified": {
+    "login_temp_password": "OK — invalid_grant com UPDATE_PASSWORD",
+    "login_permanent": "OK — token JWT emitido com realm_access.roles corretas",
+    "profile_displayed": "ANALISTA",
+    "permissions": ["engenharia", "empresa360", "comercial"],
+    "logout": "204 No Content",
+    "re_login": "OK"
+  },
+  "registered_at": "2026-07-21T15:45:00Z"
+}

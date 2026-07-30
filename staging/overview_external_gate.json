@@ -1,0 +1,130 @@
+{
+  "host": "winshubcomercial.com.br:18443",
+  "views": [
+    {
+      "name": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "api": [
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/eventos"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/obras?page=1&page_size=25&sort=updated_desc"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/empresas?page_size=100&active=true&sort=updated_desc"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/imoveis?page=1&page_size=25&sort=updated_desc"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/oportunidades?page_size=100&min_score=70"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/transportadores?page=1&page_size=25&sort=updated_desc"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/estabelecimentos?page=1&page_size=25&sort=updated_desc"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/visao-geral/mapa"
+        }
+      ],
+      "consoleErrors": [],
+      "httpErrors": [],
+      "visibleSidebarControls": 1,
+      "hasImproperZero": false,
+      "verticalsVisible": true,
+      "kpiCount": 8,
+      "relationshipCount": 5,
+      "clusterCount": 18,
+      "contextlessClusters": 0,
+      "mapClickable": true,
+      "screenshot": {
+        "file": "screenshots/overview-integrated-20260722/visao-geral-depois-desktop.png",
+        "bytes": 311233,
+        "sha256": "d59197678e4f4ce3d556e3ca460f78cd5dcb463e6c829fe27e88b0914985e90a",
+        "timestamp": "2026-07-22T18:02:28.382362+00:00",
+        "url": "https://winshubcomercial.com.br:18443/demo/visao-geral",
+        "dimensions": [
+          1440,
+          1000
+        ]
+      }
+    },
+    {
+      "name": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "api": [
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/eventos"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/engenharia/obras?page=1&page_size=25&sort=updated_desc"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/empresas?page_size=100&active=true&sort=updated_desc"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/agro/imoveis?page=1&page_size=25&sort=updated_desc"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/saude/estabelecimentos?page=1&page_size=25&sort=updated_desc"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/oportunidades?page_size=100&min_score=70"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/diretorios/logistica/transportadores?page=1&page_size=25&sort=updated_desc"
+        },
+        {
+          "status": 200,
+          "url": "https://winshubcomercial.com.br:18443/api/v1/visao-geral/mapa"
+        }
+      ],
+      "consoleErrors": [],
+      "httpErrors": [],
+      "visibleSidebarControls": 1,
+      "hasImproperZero": false,
+      "verticalsVisible": true,
+      "kpiCount": 8,
+      "relationshipCount": 5,
+      "clusterCount": 18,
+      "contextlessClusters": 0,
+      "mapClickable": true,
+      "screenshot": {
+        "file": "screenshots/overview-integrated-20260722/visao-geral-depois-mobile.png",
+        "bytes": 350554,
+        "sha256": "8d037a9a55d601b0de291d8fed2fd5abb4714e1cfe04e6d8e5f8a8b8e0f6a883",
+        "timestamp": "2026-07-22T18:02:50.982169+00:00",
+        "url": "https://winshubcomercial.com.br:18443/demo/visao-geral",
+        "dimensions": [
+          390,
+          844
+        ]
+      }
+    }
+  ],
+  "verdict": "PASS"
+}
