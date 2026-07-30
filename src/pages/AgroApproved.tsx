@@ -137,12 +137,12 @@ export default function AgroApproved() {
     if (selectedUf) params.uf = selectedUf;
 
     const settle = await Promise.allSettled([
-      httpClient.get('/api/v1/agro/kpis', { params, signal: controller.signal }),
-      httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'bioma' }, signal: controller.signal }),
-      httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'uso_solo' }, signal: controller.signal }),
-      httpClient.get('/api/v1/agro/mapa', { params: { ...params, zoom: 4 }, signal: controller.signal }),
-      httpClient.get('/api/v1/agro/oportunidades', { params, signal: controller.signal }),
-      httpClient.get('/api/v1/agro/relacoes', { params, signal: controller.signal }),
+      httpClient.get('/agro/kpis', { params, signal: controller.signal }),
+      httpClient.get('/agro/distribuicao', { params: { ...params, tipo: 'bioma' }, signal: controller.signal }),
+      httpClient.get('/agro/distribuicao', { params: { ...params, tipo: 'uso_solo' }, signal: controller.signal }),
+      httpClient.get('/agro/mapa', { params: { ...params, zoom: 4 }, signal: controller.signal }),
+      httpClient.get('/agro/oportunidades', { params, signal: controller.signal }),
+      httpClient.get('/agro/relacoes', { params, signal: controller.signal }),
     ]);
 
     if (controller.signal.aborted) return;
@@ -263,17 +263,17 @@ export default function AgroApproved() {
     try {
       if (section === 'dist') {
         const [bioma, usoSolo] = await Promise.all([
-          httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'bioma' }, signal: controller.signal }),
-          httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'uso_solo' }, signal: controller.signal }),
+          httpClient.get('/agro/distribuicao', { params: { ...params, tipo: 'bioma' }, signal: controller.signal }),
+          httpClient.get('/agro/distribuicao', { params: { ...params, tipo: 'uso_solo' }, signal: controller.signal }),
         ]);
         setDistBioma(bioma.data?.categorias || []);
         setDistUsoSolo(usoSolo.data?.categorias || []);
       } else if (section === 'mapa') {
-        const res = await httpClient.get('/api/v1/agro/mapa', { params: { ...params, zoom: 4 }, signal: controller.signal });
+        const res = await httpClient.get('/agro/mapa', { params: { ...params, zoom: 4 }, signal: controller.signal });
         setMapaClusters(res.data?.clusters || []);
         setMapaTotal(res.data?.total_no_recorte || 0);
       } else if (section === 'opp') {
-        const res = await httpClient.get('/api/v1/agro/oportunidades', { params, signal: controller.signal });
+        const res = await httpClient.get('/agro/oportunidades', { params, signal: controller.signal });
         if (res.data?.message) {
           setOportunidades([]);
           setOportunidadesMsg(res.data.message);
@@ -282,7 +282,7 @@ export default function AgroApproved() {
           setOportunidadesMsg(null);
         }
       } else if (section === 'rel') {
-        const res = await httpClient.get('/api/v1/agro/relacoes', { params, signal: controller.signal });
+        const res = await httpClient.get('/agro/relacoes', { params, signal: controller.signal });
         if (res.data?.message) {
           setRelacoes([]);
           setRelacoesMsg(res.data.message);
