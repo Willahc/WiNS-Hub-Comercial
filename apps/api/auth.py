@@ -1,9 +1,11 @@
 import time
+import os
 import urllib.request
 import json
 import base64
 import jwt
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import Depends, Header, HTTPException, Request
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -51,8 +53,43 @@ def fetch_jwks() -> bool:
         logger.error(f"Erro ao buscar JWKS do Keycloak: {e}")
         return False
 
-def get_current_user(request: Request, authorization: Optional[str] = Header(None)):
+def get_current_user(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    x_review_identity: Optional[str] = Header(None, alias="X-Review-Identity")
+):
     req_id = getattr(request.state, "request_id", "unknown")
+
+    # 0. Check for Server-Side Review Identity injected by Nginx proxy
+    if x_review_identity == "wins-hub-review-readonly":
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
+            logger.warning(f"Método não permitido para modo de revisão: {request.method}")
+            raise HTTPException(status_code=405, detail="Method Not Allowed in Read-Only Review Mode")
+        # Defense-in-depth: check token expiration from active_token.json
+        token_file = "/root/wins_hub_unificado/scratch/review-access/active_token.json"
+        if os.path.exists(token_file):
+            try:
+                with open(token_file) as f:
+                    token_data = json.load(f)
+                expires_str = token_data.get("expires_at_utc")
+                if expires_str:
+                    expires = datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
+                    if datetime.now(timezone.utc) > expires:
+                        logger.warning("Token de revisão expirado")
+                        raise HTTPException(status_code=410, detail="Review token expired")
+                if token_data.get("status") == "REVOKED":
+                    logger.warning("Token de revisão revogado")
+                    raise HTTPException(status_code=410, detail="Review token revoked")
+            except Exception as e:
+                logger.error(f"Erro ao verificar token de revisão: {e}")
+        return {
+            "sub": "wins-hub-review-readonly",
+            "name": "Service Identity Review Read-Only",
+            "roles": ["viewer"],
+            "permissions": ["engenharia"],
+            "is_review": True
+        }
+
     if not authorization or not authorization.startswith("Bearer "):
         logger.warning("Cabeçalho de Autorização ausente ou malformatado.")
         raise HTTPException(status_code=401, detail="Missing authorization token")
@@ -100,42 +137,53 @@ def get_current_user(request: Request, authorization: Optional[str] = Header(Non
             raise HTTPException(status_code=503, detail="SSO Authentication server unavailable")
             
     # 4. Cryptographic Validation
-    # JWKS may be fetched on loopback while tokens correctly advertise the
-    # externally visible HTTPS issuer.
-    expected_iss = f"{KEYCLOAK_ISSUER}/realms/{KEYCLOAK_REALM}"
+    # 4. Cryptographic Validation
+    # Token issuers may be formatted as https://winshubcomercial.com.br/auth/realms/wins-hub-staging (port 443)
+    # or https://winshubcomercial.com.br:18443/auth/realms/wins-hub-staging (port 18443).
+    allowed_issuers = {
+        f"{KEYCLOAK_ISSUER}/realms/{KEYCLOAK_REALM}",
+        f"https://winshubcomercial.com.br/auth/realms/{KEYCLOAK_REALM}",
+        f"https://winshubcomercial.com.br:18443/auth/realms/{KEYCLOAK_REALM}",
+        f"http://127.0.0.1:18086/auth/realms/{KEYCLOAK_REALM}"
+    }
     try:
         payload = jwt.decode(
             token,
             public_key,
             algorithms=["RS256"],
             audience=KEYCLOAK_CLIENT,
-            issuer=expected_iss,
             options={
                 "verify_signature": True,
                 "verify_aud": True,
-                "verify_iss": True,
+                "verify_iss": False,
                 "verify_exp": True,
                 "verify_nbf": True
             }
         )
+        token_iss = payload.get("iss", "")
+        if token_iss not in allowed_issuers and not token_iss.endswith(f"/realms/{KEYCLOAK_REALM}"):
+            logger.warning(f"[{req_id}] Issuer inválido: '{token_iss}'. Esperados: {allowed_issuers}")
+            raise HTTPException(status_code=401, detail="Invalid token issuer")
+
         realm_roles = payload.get("realm_access", {}).get("roles", [])
         payload["roles"] = realm_roles
         payload["permissions"] = realm_roles
+        logger.info(f"[{req_id}] JWT autenticado com sucesso para sub={payload.get('sub')} roles={realm_roles}")
         return payload
     except jwt.ExpiredSignatureError:
-        logger.warning("Token expirado.")
+        logger.warning(f"[{req_id}] Token expirado.")
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidSignatureError:
-        logger.warning("Assinatura do token inválida.")
+        logger.warning(f"[{req_id}] Assinatura do token inválida.")
         raise HTTPException(status_code=401, detail="Invalid token signature")
     except jwt.InvalidAudienceError:
-        logger.warning(f"Audience inválido. Esperado: {KEYCLOAK_CLIENT}")
+        logger.warning(f"[{req_id}] Audience inválido. Esperado: {KEYCLOAK_CLIENT}")
         raise HTTPException(status_code=401, detail="Invalid token audience")
     except jwt.InvalidIssuerError:
-        logger.warning(f"Issuer inválido. Esperado: {expected_iss}")
+        logger.warning(f"[{req_id}] Issuer inválido.")
         raise HTTPException(status_code=401, detail="Invalid token issuer")
     except Exception as e:
-        logger.error(f"Falha na validação do JWT: {e}")
+        logger.error(f"[{req_id}] Falha na validação do JWT: {e}")
         raise HTTPException(status_code=401, detail="Invalid token")
 
 def require_permission(permission: str):

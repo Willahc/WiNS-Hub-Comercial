@@ -205,7 +205,7 @@ export default function AgroApproved() {
     }
     newLoading.opp = false;
 
-    // Relações
+    // Relações — parse structured error (code, message, retryable) when available
     if (relS.status === 'fulfilled') {
       if (relS.value.data?.message) {
         setRelacoes([]);
@@ -217,7 +217,12 @@ export default function AgroApproved() {
       newErrors.rel = null;
     } else {
       setRelacoes([]);
-      setRelacoesMsg('Nenhuma relação cross-domain materializada para este recorte.');
+      const errData = relS.reason?.response?.data;
+      if (errData?.code && errData?.message) {
+        setRelacoesMsg(errData.message);
+      } else {
+        setRelacoesMsg('Nenhuma relação cross-domain materializada para este recorte.');
+      }
       newErrors.rel = 'Não foi possível carregar as relações deste recorte.';
     }
     newLoading.rel = false;

@@ -13,7 +13,7 @@ from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
 
 
 MAX_PAGE_SIZE = 100
-QUERY_TIMEOUT_MS = 60000
+QUERY_TIMEOUT_MS = 120000  # 2 min — Agro aggregate queries need more than 60s
 
 # Catálogo fechado das fontes reais que podem ser expostas como diretório. Nada
 # recebido pela API é interpolado como nome de tabela ou coluna.
