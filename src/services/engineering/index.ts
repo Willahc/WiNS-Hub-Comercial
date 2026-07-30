@@ -63,8 +63,23 @@ export const engineeringService = {
   async getConnections(params:Record<string,unknown>):Promise<{kpis:{multiverticalCompanies:number;multiverticalSuppliers:number;fourVerticalMunicipalities:number;transversalOpportunities:number;confirmedRelations:number;potentialRelations:number};relations:Array<{cnpj:string;name:string;vertical:string;classification:'CONFIRMADO'|'PROVÁVEL'|'POTENCIAL';rule:string;confidence:number;source:string;updatedAt?:string;worksCount:number;opportunitiesCount:number;company360Url:string;worksUrl:string;occurrencesUrl:string;opportunitiesUrl:string}>;municipalPotential:Array<{municipality:string;uf:string;classification:string;rule:string;confidence:number}>;source:string}> {return (await httpClient.get('/engenharia/conexoes',{params,timeout:30000})).data},
 
   // === Supply Chain API ===
-  async getExecutors(options?:{search?:string;uf?:string;especialidade?:string;page?:number;pageSize?:number}):Promise<{items:EngineeringExecutor[];meta:{total:number;page:number;pageSize:number}}> {
-    const r=await httpClient.get('/engenharia/fornecedores',{params:{page:options?.page||1,page_size:options?.pageSize||50,search:options?.search||undefined,uf:options?.uf||undefined,especialidade:options?.especialidade||undefined}});
+  async getExecutors(options?:{
+    search?:string;uf?:string;municipality?:string;especialidade?:string;cnae?:string;sector?:string;
+    classification?:string;situacaoCadastral?:string;porte?:string;hasRelationships?:boolean;
+    hasConfirmed?:boolean;hasProbable?:boolean;hasPotential?:boolean;hasContact?:boolean;
+    hasSite?:boolean;minWorks?:number;sort?:string;page?:number;pageSize?:number
+  }):Promise<{items:any[];meta:{total:number;page:number;pageSize:number;title?:string}}> {
+    const r=await httpClient.get('/engenharia/fornecedores',{params:{
+      page:options?.page||1,page_size:options?.pageSize||25,search:options?.search||undefined,
+      uf:options?.uf||undefined,municipality:options?.municipality||undefined,
+      especialidade:options?.especialidade||undefined,cnae:options?.cnae||undefined,
+      sector:options?.sector||undefined,classification:options?.classification||undefined,
+      situacao_cadastral:options?.situacaoCadastral||undefined,porte:options?.porte||undefined,
+      has_relationships:options?.hasRelationships||undefined,has_confirmed:options?.hasConfirmed||undefined,
+      has_probable:options?.hasProbable||undefined,has_potential:options?.hasPotential||undefined,
+      has_contact:options?.hasContact||undefined,has_site:options?.hasSite||undefined,
+      min_works:options?.minWorks||undefined,sort:options?.sort||'rel_confirmed_desc'
+    }});
     return r.data;
   },
   async getExecutor(id:string):Promise<EngineeringExecutor|undefined> {

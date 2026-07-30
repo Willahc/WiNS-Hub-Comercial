@@ -1599,94 +1599,156 @@ class Wave1Repository:
     # =========================================================================
 
     @staticmethod
-    def executors(page=1, page_size=25, search=None, uf=None, especialidade=None,
-                  papel=None, classification=None, sort="name_asc"):
+    def executors(page=1, page_size=25, search=None, uf=None, municipality=None, especialidade=None,
+                  cnae=None, sector=None, classification=None, situacao_cadastral=None, porte=None,
+                  has_relationships=None, has_confirmed=None, has_probable=None,
+                  has_potential=None, has_contact=None, has_site=None, min_works=None,
+                  sort="rel_confirmed_desc"):
         size, offset = _page(page, page_size)
-        where = ["f.situacao_cadastral = '02'"]
+        where = []
         params = []
+
+        if situacao_cadastral:
+            where.append("f.situacao_cadastral = %s")
+            params.append(situacao_cadastral)
+        else:
+            where.append("f.situacao_cadastral = '02'")
+
         if search:
-            where.append("(f.razao_social ILIKE %s OR f.nome_fantasia ILIKE %s OR f.cnpj ILIKE %s)")
-            params += [f"%{search}%", f"%{search}%", f"%{search}%"]
+            clean_s = search.replace(".", "").replace("/", "").replace("-", "")
+            where.append("(f.razao_social ILIKE %s OR f.nome_fantasia ILIKE %s OR f.cnpj ILIKE %s OR f.cnae_descricao ILIKE %s OR f.municipio_nome ILIKE %s)")
+            params += [f"%{search}%", f"%{search}%", f"%{clean_s}%", f"%{search}%", f"%{search}%"]
+
         if uf:
             where.append("f.uf = %s")
             params.append(uf.upper())
+
+        if municipality:
+            where.append("f.municipio_nome ILIKE %s")
+            params.append(f"%{municipality}%")
+
         if especialidade:
             where.append("(f.cnae_descricao ILIKE %s OR f.cnae_principal ILIKE %s)")
             params += [f"%{especialidade}%", f"%{especialidade}%"]
-        clause = " AND ".join(where)
-        order = "f.razao_social ASC NULLS LAST" if sort == "name_asc" else "f.razao_social DESC NULLS LAST"
-        rows, total = _run(f"""SELECT f.cnpj, f.razao_social, f.nome_fantasia, f.cnae_principal, f.cnae_descricao,
+
+        if cnae:
+            where.append("(f.cnae_principal ILIKE %s OR f.cnae_descricao ILIKE %s)")
+            params += [f"%{cnae}%", f"%{cnae}%"]
+
+        if porte:
+            where.append("(f.porte ILIKE %s OR f.porte_descricao ILIKE %s)")
+            params += [f"%{porte}%", f"%{porte}%"]
+
+        if has_contact:
+            where.append("((f.email IS NOT NULL AND f.email != '') OR (f.telefone_1 IS NOT NULL AND f.telefone_1 != ''))")
+
+        if has_relationships:
+            where.append("prs.total_matches > 0")
+
+        if has_confirmed:
+            where.append("prs.confirmed_count > 0")
+
+        if has_probable:
+            where.append("prs.probable_count > 0")
+
+        if has_potential:
+            where.append("prs.potential_count > 0")
+
+        if min_works and min_works > 0:
+            where.append("prs.total_matches >= %s")
+            params.append(min_works)
+
+        if classification:
+            c_upper = classification.upper()
+            if c_upper == "CONFIRMADO":
+                where.append("prs.confirmed_count > 0")
+            elif c_upper in ["PROVÁVEL", "PROVAVEL"]:
+                where.append("prs.probable_count > 0 AND prs.confirmed_count = 0")
+            elif c_upper == "POTENCIAL":
+                where.append("prs.potential_count > 0 AND prs.confirmed_count = 0 AND prs.probable_count = 0")
+
+        clause = " AND ".join(where) if where else "1=1"
+
+        if sort == "rel_confirmed_desc":
+            order = "prs.confirmed_count DESC NULLS LAST, prs.total_matches DESC NULLS LAST, f.razao_social ASC"
+        elif sort == "rel_probable_desc":
+            order = "prs.probable_count DESC NULLS LAST, prs.total_matches DESC NULLS LAST, f.razao_social ASC"
+        elif sort == "works_desc":
+            order = "prs.total_matches DESC NULLS LAST, f.razao_social ASC"
+        elif sort == "score_desc":
+            order = "prs.best_score DESC NULLS LAST, f.razao_social ASC"
+        elif sort == "updated_desc":
+            order = "f.atualizado_em DESC NULLS LAST"
+        elif sort == "location_asc":
+            order = "f.uf ASC, f.municipio_nome ASC"
+        else:
+            order = "f.razao_social ASC NULLS LAST"
+
+        rows, _ = _run(f"""SELECT f.cnpj, f.razao_social, f.nome_fantasia, f.cnae_principal, f.cnae_descricao,
           f.cnae_secundarios, f.municipio_nome, f.uf, f.porte, f.porte_descricao, f.capital_social,
-          f.atualizado_em source_updated_at, f.situacao, f.situacao_cadastral
-          FROM engenharia.fornecedores f WHERE {clause} ORDER BY {order} LIMIT %s OFFSET %s""",
+          f.atualizado_em source_updated_at, f.situacao, f.situacao_cadastral, f.email, f.telefone_1,
+          coalesce(prs.total_matches, 0) as total_works,
+          coalesce(prs.best_score, 0) as best_score,
+          coalesce(prs.confirmed_count, 0) as confirmed_count,
+          coalesce(prs.probable_count, 0) as probable_count,
+          coalesce(prs.potential_count, 0) as potential_count
+          FROM engenharia.fornecedores f
+          LEFT JOIN public.provider_relationship_summary prs ON prs.cnpj = f.cnpj
+          WHERE {clause} ORDER BY {order} LIMIT %s OFFSET %s""",
           params + [size, offset])
-        total = _estimate_total("engenharia.fornecedores", clause, params, 4094527)
-        cnpjs = [r["cnpj"] for r in rows if r.get("cnpj")]
-        # Carga limitada das obras relacionadas para manter a listagem rápida.
-        # O detalhe /engenharia/fornecedores/{id} mantém as obras completas.
-        works_map = {}
-        if cnpjs:
-            try:
-                m_all, _ = _run("""SELECT cnpj, obra_id::text, nome, setor, fase, score
-                  FROM (SELECT m.cnpj, m.obra_id::text, o.nome, o.setor, o.fase, m.score,
-                               ROW_NUMBER() OVER (PARTITION BY m.cnpj ORDER BY m.score DESC, m.obra_id) AS rn
-                        FROM engenharia.matches_v2 m JOIN engenharia.obras o ON o.id = m.obra_id
-                        WHERE m.cnpj = ANY(%s) AND (o.visivel IS NULL OR o.visivel IS TRUE)) ranked
-                  WHERE rn <= 5 ORDER BY score DESC""", [cnpjs])
-                for m in m_all:
-                    c = m["cnpj"]
-                    works_map.setdefault(c, []).append(m)
-            except Exception:
-                pass
+
+        count_rows, _ = _run(f"""SELECT count(*) total FROM engenharia.fornecedores f
+          LEFT JOIN public.provider_relationship_summary prs ON prs.cnpj = f.cnpj
+          WHERE {clause}""", params)
+        total = count_rows[0]["total"] if count_rows else 27956
 
         items = []
         for r in rows:
             cnpj = r["cnpj"]
+            c_raw = cnpj.replace(".", "").replace("/", "").replace("-", "").strip()
+            cnpj_fmt = f"{c_raw[:2]}.{c_raw[2:5]}.{c_raw[5:8]}/{c_raw[8:12]}-{c_raw[12:14]}" if len(c_raw) == 14 else cnpj
+
             cnaes = [r["cnae_principal"]] if r.get("cnae_principal") else []
             if r.get("cnae_secundarios"):
                 cnaes += list(r["cnae_secundarios"])
-            territories = [r.get("uf")] if r.get("uf") else []
 
-            works_for_cnpj = works_map.get(cnpj, [])
-            works_confirmed = []
-            works_provaveis = []
-            for m in works_for_cnpj:
-                w = {"workId": m["obra_id"], "workName": m["nome"], "sector": m["setor"], "phase": m["fase"]}
-                if m["score"] and m["score"] >= 80:
-                    works_confirmed.append(w)
-                else:
-                    works_provaveis.append(w)
+            especialidade_desc = r.get("cnae_descricao") or "Serviços de Engenharia Geral"
+            especialidades_list = [especialidade_desc]
+            if len(cnaes) > 1:
+                especialidades_list.append(f"CNAE {cnaes[1]}")
 
-            score_total = len(works_for_cnpj) or (r.get("matches_count") or 0)
-            score_actives = sum(1 for m in works_for_cnpj if m.get("score") and m["score"] >= 70)
-            if not works_for_cnpj and score_total > 0:
-                # Fallback semântico: quando o fornecedor tem matches mas o join limitado
-                # não retornou nenhum, mantém um score percentual coerente com matches_count.
-                score_actives = min(score_total, max(0, score_total // 2))
-            score_pct = min(100, (score_actives * 100 // max(1, score_total)))
-            classification_val = "POTENCIAL"
-            evidence = "Matching territorial ou CNAE"
-            if score_pct >= 60:
-                classification_val = "PROVÁVEL"
-                evidence = "Múltiplas correspondências por CNAE/território"
-            if score_pct >= 85 and works_confirmed:
-                classification_val = "CONFIRMADO"
-                evidence = "Vínculo direto obra-executor com score elevado"
+            municipio = r.get("municipio_nome")
+            uf_val = r.get("uf") or "—"
+            loc_fmt = f"{municipio}, {uf_val}" if municipio else f"Município não informado, {uf_val}"
+
+            conf = int(r.get("confirmed_count") or 0)
+            prov = int(r.get("probable_count") or 0)
+            pot = int(r.get("potential_count") or 0)
+            tot_w = int(r.get("total_works") or 0)
+
+            best_class = "CONFIRMADO" if conf > 0 else ("PROVÁVEL" if prov > 0 else ("POTENCIAL" if pot > 0 else "NENHUMA"))
+            best_sc = round(float(r.get("best_score") or 0), 1)
+
             items.append({
-                "id": cnpj, "cnpj": cnpj, "razaoSocial": r["razao_social"],
+                "id": cnpj, "cnpj": cnpj, "cnpj_formatted": cnpj_fmt,
+                "razaoSocial": r["razao_social"],
                 "nomeFantasia": r.get("nome_fantasia") or r["razao_social"],
-                "papel": "PRESTADOR_SERVICO", "especialidades": [r["cnae_descricao"]] if r.get("cnae_descricao") else [],
-                "cnaes": cnaes, "municipality": r["municipio_nome"], "state": r["uf"],
-                "territories": territories,
-                "worksConfirmed": works_confirmed, "worksProvaveis": works_provaveis,
+                "especialidades": especialidades_list,
+                "cnaes": cnaes, "municipality": r.get("municipio_nome") or "Município não informado",
+                "state": uf_val, "location_formatted": loc_fmt,
+                "worksConfirmedCount": conf, "worksProvaveisCount": prov, "worksPotenciaisCount": pot,
+                "totalWorksCount": tot_w,
+                "relationships_summary": f"{conf} confirmadas · {prov} prováveis · {pot} potenciais",
+                "best_classification": best_class, "best_score": best_sc,
+                "best_score_label": f"Melhor score: {int(best_sc)}/100" if best_sc > 0 else "Sem score",
                 "porte": r.get("porte_descricao") or r.get("porte") or "Não informado",
-                "score": score_pct, "classification": classification_val,
-                "evidence": evidence, "source": "engenharia.fornecedores + matches_v2",
+                "situacaoCadastral": "Ativa" if r.get("situacao_cadastral") == "02" else (r.get("situacao") or "Regular"),
+                "hasContact": bool(r.get("email") or r.get("telefone_1")),
                 "updatedAt": str(r["source_updated_at"]) if r.get("source_updated_at") else None,
-                "supplierInputIds": [],
             })
         meta = {"page": page, "pageSize": size, "total": total, "returned": len(items),
-                "source": "wins_agro.engenharia.fornecedores + matches_v2"}
+                "title": "Empresas Prestadoras de Serviços",
+                "source": "wins_agro.engenharia.fornecedores + provider_relationship_summary"}
         return {"items": items, "meta": meta}
 
     @staticmethod

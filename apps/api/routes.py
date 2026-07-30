@@ -212,15 +212,30 @@ def wave1_supplier(id: str, request: Request, user=Depends(require_permission("e
 @router.get("/engenharia/fornecedores")
 def engineering_executors(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
                           search: Optional[str] = Query(None, max_length=120), uf: Optional[str] = Query(None, min_length=2, max_length=2),
+                          municipality: Optional[str] = Query(None, max_length=100),
                           especialidade: Optional[str] = Query(None, max_length=100),
-                          papel: Optional[str] = Query(None, max_length=50),
+                          cnae: Optional[str] = Query(None, max_length=100),
+                          sector: Optional[str] = Query(None, max_length=100),
                           classification: Optional[str] = Query(None, max_length=30),
-                          sort: str = "name_asc", user=Depends(require_permission("engenharia"))):
+                          situacao_cadastral: Optional[str] = Query(None, max_length=20),
+                          porte: Optional[str] = Query(None, max_length=50),
+                          has_relationships: Optional[bool] = None,
+                          has_confirmed: Optional[bool] = None,
+                          has_probable: Optional[bool] = None,
+                          has_potential: Optional[bool] = None,
+                          has_contact: Optional[bool] = None,
+                          has_site: Optional[bool] = None,
+                          min_works: Optional[int] = Query(None, ge=0),
+                          sort: str = "rel_confirmed_desc", user=Depends(require_permission("engenharia"))):
     req_id = getattr(request.state, "request_id", "unknown")
     try:
-        logger.info("Listando executores page=%s uf=%s search=%s requestId=%s", page, uf, search, req_id)
+        logger.info("Listando prestadores de servico page=%s uf=%s search=%s requestId=%s", page, uf, search, req_id)
         return Wave1Repository.executors(page=page, page_size=page_size, search=search, uf=uf,
-          especialidade=especialidade, papel=papel, classification=classification, sort=sort)
+          municipality=municipality, especialidade=especialidade, cnae=cnae, sector=sector,
+          classification=classification, situacao_cadastral=situacao_cadastral, porte=porte,
+          has_relationships=has_relationships, has_confirmed=has_confirmed,
+          has_probable=has_probable, has_potential=has_potential,
+          has_contact=has_contact, has_site=has_site, min_works=min_works, sort=sort)
     except Exception as e:
         logger.error(f"Erro ao listar executores: {e} requestId={req_id}")
         return standard_error("INTERNAL_SERVER_ERROR", "Error fetching executors", req_id, 500)
