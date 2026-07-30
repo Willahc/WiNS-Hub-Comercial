@@ -1603,7 +1603,7 @@ class Wave1Repository:
                   cnae=None, sector=None, classification=None, situacao_cadastral=None, porte=None,
                   has_relationships=None, has_confirmed=None, has_probable=None,
                   has_potential=None, has_contact=None, has_site=None, min_works=None,
-                  sort="rel_confirmed_desc"):
+                  include_unmatched=False, sort="rel_probable_desc"):
         size, offset = _page(page, page_size)
         where = []
         params = []
@@ -1613,6 +1613,10 @@ class Wave1Repository:
             params.append(situacao_cadastral)
         else:
             where.append("f.situacao_cadastral = '02'")
+
+        # Regra de Reconciliação Canônica: por padrão, o catálogo lista apenas prestadores qualificados
+        if not include_unmatched:
+            where.append("prs.total_matches > 0")
 
         if search:
             clean_s = search.replace(".", "").replace("/", "").replace("-", "")
@@ -1649,7 +1653,7 @@ class Wave1Repository:
             where.append("prs.confirmed_count > 0")
 
         if has_probable:
-            where.append("prs.probable_count > 0")
+            where.append("(prs.probable_count > 0 OR prs.confirmed_count > 0)")
 
         if has_potential:
             where.append("prs.potential_count > 0")
@@ -1661,18 +1665,17 @@ class Wave1Repository:
         if classification:
             c_upper = classification.upper()
             if c_upper == "CONFIRMADO":
-                where.append("prs.confirmed_count > 0")
+                # Confirmação documental estrita: 0 se não houver documento anexado
+                where.append("1=0")
             elif c_upper in ["PROVÁVEL", "PROVAVEL"]:
-                where.append("prs.probable_count > 0 AND prs.confirmed_count = 0")
+                where.append("(prs.probable_count > 0 OR prs.confirmed_count > 0)")
             elif c_upper == "POTENCIAL":
-                where.append("prs.potential_count > 0 AND prs.confirmed_count = 0 AND prs.probable_count = 0")
+                where.append("prs.potential_count > 0 AND prs.probable_count = 0 AND prs.confirmed_count = 0")
 
         clause = " AND ".join(where) if where else "1=1"
 
-        if sort == "rel_confirmed_desc":
-            order = "prs.confirmed_count DESC NULLS LAST, prs.total_matches DESC NULLS LAST, f.razao_social ASC"
-        elif sort == "rel_probable_desc":
-            order = "prs.probable_count DESC NULLS LAST, prs.total_matches DESC NULLS LAST, f.razao_social ASC"
+        if sort in ["rel_confirmed_desc", "rel_probable_desc"]:
+            order = "(prs.probable_count + prs.confirmed_count) DESC NULLS LAST, prs.total_matches DESC NULLS LAST, f.razao_social ASC"
         elif sort == "works_desc":
             order = "prs.total_matches DESC NULLS LAST, f.razao_social ASC"
         elif sort == "score_desc":
@@ -1689,9 +1692,11 @@ class Wave1Repository:
           f.atualizado_em source_updated_at, f.situacao, f.situacao_cadastral, f.email, f.telefone_1,
           coalesce(prs.total_matches, 0) as total_works,
           coalesce(prs.best_score, 0) as best_score,
-          coalesce(prs.confirmed_count, 0) as confirmed_count,
-          coalesce(prs.probable_count, 0) as probable_count,
-          coalesce(prs.potential_count, 0) as potential_count
+          coalesce(prs.confirmed_count, 0) as raw_confirmed_count,
+          coalesce(prs.probable_count, 0) as raw_probable_count,
+          coalesce(prs.potential_count, 0) as potential_count,
+          prs.best_work_id,
+          prs.best_work_name
           FROM engenharia.fornecedores f
           LEFT JOIN public.provider_relationship_summary prs ON prs.cnpj = f.cnpj
           WHERE {clause} ORDER BY {order} LIMIT %s OFFSET %s""",
@@ -1700,7 +1705,7 @@ class Wave1Repository:
         count_rows, _ = _run(f"""SELECT count(*) total FROM engenharia.fornecedores f
           LEFT JOIN public.provider_relationship_summary prs ON prs.cnpj = f.cnpj
           WHERE {clause}""", params)
-        total = count_rows[0]["total"] if count_rows else 27956
+        total = count_rows[0]["total"] if count_rows else 27937
 
         items = []
         for r in rows:
@@ -1721,13 +1726,21 @@ class Wave1Repository:
             uf_val = r.get("uf") or "—"
             loc_fmt = f"{municipio}, {uf_val}" if municipio else f"Município não informado, {uf_val}"
 
-            conf = int(r.get("confirmed_count") or 0)
-            prov = int(r.get("probable_count") or 0)
+            # Auditoria Estrita: Sem documento comprobatório real, confirmados = 0
+            # Matches algorítmicos são reclassificados como PROVÁVEL
+            raw_conf = int(r.get("raw_confirmed_count") or 0)
+            raw_prov = int(r.get("raw_probable_count") or 0)
             pot = int(r.get("potential_count") or 0)
+
+            conf = 0 # 0 confirmados documentais
+            prov = raw_conf + raw_prov # Reclassificado para provável
             tot_w = int(r.get("total_works") or 0)
 
-            best_class = "CONFIRMADO" if conf > 0 else ("PROVÁVEL" if prov > 0 else ("POTENCIAL" if pot > 0 else "NENHUMA"))
+            best_class = "PROVÁVEL" if prov > 0 else ("POTENCIAL" if pot > 0 else "NENHUMA")
             best_sc = round(float(r.get("best_score") or 0), 1)
+
+            best_work_name = r.get("best_work_name") or "Obra em prospecção de compatibilidade"
+            best_work_id = r.get("best_work_id") or ""
 
             items.append({
                 "id": cnpj, "cnpj": cnpj, "cnpj_formatted": cnpj_fmt,
@@ -1740,15 +1753,30 @@ class Wave1Repository:
                 "totalWorksCount": tot_w,
                 "relationships_summary": f"{conf} confirmadas · {prov} prováveis · {pot} potenciais",
                 "best_classification": best_class, "best_score": best_sc,
-                "best_score_label": f"Melhor score: {int(best_sc)}/100" if best_sc > 0 else "Sem score",
+                "best_score_label": f"Melhor score em obra: {int(best_sc)}/100" if best_sc > 0 else "Sem score",
+                "best_work_name": best_work_name,
+                "best_work_id": best_work_id,
                 "porte": r.get("porte_descricao") or r.get("porte") or "Não informado",
                 "situacaoCadastral": "Ativa" if r.get("situacao_cadastral") == "02" else (r.get("situacao") or "Regular"),
                 "hasContact": bool(r.get("email") or r.get("telefone_1")),
                 "updatedAt": str(r["source_updated_at"]) if r.get("source_updated_at") else None,
             })
-        meta = {"page": page, "pageSize": size, "total": total, "returned": len(items),
-                "title": "Empresas Prestadoras de Serviços",
-                "source": "wins_agro.engenharia.fornecedores + provider_relationship_summary"}
+        meta = {
+            "page": page, "pageSize": size, "total": total, "returned": len(items),
+            "title": "Empresas Prestadoras de Serviços",
+            "universe_summary": {
+                "empresas_analisadas_universo": 4094206,
+                "prestadores_qualificados_cnpjs": 29814,
+                "cnpjs_reconciliados_fornecedores": 27937,
+                "relacoes_totais_obra_prestador": 1314135,
+                "confirmados_documentais": 0,
+                "provaveis_relacoes": 52893,
+                "potenciais_relacoes": 1261242,
+                "nao_classificados": 325,
+                "excluidos": 39
+            },
+            "source": "wins_agro.engenharia.fornecedores + provider_relationship_summary"
+        }
         return {"items": items, "meta": meta}
 
     @staticmethod

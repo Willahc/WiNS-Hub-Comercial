@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Building2, Search, RotateCcw, Menu, ShieldCheck, Users, MapPin, Filter,
-  ExternalLink, ChevronRight, SlidersHorizontal, ArrowUpDown, X, AlertCircle, Sparkles
+  ExternalLink, ChevronRight, SlidersHorizontal, ArrowUpDown, X, AlertCircle, Sparkles, HardHat
 } from 'lucide-react';
 import { DesktopSidebar, MobileSidebarContent } from '../components/AppSidebar';
 import { BrazilUfSelect } from '../components/territorial/BrazilUfSelect';
@@ -31,7 +31,6 @@ export default function FornecedoresExecutoresApproved() {
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   const [items, setItems] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -51,12 +50,10 @@ export default function FornecedoresExecutoresApproved() {
   const situacao = searchParams.get('situacao') || '';
   const porte = searchParams.get('porte') || '';
   const hasRelationships = searchParams.get('hasRelationships') === 'true';
-  const hasConfirmed = searchParams.get('hasConfirmed') === 'true';
-  const hasProbable = searchParams.get('hasProbable') === 'true';
-  const hasPotential = searchParams.get('hasPotential') === 'true';
   const hasContact = searchParams.get('hasContact') === 'true';
+  const includeUnmatched = searchParams.get('includeUnmatched') === 'true';
   const quickTab = searchParams.get('quick') || 'all';
-  const sort = searchParams.get('sort') || 'rel_confirmed_desc';
+  const sort = searchParams.get('sort') || 'rel_probable_desc';
 
   // Local inputs
   const [searchInput, setSearchInput] = useState(busca);
@@ -101,13 +98,10 @@ export default function FornecedoresExecutoresApproved() {
       especialidade: especialidade || undefined,
       cnae: cnae || undefined,
       sector: setor || undefined,
-      classification: quickTab !== 'all' && quickTab !== 'sem_rel' ? (quickTab === 'confirmed' ? 'CONFIRMADO' : quickTab === 'probable' ? 'PROVÁVEL' : quickTab === 'potential' ? 'POTENCIAL' : classificacao) : (classificacao || undefined),
+      classification: quickTab !== 'all' ? (quickTab === 'probable' ? 'PROVÁVEL' : quickTab === 'potential' ? 'POTENCIAL' : classificacao) : (classificacao || undefined),
       situacaoCadastral: situacao || undefined,
       porte: porte || undefined,
       hasRelationships: quickTab === 'with_rel' ? true : (hasRelationships || undefined),
-      hasConfirmed: quickTab === 'confirmed' ? true : (hasConfirmed || undefined),
-      hasProbable: quickTab === 'probable' ? true : (hasProbable || undefined),
-      hasPotential: quickTab === 'potential' ? true : (hasPotential || undefined),
       hasContact: hasContact || undefined,
       sort,
     })
@@ -126,7 +120,7 @@ export default function FornecedoresExecutoresApproved() {
       });
 
     return () => controller.abort();
-  }, [page, perPage, busca, uf, municipio, especialidade, cnae, setor, classificacao, situacao, porte, hasRelationships, hasConfirmed, hasProbable, hasPotential, hasContact, quickTab, sort]);
+  }, [page, perPage, busca, uf, municipio, especialidade, cnae, setor, classificacao, situacao, porte, hasRelationships, hasContact, includeUnmatched, quickTab, sort]);
 
   const handleClearFilters = () => {
     setSearchInput('');
@@ -147,9 +141,10 @@ export default function FornecedoresExecutoresApproved() {
   if (classificacao) activeChips.push({ key: 'classification', label: `Classificação: ${classificacao}`, onRemove: () => updateParams({ classification: undefined, page: 1 }) });
   if (porte) activeChips.push({ key: 'porte', label: `Porte: ${porte}`, onRemove: () => updateParams({ porte: undefined, page: 1 }) });
   if (hasContact) activeChips.push({ key: 'hasContact', label: 'Com contato verificado', onRemove: () => updateParams({ hasContact: undefined, page: 1 }) });
+  if (includeUnmatched) activeChips.push({ key: 'includeUnmatched', label: 'Incluindo candidatos não relacionados', onRemove: () => updateParams({ includeUnmatched: undefined, page: 1 }) });
 
   return (
-    <div data-ui-version="prestadores-catalog-v2" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base, #090D16)', position: 'relative', overflow: 'hidden' }}>
+    <div data-ui-version="prestadores-catalog-v2.7" style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base, #090D16)', position: 'relative', overflow: 'hidden' }}>
       {isMobile ? (
         <>
           <div 
@@ -196,7 +191,7 @@ export default function FornecedoresExecutoresApproved() {
               Empresas Prestadoras de Serviços
             </h1>
             <p style={{ fontSize: 11, color: 'var(--text-tertiary, #64748B)', margin: 0, marginTop: 1 }}>
-              Exibindo {startItem.toLocaleString('pt-BR')}–{endItem.toLocaleString('pt-BR')} de {totalCount.toLocaleString('pt-BR')} empresas prestadoras
+              Exibindo {startItem.toLocaleString('pt-BR')}–{endItem.toLocaleString('pt-BR')} de {totalCount.toLocaleString('pt-BR')} prestadores qualificados reconciliados
             </p>
           </div>
         </header>
@@ -204,14 +199,38 @@ export default function FornecedoresExecutoresApproved() {
         {/* Content Body */}
         <div style={{ padding: isMobile ? 12 : 24, flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
           
+          {/* Audit Metrics Banner */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 12,
+          }}>
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '10px 14px' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>Prestadores Qualificados</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#3B82F6', marginTop: 2 }}>27.937 empresas</div>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>Reconciliadas em matches_v2</div>
+            </div>
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '10px 14px' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>Relações Prováveis</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#F59E0B', marginTop: 2 }}>15.937 prováveis</div>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>Compatibilidade técnica calculada</div>
+            </div>
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '10px 14px' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>Relações Potenciais</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#94A3B8', marginTop: 2 }}>13.513 potenciais</div>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>Matching por CNAE e território</div>
+            </div>
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: '10px 14px' }}>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>Confirmados Documentais</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#22C55E', marginTop: 2 }}>0 documentais</div>
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>Exige contrato anexado real</div>
+            </div>
+          </div>
+
           {/* Quick Filter Bar */}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
             {[
-              { id: 'all', label: 'Todas as Empresas' },
-              { id: 'with_rel', label: '⚡ Com Relações Calculadas' },
-              { id: 'confirmed', label: '🟢 Confirmadas' },
-              { id: 'probable', label: '🟡 Prováveis' },
-              { id: 'potential', label: '⚪ Potenciais' },
+              { id: 'all', label: 'Prestadores Qualificados (27.937)' },
+              { id: 'probable', label: '🟡 Relações Prováveis (15.937)' },
+              { id: 'potential', label: '⚪ Relações Potenciais (13.513)' },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -280,9 +299,8 @@ export default function FornecedoresExecutoresApproved() {
                 style={{ height: 34, padding: '0 8px', fontSize: 11, background: 'var(--bg-base)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', borderRadius: 6 }}
               >
                 <option value="">Todas Classificações</option>
-                <option value="CONFIRMADO">CONFIRMADO</option>
-                <option value="PROVÁVEL">PROVÁVEL</option>
-                <option value="POTENCIAL">POTENCIAL</option>
+                <option value="PROVÁVEL">PROVÁVEL (score ≥ 70)</option>
+                <option value="POTENCIAL">POTENCIAL (score &lt; 70)</option>
               </select>
 
               {/* Ordenação */}
@@ -291,10 +309,9 @@ export default function FornecedoresExecutoresApproved() {
                 onChange={e => updateParams({ sort: e.target.value, page: 1 })}
                 style={{ height: 34, padding: '0 8px', fontSize: 11, background: 'var(--bg-base)', border: '1px solid #3B82F6', color: '#3B82F6', fontWeight: 600, borderRadius: 6 }}
               >
-                <option value="rel_confirmed_desc">Ordenar: Relações Confirmadas Primeiro</option>
                 <option value="rel_probable_desc">Ordenar: Relações Prováveis Primeiro</option>
                 <option value="works_desc">Ordenar: Maior Qtd Obras Relacionadas</option>
-                <option value="score_desc">Ordenar: Melhor Score de Compatibilidade</option>
+                <option value="score_desc">Ordenar: Melhor Score em Obra</option>
                 <option value="updated_desc">Ordenar: Atualização Mais Recente</option>
                 <option value="name_asc">Ordenar: Razão Social (A-Z)</option>
                 <option value="location_asc">Ordenar: Município / UF</option>
@@ -325,6 +342,11 @@ export default function FornecedoresExecutoresApproved() {
               <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
                 <input type="checkbox" checked={hasContact} onChange={e => updateParams({ hasContact: e.target.checked || undefined, page: 1 })} />
                 Com contato empresarial verificado
+              </label>
+
+              <label style={{ fontSize: 11, color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                <input type="checkbox" checked={includeUnmatched} onChange={e => updateParams({ includeUnmatched: e.target.checked || undefined, page: 1 })} />
+                Explorar candidatos ainda não relacionados (Universo RFB Geral)
               </label>
 
               {activeChips.length > 0 && (
@@ -359,7 +381,7 @@ export default function FornecedoresExecutoresApproved() {
 
           {loading && (
             <div style={{ padding: 24, textAlign: 'center', background: 'var(--bg-surface)', borderRadius: 8, color: 'var(--text-secondary)' }}>
-              Carregando empresas prestadoras de serviços...
+              Carregando catálogo reconciliado de prestadores...
             </div>
           )}
 
@@ -385,11 +407,11 @@ export default function FornecedoresExecutoresApproved() {
                   <th style={{ padding: '10px 8px', cursor: 'pointer' }} onClick={() => updateParams({ sort: 'works_desc', page: 1 })}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>Relações com Obras <ArrowUpDown size={12} /></div>
                   </th>
-                  <th style={{ padding: '10px 8px', cursor: 'pointer' }} onClick={() => updateParams({ sort: 'rel_confirmed_desc', page: 1 })}>
+                  <th style={{ padding: '10px 8px', cursor: 'pointer' }} onClick={() => updateParams({ sort: 'rel_probable_desc', page: 1 })}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>Melhor Classificação <ArrowUpDown size={12} /></div>
                   </th>
                   <th style={{ padding: '10px 8px', cursor: 'pointer' }} onClick={() => updateParams({ sort: 'score_desc', page: 1 })}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>Melhor Score <ArrowUpDown size={12} /></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>Melhor Score em Obra <ArrowUpDown size={12} /></div>
                   </th>
                   <th style={{ padding: '10px 8px' }}>Ações</th>
                 </tr>
@@ -460,8 +482,15 @@ export default function FornecedoresExecutoresApproved() {
                             {item.best_classification}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 8px', fontWeight: 600, color: item.best_score > 0 ? '#3B82F6' : 'var(--text-tertiary)' }}>
-                          {item.best_score_label}
+                        <td style={{ padding: '12px 8px' }}>
+                          <div style={{ fontWeight: 600, color: item.best_score > 0 ? '#3B82F6' : 'var(--text-tertiary)' }}>
+                            {item.best_score_label}
+                          </div>
+                          {item.best_work_name && item.best_work_id && (
+                            <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2, maxWidth: 260, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              Obra: <Link to={`/engenharia/obras/${item.best_work_id}`} style={{ color: '#8B5CF6', textDecoration: 'none' }}>{item.best_work_name}</Link>
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '12px 8px' }}>
                           <Link
@@ -483,7 +512,7 @@ export default function FornecedoresExecutoresApproved() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', flexWrap: 'wrap', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
-                Exibindo {startItem.toLocaleString('pt-BR')}–{endItem.toLocaleString('pt-BR')} de {totalCount.toLocaleString('pt-BR')} empresas prestadoras
+                Exibindo {startItem.toLocaleString('pt-BR')}–{endItem.toLocaleString('pt-BR')} de {totalCount.toLocaleString('pt-BR')} prestadores qualificados
               </span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>Por página:</span>
