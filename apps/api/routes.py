@@ -547,6 +547,69 @@ def get_saude_estabelecimentos(request: Request, page: int = Query(1, ge=1), pag
     return Wave1Repository.saude_estabelecimentos(page=page, page_size=page_size, search=search, municipality=municipality, uf=uf)
 
 # Agro Detail & Special Routes
+@router.get("/agro/kpis")
+def get_agro_kpis(request: Request, uf: Optional[str] = Query(None, min_length=2, max_length=2),
+                  bioma: Optional[str] = None, municipio: Optional[str] = None,
+                  user=Depends(require_permission("agro"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        return Wave1Repository.agro_kpis(uf=uf, bioma=bioma, municipio=municipio)
+    except Exception as e:
+        logger.error(f"Erro ao buscar KPIs do Agro: {e} reqId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", "Error fetching agro KPIs", req_id, 500)
+
+@router.get("/agro/distribuicao")
+def get_agro_distribuicao(request: Request, tipo: str = Query("bioma", regex="^(bioma|uso_solo)$"),
+                          uf: Optional[str] = Query(None, min_length=2, max_length=2),
+                          municipio: Optional[str] = None,
+                          user=Depends(require_permission("agro"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        return Wave1Repository.agro_distribuicao(tipo=tipo, uf=uf, municipio=municipio)
+    except Exception as e:
+        logger.error(f"Erro ao buscar distribuição {tipo}: {e} reqId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", f"Error fetching {tipo} distribution", req_id, 500)
+
+@router.get("/agro/mapa")
+def get_agro_mapa(request: Request, min_lat: float = Query(-35.5, ge=-90, le=90),
+                  max_lat: float = Query(6.5, ge=-90, le=90),
+                  min_lng: float = Query(-75.5, ge=-180, le=180),
+                  max_lng: float = Query(-32, ge=-180, le=180),
+                  zoom: int = Query(4, ge=3, le=18),
+                  uf: Optional[str] = Query(None, min_length=2, max_length=2),
+                  bioma: Optional[str] = None, uso_solo: Optional[str] = None,
+                  user=Depends(require_permission("agro"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    if min_lat >= max_lat or min_lng >= max_lng:
+        raise HTTPException(422, "bounding box inválido")
+    try:
+        return Wave1Repository.agro_mapa(min_lat=min_lat, max_lat=max_lat, min_lng=min_lng, max_lng=max_lng,
+                                         zoom=zoom, uf=uf, bioma=bioma, uso_solo=uso_solo)
+    except Exception as e:
+        logger.error(f"Erro no mapa agro: {e} reqId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", "Error fetching agro map", req_id, 500)
+
+@router.get("/agro/oportunidades")
+def get_agro_oportunidades(request: Request, imovel_id: Optional[str] = None,
+                           user=Depends(require_permission("agro"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        return Wave1Repository.agro_oportunidades(imovel_id=imovel_id)
+    except Exception as e:
+        logger.error(f"Erro ao buscar oportunidades agro: {e} reqId={req_id}")
+        return {"oportunidades": [], "message": "Oportunidades ainda não calculadas para este recorte.", "error": str(e)}
+
+@router.get("/agro/relacoes")
+def get_agro_relacoes(request: Request, imovel_id: Optional[str] = None,
+                      cnpj: Optional[str] = None,
+                      user=Depends(require_permission("agro"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        return Wave1Repository.agro_relacoes(imovel_id=imovel_id, cnpj=cnpj)
+    except Exception as e:
+        logger.error(f"Erro ao buscar relações cross-domain agro: {e} reqId={req_id}")
+        return {"relacoes": [], "message": "Nenhuma relação cross-domain materializada para este recorte.", "error": str(e)}
+
 @router.get("/agro/imoveis/{id}")
 def get_agro_imovel_detail(id: str, request: Request, user=Depends(require_permission("agro"))):
     item = Wave1Repository.agro_imovel(id)

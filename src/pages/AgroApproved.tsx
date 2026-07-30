@@ -107,6 +107,8 @@ export default function AgroApproved() {
   const [relacoes, setRelacoes] = useState<any[]>([]);
   const [oportunidadesMsg, setOportunidadesMsg] = useState<string | null>(null);
   const [relacoesMsg, setRelacoesMsg] = useState<string | null>(null);
+  const [sectionErrors, setSectionErrors] = useState<Record<string, string | null>>({});
+  const [sectionLoading, setSectionLoading] = useState<Record<string, boolean>>({});
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [mapBounds, setMapBounds] = useState<[[number, number], [number, number]] | null>(null);
 
@@ -128,54 +130,106 @@ export default function AgroApproved() {
 
     setLoading(true);
     setError(null);
+    setSectionErrors({});
+    setSectionLoading({ kpis: true, dist: true, mapa: true, opp: true, rel: true });
 
-    try {
-      const params: Record<string, string> = {};
-      if (selectedUf) params.uf = selectedUf;
+    const params: Record<string, string> = {};
+    if (selectedUf) params.uf = selectedUf;
 
-      const [kpiRes, biomaRes, usoSoloRes, mapaRes, oppRes, relRes] = await Promise.all([
-        httpClient.get('/api/v1/agro/kpis', { params, signal: controller.signal }),
-        httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'bioma' }, signal: controller.signal }),
-        httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'uso_solo' }, signal: controller.signal }),
-        httpClient.get('/api/v1/agro/mapa', { params: { ...params, zoom: 4 }, signal: controller.signal }),
-        httpClient.get('/api/v1/agro/oportunidades', { params, signal: controller.signal }),
-        httpClient.get('/api/v1/agro/relacoes', { params, signal: controller.signal }),
-      ]);
+    const settle = await Promise.allSettled([
+      httpClient.get('/api/v1/agro/kpis', { params, signal: controller.signal }),
+      httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'bioma' }, signal: controller.signal }),
+      httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'uso_solo' }, signal: controller.signal }),
+      httpClient.get('/api/v1/agro/mapa', { params: { ...params, zoom: 4 }, signal: controller.signal }),
+      httpClient.get('/api/v1/agro/oportunidades', { params, signal: controller.signal }),
+      httpClient.get('/api/v1/agro/relacoes', { params, signal: controller.signal }),
+    ]);
 
-      if (controller.signal.aborted) return;
+    if (controller.signal.aborted) return;
 
-      setKpis(kpiRes.data);
+    // KPIs (index 0) — core data; if this fails, show global error
+    const [kpiS, biomaS, usoSoloS, mapaS, oppS, relS] = settle;
+    const newErrors: Record<string, string | null> = {};
+    const newLoading: Record<string, boolean> = {};
 
-      const biomaCats = biomaRes.data?.categorias || [];
-      const usoSoloCats = usoSoloRes.data?.categorias || [];
-      setDistBioma(biomaCats);
-      setDistUsoSolo(usoSoloCats);
+    if (kpiS.status === 'fulfilled') {
+      setKpis(kpiS.value.data);
+      newErrors.kpis = null;
+    } else {
+      newErrors.kpis = kpiS.reason?.message || 'Falha ao carregar KPIs';
+      setKpis(null);
+    }
+    newLoading.kpis = false;
 
-      setMapaClusters(mapaRes.data?.clusters || []);
-      setMapaTotal(mapaRes.data?.total_no_recorte || 0);
+    // Distribuição (bioma + uso_solo)
+    if (biomaS.status === 'fulfilled') {
+      setDistBioma(biomaS.value.data?.categorias || []);
+      newErrors.dist = null;
+    } else {
+      setDistBioma([]);
+      newErrors.dist = biomaS.reason?.message || 'Falha ao carregar distribuição';
+    }
+    if (usoSoloS.status === 'fulfilled') {
+      setDistUsoSolo(usoSoloS.value.data?.categorias || []);
+    } else {
+      setDistUsoSolo([]);
+    }
+    newLoading.dist = false;
 
-      if (oppRes.data?.message) {
+    // Mapa
+    if (mapaS.status === 'fulfilled') {
+      setMapaClusters(mapaS.value.data?.clusters || []);
+      setMapaTotal(mapaS.value.data?.total_no_recorte || 0);
+      newErrors.mapa = null;
+    } else {
+      setMapaClusters([]);
+      setMapaTotal(0);
+      newErrors.mapa = mapaS.reason?.message || 'Falha ao carregar mapa';
+    }
+    newLoading.mapa = false;
+
+    // Oportunidades
+    if (oppS.status === 'fulfilled') {
+      if (oppS.value.data?.message) {
         setOportunidades([]);
-        setOportunidadesMsg(oppRes.data.message);
+        setOportunidadesMsg(oppS.value.data.message);
       } else {
-        setOportunidades(oppRes.data?.oportunidades || []);
+        setOportunidades(oppS.value.data?.oportunidades || []);
         setOportunidadesMsg(null);
       }
+      newErrors.opp = null;
+    } else {
+      setOportunidades([]);
+      setOportunidadesMsg('Oportunidades ainda não calculadas para este recorte.');
+      newErrors.opp = oppS.reason?.message || 'Falha ao carregar oportunidades';
+    }
+    newLoading.opp = false;
 
-      if (relRes.data?.message) {
+    // Relações
+    if (relS.status === 'fulfilled') {
+      if (relS.value.data?.message) {
         setRelacoes([]);
-        setRelacoesMsg(relRes.data.message);
+        setRelacoesMsg(relS.value.data.message);
       } else {
-        setRelacoes(relRes.data?.relacoes || []);
+        setRelacoes(relS.value.data?.relacoes || []);
         setRelacoesMsg(null);
       }
-
-      setLoading(false);
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
-      setError(err?.message || 'Falha ao carregar dados do Agro');
-      setLoading(false);
+      newErrors.rel = null;
+    } else {
+      setRelacoes([]);
+      setRelacoesMsg('Nenhuma relação cross-domain materializada para este recorte.');
+      newErrors.rel = relS.reason?.message || 'Falha ao carregar relações';
     }
+    newLoading.rel = false;
+
+    setSectionErrors(newErrors);
+    setSectionLoading(newLoading);
+
+    // Only show global error if KPIs (core data) failed
+    if (newErrors.kpis) {
+      setError(newErrors.kpis);
+    }
+    setLoading(false);
   }, [selectedUf]);
 
   useEffect(() => {
@@ -196,6 +250,55 @@ export default function AgroApproved() {
     setSelectedBioma('');
     setSelectedUso('');
   };
+
+  // Per-section retry — re-fetches only the failed section
+  const retrySection = useCallback(async (section: 'dist' | 'mapa' | 'opp' | 'rel') => {
+    const params: Record<string, string> = {};
+    if (selectedUf) params.uf = selectedUf;
+    const controller = new AbortController();
+
+    setSectionLoading(prev => ({ ...prev, [section]: true }));
+    setSectionErrors(prev => ({ ...prev, [section]: null }));
+
+    try {
+      if (section === 'dist') {
+        const [bioma, usoSolo] = await Promise.all([
+          httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'bioma' }, signal: controller.signal }),
+          httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'uso_solo' }, signal: controller.signal }),
+        ]);
+        setDistBioma(bioma.data?.categorias || []);
+        setDistUsoSolo(usoSolo.data?.categorias || []);
+      } else if (section === 'mapa') {
+        const res = await httpClient.get('/api/v1/agro/mapa', { params: { ...params, zoom: 4 }, signal: controller.signal });
+        setMapaClusters(res.data?.clusters || []);
+        setMapaTotal(res.data?.total_no_recorte || 0);
+      } else if (section === 'opp') {
+        const res = await httpClient.get('/api/v1/agro/oportunidades', { params, signal: controller.signal });
+        if (res.data?.message) {
+          setOportunidades([]);
+          setOportunidadesMsg(res.data.message);
+        } else {
+          setOportunidades(res.data?.oportunidades || []);
+          setOportunidadesMsg(null);
+        }
+      } else if (section === 'rel') {
+        const res = await httpClient.get('/api/v1/agro/relacoes', { params, signal: controller.signal });
+        if (res.data?.message) {
+          setRelacoes([]);
+          setRelacoesMsg(res.data.message);
+        } else {
+          setRelacoes(res.data?.relacoes || []);
+          setRelacoesMsg(null);
+        }
+      }
+    } catch (err: any) {
+      if (err?.name !== 'AbortError' && err?.code !== 'ERR_CANCELED') {
+        setSectionErrors(prev => ({ ...prev, [section]: err?.message || `Falha ao recarregar ${section}` }));
+      }
+    } finally {
+      setSectionLoading(prev => ({ ...prev, [section]: false }));
+    }
+  }, [selectedUf]);
 
   const kpiCards = kpis ? [
     { label: 'Cadastros CAR Únicos', value: fmt(kpis.total_imoveis_car), sub: 'Unicidade pelo código CAR cadastral', color: AGRO_COLOR, tooltip: `Total de ${kpis.total_imoveis_car.toLocaleString('pt-BR')} cadastros no SICAR/CAR. Cada linha = 1 código CAR distinto (coluna codigo_car: UNIQUE, 0 duplicatas). Não comprova unicidade física ou fundiária.` },
@@ -260,7 +363,7 @@ export default function AgroApproved() {
             </div>
           )}
 
-          {error && (
+          {error && !kpis && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, gap: 12 }}>
               <AlertTriangle size={36} color="#EF4444" />
               <h3 style={{ color: '#EF4444', margin: 0 }}>Erro ao Carregar Dados do Agro</h3>
@@ -269,7 +372,7 @@ export default function AgroApproved() {
             </div>
           )}
 
-          {!loading && !error && kpis && (
+          {kpis && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 12 }}>
                 {kpiCards.map((kpi, idx) => (
@@ -285,11 +388,30 @@ export default function AgroApproved() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
                   <BarChart2 size={16} color="#22C55E" />
                   <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Distribuição — Dados Declaratórios do CAR</h3>
+                  {sectionErrors.dist && (
+                    <button onClick={() => retrySection('dist')} style={{ marginLeft: 'auto', height: 24, padding: '0 8px', fontSize: 10, fontWeight: 600, background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <RefreshCw size={10} /> Tentar novamente
+                    </button>
+                  )}
                 </div>
+                {sectionLoading.dist ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40, gap: 8 }}>
+                    <div className="spinner" style={{ width: 16, height: 16 }} />
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Carregando distribuição...</span>
+                  </div>
+                ) : sectionErrors.dist ? (
+                  <div style={{ padding: 16, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: '#EF4444', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                    <AlertTriangle size={20} />
+                    <span>Erro ao carregar distribuição</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{sectionErrors.dist}</span>
+                  </div>
+                ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
                   <div>
                     <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>Imóveis por Bioma (inferido pela UF do cadastro)</span>
-                    {distBioma.map((cat, idx) => {
+                    {distBioma.length === 0 ? (
+                      <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)' }}>Dados de distribuição por bioma indisponíveis para este recorte.</div>
+                    ) : distBioma.map((cat, idx) => {
                       const pct = cat.percentual_imoveis || 0;
                       const colors = ['#F59E0B', '#22C55E', '#06B6D4', '#8B5CF6', '#EF4444', '#EC4899', '#94A3B8'];
                       return (
@@ -310,7 +432,9 @@ export default function AgroApproved() {
                   </div>
                   <div>
                     <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>Uso do solo declarado no CAR (ha)</span>
-                    {distUsoSolo.map((cat, idx) => {
+                    {distUsoSolo.length === 0 ? (
+                      <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)' }}>Dados de uso do solo indisponíveis para este recorte.</div>
+                    ) : distUsoSolo.map((cat, idx) => {
                       const pct = cat.percentual || 0;
                       const colors2 = ['#F59E0B', '#22C55E', '#06B6D4', '#94A3B8'];
                       return (
@@ -330,6 +454,7 @@ export default function AgroApproved() {
                     </div>
                   </div>
                 </div>
+                )}
               </div>
 
               <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 10, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -338,8 +463,29 @@ export default function AgroApproved() {
                     <Layers size={16} color="#22C55E" />
                     <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Concentração de Cadastros CAR — Clusters por Grade Municipal</h3>
                   </div>
-                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{mapaClusters.length} clusters de {fmt(mapaTotal)} cadastros no recorte</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {!sectionLoading.mapa && !sectionErrors.mapa && (
+                      <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{mapaClusters.length} clusters de {fmt(mapaTotal)} cadastros no recorte</span>
+                    )}
+                    {sectionErrors.mapa && (
+                      <button onClick={() => retrySection('mapa')} style={{ height: 24, padding: '0 8px', fontSize: 10, fontWeight: 600, background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <RefreshCw size={10} /> Tentar novamente
+                      </button>
+                    )}
+                  </div>
                 </div>
+                {sectionLoading.mapa ? (
+                  <div style={{ height: 380, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', borderRadius: 8, gap: 8 }}>
+                    <div className="spinner" style={{ width: 16, height: 16 }} />
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Carregando mapa...</span>
+                  </div>
+                ) : sectionErrors.mapa ? (
+                  <div style={{ height: 380, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', borderRadius: 8, gap: 8 }}>
+                    <AlertTriangle size={24} color="#EF4444" />
+                    <span style={{ fontSize: 12, color: '#EF4444' }}>Erro ao carregar mapa</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{sectionErrors.mapa}</span>
+                  </div>
+                ) : (
                 <div style={{ height: 380, borderRadius: 8, overflow: 'hidden', position: 'relative', border: '1px solid var(--border-subtle)' }}>
                   <MapContainer center={BRAZIL_CENTER} zoom={4} style={{ height: '100%', width: '100%', background: '#090D16' }}>
                     <FitBoundsControl bounds={mapBounds} />
@@ -371,6 +517,8 @@ export default function AgroApproved() {
                     </div>
                   )}
                 </div>
+                )}
+                {!sectionLoading.mapa && !sectionErrors.mapa && (
                 <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
                   Clusters de registros CAR agregados por grade de coordenadas municipais (referencia.municipio). Cada ponto representa dezenas a milhares de cadastros — não são polígonos, centroides de imóveis nem limites fundiários. 98,6% dos 8,29M cadastros têm município na referência; 1,4% sem correspondência por divergência no nome do município.
                   <button onClick={() => {
@@ -382,14 +530,25 @@ export default function AgroApproved() {
                     Centralizar mapa
                   </button>
                 </div>
+                )}
               </div>
 
               <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 10, padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
                   <Target size={16} color="#F59E0B" />
                   <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Oportunidades e Relações Cross-Domain</h3>
+                  {(sectionErrors.opp || sectionErrors.rel) && (
+                    <button onClick={() => { if (sectionErrors.opp) retrySection('opp'); if (sectionErrors.rel) retrySection('rel'); }} style={{ marginLeft: 'auto', height: 24, padding: '0 8px', fontSize: 10, fontWeight: 600, background: 'rgba(239,68,68,0.15)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <RefreshCw size={10} /> Retentar seções com falha
+                    </button>
+                  )}
                 </div>
-                {oportunidadesMsg ? (
+                {sectionLoading.opp ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, gap: 8 }}>
+                    <div className="spinner" style={{ width: 14, height: 14 }} />
+                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Carregando oportunidades...</span>
+                  </div>
+                ) : oportunidadesMsg ? (
                   <div style={{ padding: 12, background: 'var(--bg-base)', borderRadius: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
                     {oportunidadesMsg}
                   </div>
