@@ -2174,11 +2174,11 @@ class Wave1Repository:
             return by_ibge
 
     @staticmethod
-    def _get_agro_mun_summary():
-        with _AGRO_CACHE_LOCK:
-            now = time.time()
-            if _AGRO_MUN_CACHE["data"] is not None and (now - _AGRO_MUN_CACHE["timestamp"]) < 3600:
-                return _AGRO_MUN_CACHE["data"]
+    def refresh_agro_cache(force=True):
+        """Atomic cache rebuild with fallback to previous valid cache on failure."""
+        now = time.time()
+        iso_now = datetime.fromtimestamp(now, tz=timezone.utc).isoformat()
+        try:
             rows = _run_db("wins_agro", """
                 SELECT
                   i.codigo_ibge_mun,
@@ -2195,9 +2195,27 @@ class Wave1Repository:
                 WHERE i.codigo_ibge_mun IS NOT NULL
                 GROUP BY i.codigo_ibge_mun, i.uf
             """, [], domain="agro")
-            _AGRO_MUN_CACHE["data"] = rows
-            _AGRO_MUN_CACHE["timestamp"] = now
-            return rows
+            if rows:
+                with _AGRO_CACHE_LOCK:
+                    _AGRO_MUN_CACHE["data"] = rows
+                    _AGRO_MUN_CACHE["timestamp"] = now
+                    _AGRO_MUN_CACHE["iso_timestamp"] = iso_now
+                return {"status": "ok", "message": "Cache agro recarregado com sucesso", "records": len(rows), "cache_updated_at": iso_now}
+            else:
+                logger.warning("Query de refresh retornou lista vazia; mantendo cache anterior.")
+        except Exception as ex:
+            logger.warning(f"Falha na reconstrução do cache agro: {ex}. Mantendo cache anterior como fallback.")
+        return {"status": "fallback", "message": "Mantido cache anterior", "cache_updated_at": _AGRO_MUN_CACHE.get("iso_timestamp")}
+
+    @staticmethod
+    def _get_agro_mun_summary():
+        with _AGRO_CACHE_LOCK:
+            now = time.time()
+            if _AGRO_MUN_CACHE["data"] is not None and (now - _AGRO_MUN_CACHE["timestamp"]) < 3600:
+                return _AGRO_MUN_CACHE["data"]
+        Wave1Repository.refresh_agro_cache(force=False)
+        with _AGRO_CACHE_LOCK:
+            return _AGRO_MUN_CACHE.get("data") or []
 
     @staticmethod
     def agro_kpis(uf=None, bioma=None, municipio=None):
@@ -2225,6 +2243,7 @@ class Wave1Repository:
         total_municipios_ibge = 5570
         total_ufs = len(set(r["uf"] for r in summary if r.get("uf")))
         mun_car_count = len(set(r["codigo_ibge_mun"] for r in filtered if r.get("codigo_ibge_mun")))
+        cache_ts = _AGRO_MUN_CACHE.get("iso_timestamp") or datetime.now(timezone.utc).isoformat()
 
         return {
             "total_imoveis_car": total_imoveis,
@@ -2239,6 +2258,7 @@ class Wave1Repository:
             "ufs_presentes": total_ufs,
             "pessoas_juridicas_relacionadas": total_cnpjs,
             "ultima_atualizacao": last_update,
+            "cache_updated_at": cache_ts,
             "metodologia": {
                 "area_declarada": "Soma da coluna area_total_ha declarada pelo proprietário no SICAR/CAR. Não inclui área geométrica calculada sobre polígonos nem área dissolvida sem sobreposição. 99,7% dos registros possuem área > 0; mediana de 10,5 ha.",
                 "geometrias_validas": "Indisponível - imovel_rural não possui coluna de geometria para validação geoespacial. A área declarada (area_total_ha) é o único indicador disponível.",

@@ -561,6 +561,16 @@ def get_agro_kpis(request: Request, uf: Optional[str] = Query(None, min_length=2
         logger.error(f"Erro ao buscar KPIs do Agro: {e} reqId={req_id}")
         return standard_error("INTERNAL_SERVER_ERROR", "Error fetching agro KPIs", req_id, 500)
 
+@router.post("/agro/cache/refresh")
+def refresh_agro_cache(request: Request, user=Depends(require_permission("agro"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        res = Wave1Repository.refresh_agro_cache(force=True)
+        return res
+    except Exception as e:
+        logger.error(f"Erro ao atualizar cache do Agro: {e} reqId={req_id}")
+        return standard_error("INTERNAL_SERVER_ERROR", "Error refreshing agro cache", req_id, 500)
+
 @router.get("/agro/distribuicao")
 def get_agro_distribuicao(request: Request, tipo: str = Query("bioma", regex="^(bioma|uso_solo)$"),
                           uf: Optional[str] = Query(None, min_length=2, max_length=2),
