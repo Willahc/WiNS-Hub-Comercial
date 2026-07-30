@@ -1,4 +1,4 @@
-import type { EngineeringCompany, EngineeringDataset, EngineeringFilters, EngineeringOpportunity, EngineeringWork } from '../../types/engineering';
+import type { EngineeringCompany, EngineeringDataset, EngineeringFilters, EngineeringOpportunity, EngineeringWork, EngineeringExecutor, EngineeringDisciplina, EngineeringInsumo, EngineeringInputSupplier, EngineeringInputSupplierResponse, EngineeringInputSuppliersSummary, EngineeringInputSuppliersFacets, EngineeringSupplyChainLink, ExecutorPapel, FornecedorTipo, Classification, DecisionMaker } from '../../types/engineering';
 import { httpClient } from '../http/client';
 
 type ApiAggregates={works_total:number;investment_total?:number;investment_records_count:number;investment_missing_count:number;investment_unhomologated_count:number;investment_status:'complete'|'partial'|'unavailable';financial_coverage_pct:number;municipality_count:number;company_count:number;missing_municipality_count:number;missing_company_count:number;status_counts:{label:string;value:number}[];phase_counts:{label:string;value:number}[];territories:{municipio:string;uf:string;works_count:number;investment_total?:number;investment_unavailable_count:number;company_count:number;opportunity_count:number;updated_at?:string}[];opportunities:{opportunities_total:number;opportunities_active_total:number;matches_total:number;opportunities_linked:number;opportunities_active:number;matches_linked:number;works_with_opportunity:number;works_without_opportunity:number;active_rule:string};last_updated_at?:string};
@@ -9,11 +9,11 @@ type ApiSupplier={source_id:string;razao_social?:string;nome_fantasia?:string;cn
 
 const workStatus=(value?:string):EngineeringWork['status']=>{const v=(value||'').toLowerCase();if(v.includes('conclu'))return 'Concluída';if(v.includes('paralis')||v.includes('suspens'))return 'Paralisada';if(v.includes('andamento')||v.includes('execu'))return 'Em andamento';return 'Prevista'};
 const workPhase=(value?:string):EngineeringWork['phase']=>{const v=(value||'').toLowerCase();if(v.includes('licen'))return 'Licenciamento';if(v.includes('mobil'))return 'Mobilização';if(v.includes('execu')||v.includes('obra'))return 'Execução';if(v.includes('entreg')||v.includes('conclu'))return 'Entrega';return 'Projeto'};
-const workSector=(value?:string):EngineeringWork['sector']=>{const v=(value||'').toLowerCase();if(v.includes('sanea'))return 'Saneamento';if(v.includes('energ'))return 'Energia';if(v.includes('mobil'))return 'Mobilidade';return 'Rodovias'};
+const workSector=(value?:string):EngineeringWork['sector']=>{const v=(value||'').toLowerCase();if(v.includes('petroleo')||v.includes(' gas')||v.includes('gas '))return 'Petróleo e Gás';if(v.includes('sanea'))return 'Saneamento';if(v.includes('energ'))return 'Energia';if(v.includes('mobil'))return 'Mobilidade';if(v.includes('hospit'))return 'Hospitalar';if(v.includes('educa'))return 'Educação';if(v.includes('habit'))return 'Habitação';if(v.includes('indust'))return 'Industrial';if(v.includes('rodov')||v.includes('ferrov'))return 'Rodovias';return 'Industrial'};
 async function getRealDataset(options:EngineeringFilters&{page?:number;pageSize?:number}={}):Promise<EngineeringDataset>{
   const page=options.page||1;const pageSize=options.pageSize||100;
   const [worksResult,opportunitiesResult,suppliersResult]=await Promise.allSettled([
-    httpClient.get<ApiPage<ApiWork>>('/engenharia/obras',{timeout:30000,params:{page,page_size:pageSize,search:options.search||undefined,status:options.status,phase:options.phase,sector:options.sector,municipality:options.municipality,uf:options.uf,company:options.company,investment_min:options.investmentMin,investment_max:options.investmentMax,period_start:options.periodStart,period_end:options.periodEnd,has_supplier:options.hasSupplier,has_decision_maker:options.hasDecisionMaker,has_opportunity:options.hasOpportunity,capex_homologado:options.capexHomologado,sort:options.sort||'investment_desc'}}),
+    httpClient.get<ApiPage<ApiWork>>('/engenharia/obras',{timeout:30000,params:{page,page_size:pageSize,search:options.search||undefined,status:options.status,phase:options.phase,sector:options.sector,priority:options.priority,capex_class:options.capexClass,source:options.source,municipality:options.municipality,uf:options.uf,company:options.company,investment_min:options.investmentMin,investment_max:options.investmentMax,period_start:options.periodStart,period_end:options.periodEnd,has_supplier:options.hasSupplier,has_decision_maker:options.hasDecisionMaker,has_opportunity:options.hasOpportunity,has_inputs:options.hasInputs,has_supply_chain:options.hasSupplyChain,capex_homologado:options.capexHomologado,sort:options.sort||'updated_desc'}}),
     httpClient.get<ApiPage<ApiOpportunity>>('/engenharia/oportunidades',{timeout:30000,params:{page:1,page_size:100,min_score:70}}),
     httpClient.get<ApiPage<ApiSupplier>>('/engenharia/fornecedores',{timeout:30000,params:{page:1,page_size:100,active:true}}),
   ]);
@@ -21,10 +21,17 @@ async function getRealDataset(options:EngineeringFilters&{page?:number;pageSize?
   const worksData=worksResult.status==='fulfilled'?worksResult.value.data:{items:[],total:0,page,page_size:pageSize,applied_filters:{},aggregates:emptyAggregates,meta:{total:0,source:'API Onda 1',partialData:false}};
   const oppsData=opportunitiesResult.status==='fulfilled'?opportunitiesResult.value.data:{items:[],meta:{total:0,source:'',partialData:false}};
   const suppliersData=suppliersResult.status==='fulfilled'?suppliersResult.value.data:{items:[],meta:{total:0,source:'',partialData:false}};
-  const works:EngineeringWork[]=worksData.items.map((w,index)=>({
+  const works:EngineeringWork[]=worksData.items.map((w: any,index)=>({
     id:w.source_id,name:w.nome,description:w.descricao_publica||w.descricao||'Descrição parcial na fonte de origem.',
     municipality:w.municipio||'Município não informado',state:w.uf||'—',coordinates:[Number(w.latitude)||-15.78,Number(w.longitude)||-47.93],geoPrecision:w.geoPrecision||'unknown',
-    status:workStatus(w.status),phase:workPhase(w.fase),sector:workSector(w.setor),investment:w.valor_estimado!=null&&w.investment_homologated?Number(w.valor_estimado):undefined,investmentHomologated:!!w.investment_homologated,
+    status:workStatus(w.status),phase:workPhase(w.fase),sector:workSector(w.setor),investment:w.valor_estimado!=null?Number(w.valor_estimado):undefined,investmentHomologated:!!w.investment_homologated,
+    capexTaxonomy: w.capex_taxonomy || (w.valor_estimado != null ? (w.investment_homologated ? 'HOMOLOGADO' : 'ESTIMADO_REGRA') : 'INDISPONIVEL'),
+    companyName: w.company_name || w.empresa,
+    companyCnpj: w.company_cnpj || w.cnpj,
+    companyRole: w.company_role || (w.cnpj ? 'responsável' : 'empresa vinculada'),
+    commercialPriority: w.commercial_priority || (index < 10 ? 'Ouro' : index < 40 ? 'Prata' : 'Bronze'),
+    source: w.fonte,
+    sourceType: w.fonte_tipo || 'OFICIAL',
     progress:workPhase(w.fase)==='Entrega'?100:workPhase(w.fase)==='Execução'?55:workPhase(w.fase)==='Mobilização'?30:15,
     startDate:w.data_publicacao?new Date(w.data_publicacao).toLocaleDateString('pt-BR'):'Não informado',
     deadline:w.data_anuncio?new Date(w.data_anuncio).toLocaleDateString('pt-BR'):'Prazo não informado',
@@ -48,10 +55,48 @@ async function getRealDataset(options:EngineeringFilters&{page?:number;pageSize?
 export const engineeringService = {
   async load(options:EngineeringFilters&{page?:number;pageSize?:number}={}):Promise<EngineeringDataset>{return getRealDataset(options)},
   async getWorks():Promise<EngineeringWork[]>{return (await getRealDataset()).works},
-  async getWork(id:string):Promise<EngineeringWork|undefined>{const r=await httpClient.get(`/engenharia/obras/${id}`);const d=r.data;return {id:d.sourceId,name:d.name,description:d.description||'Descrição não informada na fonte.',municipality:d.municipality||'Município não informado',state:d.state||'—',coordinates:[Number(d.latitude)||0,Number(d.longitude)||0],geoPrecision:d.geoPrecision||'unknown',status:workStatus(d.status),phase:workPhase(d.phase),sector:workSector(d.sector),investment:d.value!=null?Number(d.value):undefined,progress:workPhase(d.phase)==='Entrega'?100:workPhase(d.phase)==='Execução'?55:workPhase(d.phase)==='Mobilização'?30:15,startDate:d.publishedAt?new Date(d.publishedAt).toLocaleDateString('pt-BR'):'Não informado',deadline:d.deadline?new Date(d.deadline).toLocaleDateString('pt-BR'):'Prazo não informado',companyIds:d.company?.cnpj?[d.company.cnpj]:[],priority:'Alta',indicators:[{label:'Fonte',value:d.source||d.provenance?.sourceTable||'não informada'},{label:'Atualização',value:d.lastUpdatedAt?new Date(d.lastUpdatedAt).toLocaleDateString('pt-BR'):'não informada'}],events:[]}},
+  async getWork(id:string):Promise<EngineeringWork|undefined>{const r=await httpClient.get(`/engenharia/obras/${id}`);const d=r.data;const decisionMakers:DecisionMaker[]|undefined=d.decisionMakers?.map((dm:Record<string,unknown>)=>({id:dm.source_id as string,nome:dm.nome as string,cargo:dm.cargo as string,email:dm.email as string|undefined,telefone:dm.telefone as string|undefined,linkedinUrl:dm.linkedin_url as string|undefined,fonte:dm.fonte as string,qualidadeLead:typeof dm.qualidadeContatoNormalizada==='number'?dm.qualidadeContatoNormalizada as number:typeof dm.qualidade_lead==='string'?({verde:90,amarelo:70,vermelho:45} as Record<string,number>)[(dm.qualidade_lead as string).toLowerCase()]||50:Number(dm.qualidade_lead)||0,qualidadeLeadRaw:dm.qualidadeLeadRaw as string|undefined,qualidadeContatoNormalizada:dm.qualidadeContatoNormalizada as number|undefined,qualidadeContato:dm.qualidadeContato as DecisionMaker['qualidadeContato'],confiancaVinculoObra:dm.confiancaVinculoObra as number|undefined,vinculoObra:dm.vinculoObra as DecisionMaker['vinculoObra'],statusValidacao:dm.statusValidacao as DecisionMaker['statusValidacao'],dataVerificacao:dm.dataVerificacao as string|undefined,updatedAt:dm.source_updated_at as string}));return{id:d.sourceId,name:d.name,description:d.description||'Descrição não informada na fonte.',municipality:d.municipality||'Município não informado',state:d.state||'—',coordinates:[Number(d.latitude)||0,Number(d.longitude)||0],geoPrecision:d.geoPrecision||'unknown',status:workStatus(d.status),phase:workPhase(d.phase),sector:workSector(d.sector),investment:d.value!=null?Number(d.value):undefined,progress:workPhase(d.phase)==='Entrega'?100:workPhase(d.phase)==='Execução'?55:workPhase(d.phase)==='Mobilização'?30:15,startDate:d.publishedAt?new Date(d.publishedAt).toLocaleDateString('pt-BR'):'Não informado',deadline:d.deadline?new Date(d.deadline).toLocaleDateString('pt-BR'):'Prazo não informado',companyIds:d.company?.cnpj?[d.company.cnpj]:[],company:d.company as {name?:string;cnpj?:string}|undefined,priority:'Alta',indicators:[{label:'Fonte',value:d.source||d.provenance?.sourceTable||'não informada'},{label:'Atualização',value:d.lastUpdatedAt?new Date(d.lastUpdatedAt).toLocaleDateString('pt-BR'):'não informada'}],events:[],decisionMakers:decisionMakers?.length?decisionMakers:undefined}},
   async getCompanies():Promise<EngineeringCompany[]>{return (await getRealDataset()).companies},
   async getCompany(id:string):Promise<EngineeringCompany|undefined>{const r=await httpClient.get(`/empresas/${id}`);const d=r.data;return {id:d.cnpj,name:d.legalName||'Razão social não informada',tradeName:d.tradeName||d.legalName||'Nome não informado',cnpj:d.cnpj,segment:d.supplierProfile?.cnae_descricao||'Engenharia',municipality:d.address?.municipality||'Município não informado',state:d.address?.state||'—',founded:'Não informado',employees:0,revenue:Number(d.capital)||0,score:Number(d.qualityScore)||0,workIds:(d.works||[]).map((w:{id:string})=>w.id),opportunityIds:(d.opportunities||[]).map((o:{obra_id:string})=>`${o.obra_id}-${d.cnpj}`),territories:d.address?.state?[d.address.state]:[],links:(d.works||[]).slice(0,8).map((w:{nome:string})=>({type:'Obra',name:w.nome})),history:[{date:d.lastUpdatedAt?new Date(d.lastUpdatedAt).toLocaleDateString('pt-BR'):'Sem data',title:'Cadastro consolidado',detail:`Fonte ${d.provenance?.sourceSchema}.${d.provenance?.sourceTable}`} ]}},
   async getOpportunities():Promise<EngineeringOpportunity[]>{return (await getRealDataset()).opportunities},
   async getMap(params:Record<string,unknown>):Promise<{clusters:Array<{layer:'works'|'companies'|'suppliers'|'opportunities';latitude:number;longitude:number;quantity:number;municipality_count:number;municipality:string;uf:string;sample_id:string;updated_at?:string;geoPrecision:string;source:string;detailUrl:string;locationLabel:string;approximateLocation:boolean}>;totals:Record<string,number>;total:number;strategy:string;sampled:boolean;truncated:boolean;zoom:number}> {return (await httpClient.get('/engenharia/mapa',{params,timeout:30000})).data},
   async getConnections(params:Record<string,unknown>):Promise<{kpis:{multiverticalCompanies:number;multiverticalSuppliers:number;fourVerticalMunicipalities:number;transversalOpportunities:number;confirmedRelations:number;potentialRelations:number};relations:Array<{cnpj:string;name:string;vertical:string;classification:'CONFIRMADO'|'PROVÁVEL'|'POTENCIAL';rule:string;confidence:number;source:string;updatedAt?:string;worksCount:number;opportunitiesCount:number;company360Url:string;worksUrl:string;occurrencesUrl:string;opportunitiesUrl:string}>;municipalPotential:Array<{municipality:string;uf:string;classification:string;rule:string;confidence:number}>;source:string}> {return (await httpClient.get('/engenharia/conexoes',{params,timeout:30000})).data},
+
+  // === Supply Chain API ===
+  async getExecutors(options?:{search?:string;uf?:string;especialidade?:string;page?:number;pageSize?:number}):Promise<{items:EngineeringExecutor[];meta:{total:number;page:number;pageSize:number}}> {
+    const r=await httpClient.get('/engenharia/fornecedores',{params:{page:options?.page||1,page_size:options?.pageSize||50,search:options?.search||undefined,uf:options?.uf||undefined,especialidade:options?.especialidade||undefined}});
+    return r.data;
+  },
+  async getExecutor(id:string):Promise<EngineeringExecutor|undefined> {
+    try{const r=await httpClient.get(`/engenharia/fornecedores/${id}`);return r.data;}catch{return undefined;}
+  },
+  async getInputSuppliers(options?:{search?:string;uf?:string;categoria?:string;tipo?:string;page?:number;pageSize?:number}):Promise<EngineeringInputSupplierResponse> {
+    const r=await httpClient.get('/engenharia/insumos',{params:{page:options?.page||1,page_size:options?.pageSize||50,search:options?.search||undefined,uf:options?.uf||undefined,categoria:options?.categoria||undefined,tipo:options?.tipo||undefined}});
+    const availability = 'AVAILABLE';
+    return { availability, items: r.data.items || [], meta: r.data.meta || { total: 0, page: 1, pageSize: 25, source: '', partialData: false }, message: r.data?.message };
+  },
+  async getInputSupplier(id:string):Promise<EngineeringInputSupplier|undefined> {
+    try{const r=await httpClient.get(`/engenharia/insumos/${id}`);return r.data?.item;}catch{return undefined;}
+  },
+  async getInputSuppliersSummary():Promise<EngineeringInputSuppliersSummary> {
+    const r=await httpClient.get('/engenharia/insumos/summary');return r.data;
+  },
+  async getInputSuppliersFacets():Promise<EngineeringInputSuppliersFacets> {
+    const r=await httpClient.get('/engenharia/insumos/facets');return r.data;
+  },
+  async getWorkExecutors(workId:string):Promise<EngineeringExecutor[]> {
+    try{const r=await httpClient.get(`/engenharia/obras/${workId}/executores`);return r.data.items||[];}catch{return [];}
+  },
+  async getWorkDisciplinas(workId:string):Promise<EngineeringDisciplina[]> {
+    try{const r=await httpClient.get(`/engenharia/obras/${workId}/disciplinas`);return r.data.items||[];}catch{return [];}
+  },
+  async getWorkInsumos(workId:string):Promise<EngineeringInsumo[]> {
+    try{const r=await httpClient.get(`/engenharia/obras/${workId}/insumos`);return r.data.items||[];}catch{return [];}
+  },
+  async getWorkOpportunities(workId:string):Promise<EngineeringOpportunity[]> {
+    try{const r=await httpClient.get(`/engenharia/obras/${workId}/oportunidades`);return r.data.items||[];}catch{return [];}
+  },
+  async getWorkSupplyChain(workId:string):Promise<EngineeringSupplyChainLink[]> {
+    try{const r=await httpClient.get(`/engenharia/obras/${workId}/supply-chain`);return r.data.items||[];}catch{return [];}
+  },
 };

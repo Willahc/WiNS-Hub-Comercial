@@ -167,17 +167,20 @@ class Wave1Repository:
 
     @staticmethod
     def works(page=1, page_size=25, search=None, municipality=None, uf=None, status=None,
-              phase=None, sector=None, company=None, investment_min=None, investment_max=None,
+              phase=None, sector=None, priority=None, capex_class=None, source=None,
+              company=None, investment_min=None, investment_max=None,
               period_start=None, period_end=None, has_supplier=None, has_decision_maker=None,
-              has_opportunity=None, capex_homologado=None, sort="updated_desc"):
+              has_opportunity=None, has_inputs=None, has_supply_chain=None,
+              capex_homologado=None, sort="updated_desc"):
         size, offset = _page(page, page_size)
         # Mesma regra da carteira legada: NULL significa que a obra nunca foi
         # ocultada explicitamente e, portanto, continua visível.
         where = ["(o.visivel IS NULL OR o.visivel IS TRUE)"]
         params: list[Any] = []
         if search:
-            where.append("(o.nome ILIKE %s OR o.empresa ILIKE %s OR o.descricao_publica ILIKE %s OR o.descricao ILIKE %s)")
-            params += [f"%{search}%"] * 4
+            clean_s = _clean_cnpj(search) or search
+            where.append("(o.nome ILIKE %s OR o.empresa ILIKE %s OR o.cnpj = %s OR o.id_externo ILIKE %s OR o.descricao_publica ILIKE %s OR o.descricao ILIKE %s OR o.municipio ILIKE %s)")
+            params += [f"%{search}%", f"%{search}%", clean_s, f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"]
         if municipality: where.append("o.municipio ILIKE %s"); params.append(f"%{municipality}%")
         if uf: where.append("o.uf = %s"); params.append(uf.upper())
         status_bucket="""CASE WHEN lower(coalesce(o.status,o.fase,o.status_licenca,'')) LIKE '%%conclu%%' THEN 'Concluída' WHEN lower(coalesce(o.status,o.fase,o.status_licenca,'')) ~ '(paralis|suspens)' THEN 'Paralisada' WHEN lower(coalesce(o.status,o.fase,o.status_licenca,'')) ~ '(andamento|execu)' THEN 'Em andamento' ELSE 'Prevista' END"""
@@ -189,17 +192,34 @@ class Wave1Repository:
             if phase in ('Projeto','Licenciamento','Mobilização','Execução','Entrega'): where.append(f"{phase_bucket} = %s"); params.append(phase)
             else: where.append("o.fase ILIKE %s"); params.append(phase)
         if sector: where.append("o.setor ILIKE %s"); params.append(sector)
+        if priority:
+            p_up = priority.upper()
+            if p_up == 'OURO': where.append("(o.classificacao_computed = 'OURO' OR o.lead_score >= 80)")
+            elif p_up == 'PRATA': where.append("(o.classificacao_computed = 'PRATA' OR (o.lead_score >= 50 AND o.lead_score < 80))")
+            else: where.append("(coalesce(o.classificacao_computed, 'BRONZE') IN ('BRONZE', 'PIPELINE') OR o.lead_score < 50 OR o.lead_score IS NULL)")
+        if capex_class:
+            c_up = capex_class.upper()
+            if c_up == 'HOMOLOGADO': where.append("(o.valor_estimado IS NOT NULL AND o.capex_fonte IS NOT NULL AND o.status_portao = 'APROVADA')")
+            elif c_up == 'PUBLICADO': where.append("(o.valor_estimado IS NOT NULL AND o.fonte_tipo = 'OFICIAL')")
+            elif c_up == 'ESTIMADO_FONTE': where.append("(o.valor_estimado IS NOT NULL AND o.capex_fonte IS NOT NULL)")
+            elif c_up == 'ESTIMADO_REGRA': where.append("(o.valor_estimado IS NOT NULL AND o.capex_fonte IS NULL)")
+            elif c_up == 'ESTIMADO_MODELO': where.append("(o.valor_estimado IS NOT NULL AND o.confianca_extracao IS NOT NULL)")
+            elif c_up == 'INDISPONIVEL': where.append("(o.valor_estimado IS NULL)")
+        if source: where.append("o.fonte ILIKE %s"); params.append(f"%{source}%")
         if company: where.append("(o.empresa ILIKE %s OR o.cnpj = %s OR o.empresa_executora ILIKE %s OR o.cnpj_executora = %s)"); params += [f"%{company}%", _clean_cnpj(company) or company, f"%{company}%", _clean_cnpj(company) or company]
         if investment_min is not None: where.append("o.valor_estimado >= %s"); params.append(investment_min)
         if investment_max is not None: where.append("o.valor_estimado <= %s"); params.append(investment_max)
-        if period_start: where.append("coalesce(o.data_publicacao,o.data_anuncio) >= %s"); params.append(period_start)
-        if period_end: where.append("coalesce(o.data_publicacao,o.data_anuncio) <= %s"); params.append(period_end)
+        if period_start: where.append("coalesce(o.data_publicacao,o.data_anuncio,o.criado_em) >= %s"); params.append(period_start)
+        if period_end: where.append("coalesce(o.data_publicacao,o.data_anuncio,o.criado_em) <= %s"); params.append(period_end)
         supplier_exists = "(o.cnpj_executora IS NOT NULL OR o.fornecedor_principal IS NOT NULL OR EXISTS (SELECT 1 FROM engenharia.matches_v2 ms WHERE ms.obra_id=o.id))"
         decision_exists = "EXISTS (SELECT 1 FROM engenharia.decisores_obra d WHERE d.obra_id=o.id AND d.excluido_em IS NULL)"
         opportunity_exists = "EXISTS (SELECT 1 FROM engenharia.matches_v2 mo WHERE mo.obra_id=o.id)"
+        inputs_exists = "EXISTS (SELECT 1 FROM engenharia.matches_cadeia_obra mc WHERE mc.obra_id=o.id)"
         if has_supplier is not None: where.append(supplier_exists if has_supplier else f"NOT {supplier_exists}")
         if has_decision_maker is not None: where.append(decision_exists if has_decision_maker else f"NOT {decision_exists}")
         if has_opportunity is not None: where.append(opportunity_exists if has_opportunity else f"NOT {opportunity_exists}")
+        if has_inputs is not None: where.append(inputs_exists if has_inputs else f"NOT {inputs_exists}")
+        if has_supply_chain is not None: where.append(inputs_exists if has_supply_chain else f"NOT {inputs_exists}")
         capex_exists="(o.valor_estimado IS NOT NULL AND o.capex_fonte IS NOT NULL)"
         if capex_homologado is not None: where.append(capex_exists if capex_homologado else f"NOT {capex_exists}")
         order = {
@@ -209,11 +229,16 @@ class Wave1Repository:
           "updated_asc":"coalesce(o.valor_atualizado_em,o.executora_atualizada_em,o.criado_em) ASC NULLS LAST",
           "start_desc":"coalesce(o.data_publicacao,o.data_anuncio) DESC NULLS LAST",
           "start_asc":"coalesce(o.data_publicacao,o.data_anuncio) ASC NULLS LAST",
-        }[sort]
+          "priority_desc":"CASE WHEN o.classificacao_computed = 'OURO' THEN 1 WHEN o.classificacao_computed = 'PRATA' THEN 2 ELSE 3 END ASC, o.lead_score DESC NULLS LAST",
+          "municipality_asc":"o.municipio ASC NULLS LAST",
+          "phase_asc":"o.fase ASC NULLS LAST",
+          "sector_asc":"o.setor ASC NULLS LAST"
+        }.get(sort, "coalesce(o.valor_atualizado_em,o.executora_atualizada_em,o.criado_em) DESC NULLS LAST")
         clause = " AND ".join(where)
-        select = f"""SELECT o.id::text source_id,o.nome,o.empresa,o.cnpj,o.setor,o.municipio,o.uf,o.valor_estimado,
+        select = f"""SELECT o.id::text source_id,o.nome,o.empresa,o.cnpj,o.empresa_executora,o.cnpj_executora,o.setor,o.municipio,o.uf,o.valor_estimado,
           coalesce(o.status,o.fase,o.status_licenca) status,o.fase,o.data_publicacao,o.data_anuncio,o.descricao_publica,o.descricao,
-          o.fonte,o.url_fonte,o.capex_fonte,(o.valor_estimado IS NOT NULL AND o.capex_fonte IS NOT NULL) investment_homologated,
+          o.fonte,o.url_fonte,o.capex_fonte,o.fonte_tipo,o.lead_score,o.classificacao_computed,
+          (o.valor_estimado IS NOT NULL AND o.capex_fonte IS NOT NULL AND o.status_portao = 'APROVADA') investment_homologated,
           coalesce(o.valor_atualizado_em,o.executora_atualizada_em,o.criado_em) source_updated_at,m.latitude,m.longitude,
           (o.municipio IS NULL OR o.uf IS NULL OR o.cnpj IS NULL OR o.valor_estimado IS NULL) partial_data
           FROM engenharia.obras o LEFT JOIN referencia.municipio m ON m.uf=o.uf AND m.nome_normalizado=upper(unaccent(o.municipio))
@@ -257,15 +282,49 @@ class Wave1Repository:
         items=[]
         for r in rows:
             quality=100-sum([not r["nome"],not r["municipio"],not r["uf"],not r["cnpj"],r["valor_estimado"] is None])*12
-            items.append({"canonicalId":_canonical("work",r["source_id"]),**r,"qualityScore":max(0,quality),
-              "confidenceLevel":"confirmed" if quality>=88 else "probable","activeStatus":True,
-              "geoPrecision":"municipality" if r["latitude"] is not None else "unknown",
-              "provenance":{"sourceSystem":"wins_engenharia","sourceSchema":"engenharia","sourceTable":"obras","sourceId":r["source_id"],"sourceUpdatedAt":r["source_updated_at"]}})
+            v_est = r.get("valor_estimado")
+            c_fonte = r.get("capex_fonte")
+            f_tipo = r.get("fonte_tipo")
+            if v_est is None: capex_tax = "INDISPONIVEL"
+            elif r.get("investment_homologated"): capex_tax = "HOMOLOGADO"
+            elif f_tipo == "OFICIAL": capex_tax = "PUBLICADO"
+            elif c_fonte: capex_tax = "ESTIMADO_FONTE"
+            else: capex_tax = "ESTIMADO_REGRA"
+
+            emp_name = r.get("empresa") or r.get("empresa_executora") or None
+            emp_cnpj = r.get("cnpj") or r.get("cnpj_executora") or None
+            if r.get("cnpj_executora"): emp_role = "executora confirmada"
+            elif r.get("cnpj"): emp_role = "responsável"
+            elif r.get("empresa"): emp_role = "empresa vinculada"
+            else: emp_role = "empresa sugerida"
+
+            score_val = r.get("lead_score") or 0
+            computed = r.get("classificacao_computed")
+            if computed == "OURO" or score_val >= 80: prio = "Ouro"
+            elif computed == "PRATA" or score_val >= 50: prio = "Prata"
+            else: prio = "Bronze"
+
+            items.append({
+                "canonicalId":_canonical("work",r["source_id"]),
+                **r,
+                "capex_taxonomy": capex_tax,
+                "company_name": emp_name,
+                "company_cnpj": emp_cnpj,
+                "company_role": emp_role,
+                "commercial_priority": prio,
+                "qualityScore":max(0,quality),
+                "confidenceLevel":"confirmed" if quality>=88 else "probable",
+                "activeStatus":True,
+                "geoPrecision":"municipality" if r["latitude"] is not None else "unknown",
+                "provenance":{"sourceSystem":"wins_engenharia","sourceSchema":"engenharia","sourceTable":"obras","sourceId":r["source_id"],"sourceUpdatedAt":r["source_updated_at"]}
+            })
         applied={k:v for k,v in {"search":search,"status":status,"phase":phase,"sector":sector,
+          "priority":priority,"capex_class":capex_class,"source":source,
           "municipality":municipality,"uf":uf.upper() if uf else None,"company":company,
           "investment_min":investment_min,"investment_max":investment_max,
           "period_start":str(period_start) if period_start else None,"period_end":str(period_end) if period_end else None,
           "has_supplier":has_supplier,"has_decision_maker":has_decision_maker,"has_opportunity":has_opportunity,
+          "has_inputs":has_inputs,"has_supply_chain":has_supply_chain,
           "capex_homologado":capex_homologado,
           "sort":sort}.items() if v is not None}
         investment_available=agg["investment_count"] > 0

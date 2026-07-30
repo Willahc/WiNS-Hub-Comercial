@@ -187,7 +187,7 @@ class RelationshipsService {
         provenance: e.provenance || `${e.sourceType || 'api'}.${e.targetType || 'api'}`,
       }));
 
-      const meta = response.meta || {
+      const meta = (response as any).meta || {
         total_entidades: nodes.length,
         total_relacoes: edges.length,
         exibindo: edges.length,
@@ -206,7 +206,7 @@ class RelationshipsService {
 
       const result: RelationshipsApiResponse = {
         entity: {
-          id: response.entity?.cnpj || response.entity?.work_id || params.entidade || '',
+          id: response.entity?.cnpj || response.entity?.workId || params.entidade || '',
           nome: nodes[0]?.name || '',
           tipo: nodes[0]?.type || 'empresa',
           documento: response.entity?.cnpj || '',

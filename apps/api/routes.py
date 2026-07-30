@@ -129,22 +129,27 @@ def wave1_works(request: Request, page: int = Query(1, ge=1), page_size: int = Q
                 search: Optional[str] = Query(None, max_length=120), municipality: Optional[str] = Query(None, max_length=100),
                 uf: Optional[str] = Query(None, min_length=2, max_length=2), status: Optional[str] = Query(None, max_length=80),
                 phase: Optional[str] = Query(None, max_length=80), sector: Optional[str] = Query(None, max_length=120),
+                priority: Optional[str] = Query(None, max_length=50), capex_class: Optional[str] = Query(None, max_length=50),
+                source: Optional[str] = Query(None, max_length=120),
                 company: Optional[str] = Query(None, max_length=160), investment_min: Optional[float] = Query(None, ge=0),
                 investment_max: Optional[float] = Query(None, ge=0), period_start: Optional[date] = None,
                 period_end: Optional[date] = None, has_supplier: Optional[bool] = None,
                 has_decision_maker: Optional[bool] = None, has_opportunity: Optional[bool] = None,
+                has_inputs: Optional[bool] = None, has_supply_chain: Optional[bool] = None,
                 capex_homologado: Optional[bool] = None,
-                sort: Literal["updated_desc", "updated_asc", "name_asc", "name_desc", "investment_desc", "investment_asc", "start_desc", "start_asc"] = "updated_desc",
+                sort: Literal["updated_desc", "updated_asc", "name_asc", "name_desc", "investment_desc", "investment_asc", "start_desc", "start_asc", "priority_desc", "municipality_asc", "phase_asc", "sector_asc"] = "updated_desc",
                 user=Depends(require_permission("engenharia"))):
     if investment_min is not None and investment_max is not None and investment_min > investment_max:
         raise HTTPException(422, "investment_min não pode ser maior que investment_max")
     if period_start and period_end and period_start > period_end:
         raise HTTPException(422, "period_start não pode ser posterior a period_end")
     return Wave1Repository.works(page=page, page_size=page_size, search=search, municipality=municipality,
-        uf=uf, status=status, phase=phase, sector=sector, company=company,
-        investment_min=investment_min, investment_max=investment_max, period_start=period_start,
-        period_end=period_end, has_supplier=has_supplier, has_decision_maker=has_decision_maker,
-        has_opportunity=has_opportunity, capex_homologado=capex_homologado, sort=sort)
+        uf=uf, status=status, phase=phase, sector=sector, priority=priority, capex_class=capex_class,
+        source=source, company=company, investment_min=investment_min, investment_max=investment_max,
+        period_start=period_start, period_end=period_end, has_supplier=has_supplier,
+        has_decision_maker=has_decision_maker, has_opportunity=has_opportunity,
+        has_inputs=has_inputs, has_supply_chain=has_supply_chain,
+        capex_homologado=capex_homologado, sort=sort)
 
 @router.get("/engenharia/obras/{id}")
 def wave1_work(id: str, request: Request, user=Depends(require_permission("engenharia"))):
