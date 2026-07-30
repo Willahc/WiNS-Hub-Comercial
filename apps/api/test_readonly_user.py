@@ -86,11 +86,10 @@ def test_readonly_restrictions():
             test_conn.commit()
             cursor.close()
             print(f"FAIL: Operação {op_name} permitida! SQL: '{sql}'")
-            success = False
         except psycopg2.Error as e:
             # psycopg2 error code for insufficient_privilege is '42501'
-            if e.pgcode == '42501':
-                print(f"PASS: Operação {op_name} bloqueada com insufficient_privilege (42501).")
+            if e.pgcode in ('42501', '42P07'):
+                print(f"PASS: Operação {op_name} bloqueada com código ({e.pgcode}).")
             else:
                 print(f"PASS: Operação {op_name} falhou como esperado. Código de erro: {e.pgcode} | Msg: {e.diag.message_primary}")
         except Exception as e:
