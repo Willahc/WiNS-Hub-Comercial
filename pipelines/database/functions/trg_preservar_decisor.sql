@@ -1,0 +1,23 @@
+ CREATE OR REPLACE FUNCTION engenharia.trg_preservar_decisor()                                                                                                                                                                  +
+  RETURNS trigger                                                                                                                                                                                                               +
+  LANGUAGE plpgsql                                                                                                                                                                                                              +
+ AS $function$                                                                                                                                                                                                                  +
+ DECLARE v_cnpj text; v_empresa text; v_obra_nome text;                                                                                                                                                                         +
+ BEGIN                                                                                                                                                                                                                          +
+   IF COALESCE(NEW.confianca_match,0) >= 50 AND NEW.excluido_em IS NULL AND NULLIF(trim(NEW.nome),'') IS NOT NULL THEN                                                                                                          +
+     SELECT o.cnpj, o.empresa, left(o.nome,200) INTO v_cnpj, v_empresa, v_obra_nome FROM obras o WHERE o.id = NEW.obra_id;                                                                                                      +
+     INSERT INTO decisores_preservados (cnpj, empresa, nome, cargo, tipo_cargo, email, telefone, linkedin_url, confianca_match, fonte, origem_obra_id, origem_obra_nome)                                                        +
+     VALUES (NULLIF(v_cnpj,''), NULLIF(v_empresa,''), NEW.nome, NEW.cargo, NEW.tipo_cargo, NULLIF(NEW.email,''), NULLIF(NEW.telefone,''), NULLIF(NEW.linkedin_url,''), NEW.confianca_match, NEW.fonte, NEW.obra_id, v_obra_nome)+
+     ON CONFLICT (COALESCE(cnpj,''), lower(trim(nome))) DO UPDATE SET                                                                                                                                                           +
+       email        = COALESCE(decisores_preservados.email, EXCLUDED.email),                                                                                                                                                    +
+       telefone     = COALESCE(decisores_preservados.telefone, EXCLUDED.telefone),                                                                                                                                              +
+       linkedin_url = COALESCE(decisores_preservados.linkedin_url, EXCLUDED.linkedin_url),                                                                                                                                      +
+       cargo        = COALESCE(decisores_preservados.cargo, EXCLUDED.cargo),                                                                                                                                                    +
+       confianca_match = GREATEST(COALESCE(decisores_preservados.confianca_match,0), EXCLUDED.confianca_match),                                                                                                                 +
+       atualizado_em = now();                                                                                                                                                                                                   +
+   END IF;                                                                                                                                                                                                                      +
+   RETURN NEW;                                                                                                                                                                                                                  +
+ END;                                                                                                                                                                                                                           +
+ $function$                                                                                                                                                                                                                     +
+ 
+

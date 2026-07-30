@@ -94,3 +94,37 @@ enriquecimento_v5max_cnpj/
 
 # Configurações locais de ferramentas de desenvolvimento
 .claude/settings.local.json
+
+# ── Modular platform exclusions (WiNS Hub Unificado) ──
+
+# Build artifacts
+dist/
+dist-ssr/
+*.local
+node_modules/
+
+# Cache
+.pytest_cache/
+cache/
+coverage/
+
+# Temporary / scratch (contain secrets and credentials)
+scratch/
+screenshots/
+tmp/
+
+# Design mockups (separate project directory)
+mockups-v2/
+
+# Data files (large, regenerable, or contain PII)
+arquivos/
+docs/audits/engineering-inputs/
+apps/api/data/
+staging-root/
+
+# SPA lockfile (regenerable)
+package-lock.json
+
+# Runtime artifacts
+*.pid
+*.lock
