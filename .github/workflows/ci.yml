@@ -89,7 +89,12 @@ jobs:
           python-version: "3.11"
 
       - name: Instala deps de teste
-        run: pip install pytest pyjwt bcrypt pyotp
+        run: |
+          pip install pytest pyjwt bcrypt pyotp
+          # deps de apps/api (fastapi/TestClient) para testes atuais de auth.
+          if [ -f apps/api/requirements.txt ]; then
+            pip install -r apps/api/requirements.txt
+          fi
 
       - name: Computa base e head do diff
         id: base
@@ -126,24 +131,96 @@ jobs:
           HEAD_SHA="${{ steps.base.outputs.head }}"
           auth=false
           agro=false
+          agro_backend=false
           while IFS= read -r -d '' f; do
+            # Verificações INDEPENDENTES: apps/api/routes.py pode pertencer a
+            # auth E Agro ao mesmo tempo. `case` único pararia na 1a correspondência.
             case "$f" in
-              apps/api/auth.py|apps/api/routes.py|apps/api/test_api.py|apps/api/test_auth_session.py|app/tests/test_auth.py|src/services/auth/*|src/services/auth.tsx|public/logout-maintenance.html)
+              apps/api/auth.py|apps/api/routes.py|apps/api/test_auth_session.py|app/tests/test_auth.py|src/services/auth/*|src/services/auth.tsx|src/tests/auth.test.tsx|public/logout-maintenance.html)
                 auth=true ;;
+            esac
+            case "$f" in
               apps/api/wave1_repository.py|apps/api/routes.py|staging/agro_external_gate.py|app/tests/test_fase0d_farms_v2.py|app/tests/test_fase2_pasture_live_domain.py|src/pages/Agro*|src/components/Agro*|src/pages/agroApiEndpoints.ts|src/pages/agroOportunidadesContract.ts)
                 agro=true ;;
+            esac
+            case "$f" in
+              apps/api/wave1_repository.py|apps/api/routes.py|staging/agro_external_gate.py)
+                agro_backend=true ;;
             esac
           done < <(git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA")
           echo "auth=${auth}" >> "$GITHUB_OUTPUT"
           echo "agro=${agro}" >> "$GITHUB_OUTPUT"
+          echo "agro_backend=${agro_backend}" >> "$GITHUB_OUTPUT"
 
-      - name: Testes de autenticação (núcleo puro, sem banco)
+      - name: Testes de autenticação (arquitetura atual + legado)
         if: steps.scope.outputs.auth == 'true'
-        run: pytest app/tests/test_auth.py -q
+        env:
+          # Valores dummy: permitem importar apps/api (config/database) em CI
+          # sem banco. Os pools de conexão falham no import e são capturados;
+          # os testes de sessão não tocam o banco.
+          DB_PASS: ci-dummy
+          DB_WRITE_PASS: ci-dummy
+          DB_AGRO_USER: ci-dummy
+          DB_AGRO_PASS: ci-dummy
+          DB_LOG_USER: ci-dummy
+          DB_LOG_PASS: ci-dummy
+          DB_SAUDE_USER: ci-dummy
+          DB_SAUDE_PASS: ci-dummy
+        shell: bash
+        run: |
+          # apps/api/test_auth_session.py = arquitetura atual; app/tests/test_auth.py = legado.
+          # apps/api/test_api.py é excluído: sobe uvicorn local com caminho hardcoded, não cabe em CI.
+          auth_tests=()
+          for t in apps/api/test_auth_session.py; do
+            [ -f "$t" ] && auth_tests+=("$t")
+          done
+          legacy_tests=()
+          for t in app/tests/test_auth.py; do
+            [ -f "$t" ] && legacy_tests+=("$t")
+          done
+          if [ "${#auth_tests[@]}" -eq 0 ] && [ "${#legacy_tests[@]}" -eq 0 ]; then
+            echo "Alteração de autenticação sem teste focado disponível."
+            exit 1
+          fi
+          # Invocações separadas: evita colisão do módulo `auth` entre apps/api/ e app/
+          # no sys.path do pytest.
+          if [ "${#auth_tests[@]}" -gt 0 ]; then
+            pytest "${auth_tests[@]}" -q
+          fi
+          if [ "${#legacy_tests[@]}" -gt 0 ]; then
+            pytest "${legacy_tests[@]}" -q
+          fi
+          if [ "${#auth_tests[@]}" -eq 0 ]; then
+            echo "::warning::Sem teste de autenticação atual em apps/api (test_auth_session.py); executado apenas o legado app/tests/test_auth.py."
+          fi
 
-      - name: Testes Agro backend (domínio puro, sem banco)
-        if: steps.scope.outputs.agro == 'true'
-        run: pytest app/tests/test_fase0d_farms_v2.py app/tests/test_fase2_pasture_live_domain.py -q
+      - name: Testes Agro backend (atual apps/api ou legado compatível)
+        if: steps.scope.outputs.agro_backend == 'true'
+        shell: bash
+        run: |
+          shopt -s nullglob
+          agro_current=(apps/api/test_agro*.py)
+          if [ "${#agro_current[@]}" -gt 0 ]; then
+            pytest "${agro_current[@]}" -q
+            exit $?
+          fi
+          legacy=()
+          for t in app/tests/test_fase0d_farms_v2.py app/tests/test_fase2_pasture_live_domain.py; do
+            [ -f "$t" ] && legacy+=("$t")
+          done
+          if [ "${#legacy[@]}" -eq 0 ]; then
+            echo "Alteração de backend Agro sem teste focado disponível."
+            exit 1
+          fi
+          pytest "${legacy[@]}" -q
+          {
+            echo "## Aviso: testes backend Agro (legado)"
+            echo ""
+            echo "Nenhum teste atual em \`apps/api\` para backend Agro (\`test_agro*.py\`)."
+            echo "Executados testes legados compatíveis: \`${legacy[*]}\`."
+            echo ""
+            echo "**PRs futuros** que alterem \`apps/api/wave1_repository.py\` ou endpoints Agro devem incluir teste específico em \`apps/api/\`."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Vitest cobre auth.tsx (auth) e páginas Agro (agro) quando alterados.
       # O diff de frontend genérico (src/ sem auth/Agro) é coberto em frontend-quality.

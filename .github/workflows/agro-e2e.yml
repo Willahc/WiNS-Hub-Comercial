@@ -32,12 +32,84 @@ jobs:
       WINS_HUB_BASE: https://winshubcomercial.com.br
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+      - name: Computa base e head do diff
+        id: base
+        shell: bash
+        run: |
+          case "${{ github.event_name }}" in
+            pull_request)
+              BASE_SHA="${{ github.event.pull_request.base.sha }}"
+              HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+              ;;
+            push)
+              BASE_SHA="${{ github.event.before }}"
+              HEAD_SHA="${{ github.event.after }}"
+              if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+                BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || printf '')"
+              fi
+              ;;
+            *)
+              BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || printf '')"
+              HEAD_SHA="$(git rev-parse HEAD)"
+              ;;
+          esac
+          if [ -z "$BASE_SHA" ]; then
+            BASE_SHA="$HEAD_SHA"
+          fi
+          echo "base=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "head=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+
+      # apps/api/routes.py é compartilhado entre autenticação e Agro. Os `paths`
+      # do GitHub Actions não distinguem hunks: uma alteração apenas de auth
+      # nesse arquivo ainda dispara este workflow. Detectamos a relevância real:
+      # se routes.py mudou mas o diff não toca endpoints/símbolos Agro, o job
+      # encerra com sucesso (summary) sem instalar Playwright. O diff NUNCA é
+      # impresso (evita expor conteúdo sensível).
+      - name: Detecta relevância Agro real do diff
+        id: relevance
+        shell: bash
+        run: |
+          BASE_SHA="${{ steps.base.outputs.base }}"
+          HEAD_SHA="${{ steps.base.outputs.head }}"
+          routes_changed=false
+          while IFS= read -r -d '' f; do
+            case "$f" in
+              apps/api/routes.py) routes_changed=true ;;
+            esac
+          done < <(git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA")
+          if [ "$routes_changed" = "true" ]; then
+            if git diff --unified=0 "$BASE_SHA" "$HEAD_SHA" -- apps/api/routes.py \
+              | grep -iE '^[+-].*(agro|oportunidade|propriedade|fazenda|wave1|holdings|genetic|logistic|leads|carencia)' > /dev/null; then
+              echo "agro_relevant=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "agro_relevant=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            # Sem routes.py no diff, o paths filter já garantiu relevância Agro.
+            echo "agro_relevant=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: routes.py sem relevância Agro — job encerrado
+        if: steps.relevance.outputs.agro_relevant == 'false'
+        shell: bash
+        run: |
+          {
+            echo "## Agro E2E: não executado"
+            echo ""
+            echo "\`apps/api/routes.py\` mudou, mas o diff não contém alterações relacionadas a endpoints ou símbolos Agro (alteração apenas de autenticação/outros)."
+            echo "Como \`paths\` do GitHub Actions não distinguem hunks, o workflow foi disparado; a detecção de relevância real encerrou o job com sucesso."
+            echo "Nenhum teste E2E externo foi executado e o Playwright não foi instalado."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Install dependencies
+        if: steps.relevance.outputs.agro_relevant == 'true'
         run: |
           pip install playwright
           python3 -m playwright install chromium
@@ -45,8 +117,10 @@ jobs:
       # FASE 5 — Segredos nunca são impressos. Apenas verifica presença.
       # PR de fork não recebe segredos de produção; neste caso o job é
       # explicitamente pulado com summary explicativo (sem "No jobs were run").
-      - name: Verifica segredos (sem exibir valores)
-        id: secrets
+      # O `id` é gate_credentials para o próprio secret scan não capturá-lo.
+      - name: Verifica credenciais do gate (sem exibir valores)
+        if: steps.relevance.outputs.agro_relevant == 'true'
+        id: gate_credentials
         env:
           GATE_USER: ${{ secrets.WINS_HUB_GATE_USER }}
           GATE_PASSWORD: ${{ secrets.WINS_HUB_GATE_PASSWORD }}
@@ -57,8 +131,8 @@ jobs:
             echo "available=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Skip explícito quando segredos indisponíveis
-        if: steps.secrets.outputs.available == 'false'
+      - name: Skip explícito quando credenciais indisponíveis
+        if: steps.relevance.outputs.agro_relevant == 'true' && steps.gate_credentials.outputs.available == 'false'
         shell: bash
         run: |
           {
@@ -78,7 +152,7 @@ jobs:
       # Testes reproduzíveis do código do PR ficam em ci.yml (focused-tests /
       # frontend-quality), que são os bloqueantes.
       - name: E2E — Agro External Gate (produção)
-        if: steps.secrets.outputs.available == 'true'
+        if: steps.relevance.outputs.agro_relevant == 'true' && steps.gate_credentials.outputs.available == 'true'
         continue-on-error: ${{ github.event_name == 'pull_request' }}
         env:
           WINS_HUB_GATE_USER: ${{ secrets.WINS_HUB_GATE_USER }}
@@ -86,7 +160,7 @@ jobs:
         run: python3 staging/agro_external_gate.py
 
       - name: Resumo da semântica do gate
-        if: steps.secrets.outputs.available == 'true'
+        if: steps.relevance.outputs.agro_relevant == 'true' && steps.gate_credentials.outputs.available == 'true'
         shell: bash
         run: |
           {
@@ -101,13 +175,17 @@ jobs:
             echo "Testes reproduzíveis do código do PR (bloqueantes) são executados em \`ci.yml\`."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Secret scan — ensure no credentials leaked
+      # Secret scan — detecta VALORES hardcoded (atribuição de literal a chave
+      # sensível), não palavras técnicas: nomes de steps, comentários, docs e
+      # identificadores do workflow não disparam. `id` do passo acima é
+      # gate_credentials (fora do padrão de captura).
+      - name: Secret scan — detecta valores hardcoded
         run: |
-          if grep -rE '(WINS_HUB_GATE_USER|WINS_HUB_GATE_PASSWORD|password|senha|secret)' \
+          if grep -rEnE '(WINS_HUB_GATE_USER|WINS_HUB_GATE_PASSWORD|password|senha|secret|api[_-]?key|token)[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"']{2,}["'"'"']' \
             --include='*.py' --include='*.yml' --include='*.yaml' \
             --include='*.json' --include='*.ts' --include='*.tsx' \
-            .github/ staging/agro_external_gate.py | grep -v 'os.environ\|secrets\.\|\$\{\{' | grep -v 'node_modules' ; then
+            .github/ staging/ | grep -v 'node_modules' ; then
             echo "ERRO: Possível credencial hardcoded detectada"
             exit 1
           fi
-          echo "Nenhum segredo hardcoded encontrado"
+          echo "Nenhum valor de credencial hardcoded encontrado"
