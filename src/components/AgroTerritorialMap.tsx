@@ -9,7 +9,8 @@ import {
   BRAZIL_CENTER,
   BRAZIL_BOUNDS,
   calculateMarkerRadius,
-  calculateMapCoverage
+  calculateMapCoverage,
+  calculateTerritorialCoveragePercentage
 } from '../utils/agroMapUtils';
 import type { RawAgroPoint, AgroMapPoint } from '../utils/agroMapUtils';
 
@@ -30,12 +31,10 @@ function fmtArea(ha: number): string {
 
 function MapController({
   mapRef,
-  bounds,
-  shouldAutoFit
+  bounds
 }: {
   mapRef: React.MutableRefObject<L.Map | null>;
   bounds: [[number, number], [number, number]] | null;
-  shouldAutoFit: boolean;
 }) {
   const map = useMap();
 
@@ -43,11 +42,12 @@ function MapController({
     mapRef.current = map;
   }, [map, mapRef]);
 
+  // Fit bounds apenas quando o valor de bounds mudar
   useEffect(() => {
-    if (shouldAutoFit && bounds) {
+    if (bounds) {
       map.fitBounds(bounds, { padding: [30, 30], maxZoom: 8 });
     }
-  }, [map, bounds, shouldAutoFit]);
+  }, [map, bounds]);
 
   return null;
 }
@@ -58,6 +58,10 @@ export interface AgroTerritorialMapProps {
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  sources?: string[];
+  sourceDate?: string | null;
+  loadedAt?: string | null;
+  consolidatedAt?: string | null;
 }
 
 export const AgroTerritorialMap: React.FC<AgroTerritorialMapProps> = ({
@@ -65,12 +69,15 @@ export const AgroTerritorialMap: React.FC<AgroTerritorialMapProps> = ({
   totalNoRecorte = 0,
   loading = false,
   error = null,
-  onRetry
+  onRetry,
+  sources,
+  sourceDate,
+  loadedAt,
+  consolidatedAt
 }) => {
   const mapRef = useRef<L.Map | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<AgroMapPoint | null>(null);
   const [legendOpen, setLegendOpen] = useState(true);
-  const [autoFitTrigger, setAutoFitTrigger] = useState(true);
 
   // Processar e validar pontos puramente
   const coverage = useMemo(() => {
@@ -78,6 +85,11 @@ export const AgroTerritorialMap: React.FC<AgroTerritorialMapProps> = ({
   }, [rawClusters, totalNoRecorte]);
 
   const { validPoints, bounds, validCount, invalidCount, totalRepresented } = coverage;
+
+  // Percentual de cobertura dinâmico sem hardcode
+  const coveragePct = useMemo(() => {
+    return calculateTerritorialCoveragePercentage(totalRepresented, totalNoRecorte);
+  }, [totalRepresented, totalNoRecorte]);
 
   // Min/Max quantidade para a escala
   const { minQty, maxQty } = useMemo(() => {
@@ -109,6 +121,9 @@ export const AgroTerritorialMap: React.FC<AgroTerritorialMapProps> = ({
       mapRef.current.setView(BRAZIL_CENTER, 4);
     }
   };
+
+  // Texto formatado de fontes e datas
+  const sourceText = sources && sources.length > 0 ? sources.join(', ') : 'Fonte não informada pelo endpoint';
 
   return (
     <div
@@ -334,7 +349,7 @@ export const AgroTerritorialMap: React.FC<AgroTerritorialMapProps> = ({
               worldCopyJump={false}
               style={{ height: '100%', width: '100%', background: '#090D16' }}
             >
-              <MapController mapRef={mapRef} bounds={bounds} shouldAutoFit={autoFitTrigger} />
+              <MapController mapRef={mapRef} bounds={bounds} />
               <TileLayer
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 attribution='&copy; <a href="https://carto.com/">CARTO</a>'
@@ -431,7 +446,7 @@ export const AgroTerritorialMap: React.FC<AgroTerritorialMapProps> = ({
                 border: '1px solid #334155',
                 borderRadius: 8,
                 padding: legendOpen ? 10 : '6px 10px',
-                width: legendOpen ? 220 : 'auto',
+                width: legendOpen ? 230 : 'auto',
                 backdropFilter: 'blur(6px)',
                 fontSize: 10,
                 color: '#E2E8F0',
@@ -482,7 +497,10 @@ export const AgroTerritorialMap: React.FC<AgroTerritorialMapProps> = ({
 
                   <div style={{ fontSize: 9, color: '#94A3B8', display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <div>• <strong>Métrica:</strong> Cadastros CAR por município/grade</div>
-                    <div>• <strong>Fonte:</strong> SICAR / Geociências IBGE</div>
+                    <div>• <strong>Fonte:</strong> {sourceText}</div>
+                    {consolidatedAt && <div>• <strong>Consolidação:</strong> {consolidatedAt}</div>}
+                    {sourceDate && <div>• <strong>Data da fonte:</strong> {sourceDate}</div>}
+                    {loadedAt && <div>• <strong>Data da carga:</strong> {loadedAt}</div>}
                   </div>
                 </div>
               )}
@@ -493,12 +511,12 @@ export const AgroTerritorialMap: React.FC<AgroTerritorialMapProps> = ({
 
       {/* Nota Metodológica e Resumo Territorial */}
       <div style={{ fontSize: 11, color: 'var(--text-tertiary, #94A3B8)', lineHeight: '1.45', background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 6, border: '1px solid var(--border-subtle, #1E293B)' }}>
-        <strong style={{ color: 'var(--text-secondary, #E2E8F0)' }}>Nota Metodológica:</strong> Os pontos representam agregações territoriais de cadastros CAR e não coordenadas, polígonos ou limites reais de propriedades rurais.
+        <strong style={{ color: 'var(--text-secondary, #E2E8F0)' }}>Nota Metodológica:</strong> Os pontos representam agregações territoriais de cadastros CAR e não coordenadas, polígonos ou limites reais de propriedades rurais. O bounding box limita a visualização ao entorno territorial brasileiro, mas não substitui validação por geometria oficial.
         <div style={{ marginTop: 4, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 10, color: 'var(--text-tertiary, #94A3B8)' }}>
           <span>• Total exibido: <strong>{validCount}</strong> agregações ({fmt(totalRepresented)} cadastros CAR)</span>
-          <span>• Referência municipal válida: <strong>98,6%</strong></span>
+          <span>• Cobertura territorial: <strong>{coveragePct !== null ? `${coveragePct}%` : 'não calculada'}</strong></span>
           {invalidCount > 0 && (
-            <span style={{ color: '#F59E0B' }}>• Descartados (fora do BR): <strong>{invalidCount}</strong></span>
+            <span style={{ color: '#F59E0B' }}>• Descartados fora da janela geográfica configurada: <strong>{invalidCount}</strong></span>
           )}
         </div>
       </div>

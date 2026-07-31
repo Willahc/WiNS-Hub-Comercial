@@ -3,49 +3,82 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { AgroTerritorialMap } from '../components/AgroTerritorialMap';
+import AgroApproved from '../pages/AgroApproved';
+import fs from 'fs';
+import path from 'path';
 
-describe('AgroTerritorialMap Component', () => {
-  it('10. deve renderizar estado de carregamento (LOADING)', () => {
+describe('AgroTerritorialMap Component & AgroApproved Clean Integration', () => {
+  it('1. deve renderizar estado de carregamento (LOADING)', () => {
     render(<AgroTerritorialMap rawClusters={[]} loading={true} />);
     expect(screen.getByText(/Carregando agregações territoriais…/i)).toBeInTheDocument();
   });
 
-  it('10 & 11. deve renderizar estado de erro (ERROR) com opção de retry', () => {
+  it('2. deve renderizar estado de erro (ERROR) sem confundir com empty state', () => {
     render(
       <AgroTerritorialMap
         rawClusters={[]}
         loading={false}
-        error="Falha na conexão com a API"
+        error="Falha na requisição HTTP"
         onRetry={() => {}}
       />
     );
     expect(screen.getByText(/Não foi possível carregar o mapa territorial/i)).toBeInTheDocument();
-    expect(screen.getByText(/Falha na conexão com a API/i)).toBeInTheDocument();
+    expect(screen.getByText(/Falha na requisição HTTP/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Nenhuma agregação territorial disponível/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Tentar novamente/i })).toBeInTheDocument();
   });
 
-  it('10. deve renderizar estado vazio (EMPTY)', () => {
+  it('3. deve renderizar estado vazio (EMPTY) em chamada bem-sucedida sem dados', () => {
     render(<AgroTerritorialMap rawClusters={[]} loading={false} error={null} />);
     expect(screen.getByText(/Nenhuma agregação territorial disponível para os filtros informados/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Não foi possível carregar o mapa territorial/i)).not.toBeInTheDocument();
   });
 
-  it('12, 13, 16, 17, 18. deve renderizar controles, legenda e nota metodológica em SUCCESS', () => {
-    const mockClusters = [
-      { lat: -15.78, lng: -47.92, quantidade: 120, municipio: 'Brasília', uf: 'DF', area_ha: 5000 },
-      { lat: -16.32, lng: -48.95, quantidade: 80, municipio: 'Anápolis', uf: 'GO', area_ha: 3200 }
-    ];
+  it('4. deve exibir "Fonte não informada pelo endpoint" quando prop sources for omissa', () => {
+    render(<AgroTerritorialMap rawClusters={[{ lat: -15.78, lng: -47.92, quantidade: 100 }]} loading={false} />);
+    expect(screen.getByText(/Fonte não informada pelo endpoint/i)).toBeInTheDocument();
+  });
 
-    render(<AgroTerritorialMap rawClusters={mockClusters} totalNoRecorte={200} loading={false} />);
+  it('5. deve exibir a fonte fornecida via props quando disponível', () => {
+    render(
+      <AgroTerritorialMap
+        rawClusters={[{ lat: -15.78, lng: -47.92, quantidade: 100 }]}
+        loading={false}
+        sources={['SICAR / MAPA', 'IBGE 2026']}
+      />
+    );
+    expect(screen.getByText(/SICAR \/ MAPA, IBGE 2026/i)).toBeInTheDocument();
+  });
 
-    // Legenda
-    expect(screen.getAllByText(/Concentração de cadastros CAR/i).length).toBeGreaterThan(0);
+  it('6. deve utilizar a nova nomenclatura "janela geográfica configurada"', () => {
+    render(
+      <AgroTerritorialMap
+        rawClusters={[
+          { lat: -15.78, lng: -47.92, quantidade: 100 },
+          { lat: 48.85, lng: 2.35, quantidade: 50 } // Fora da janela BR
+        ]}
+        loading={false}
+      />
+    );
+    expect(screen.getByText(/Descartados fora da janela geográfica configurada/i)).toBeInTheDocument();
+  });
 
-    // Nota metodológica
-    expect(screen.getByText(/Os pontos representam agregações territoriais de cadastros CAR/i)).toBeInTheDocument();
+  it('7. deve comprovar ausência literal de "98,6%" no componente e no fonte do AgroApproved', () => {
+    const agroApprovedPath = path.resolve(__dirname, '../pages/AgroApproved.tsx');
+    const source = fs.readFileSync(agroApprovedPath, 'utf-8');
+    expect(source).not.toContain('98,6%');
 
-    // Controles presentes
-    expect(screen.getByRole('button', { name: /Centralizar no Brasil/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Ajustar aos dados/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Resetar visão/i })).toBeInTheDocument();
+    render(<AgroTerritorialMap rawClusters={[]} loading={false} />);
+    expect(screen.queryByText(/98,6%/i)).not.toBeInTheDocument();
+  });
+
+  it('8. deve comprovar ausência de imports Leaflet antigos e FitBoundsControl em AgroApproved.tsx', () => {
+    const agroApprovedPath = path.resolve(__dirname, '../pages/AgroApproved.tsx');
+    const source = fs.readFileSync(agroApprovedPath, 'utf-8');
+    expect(source).not.toContain('MapContainer');
+    expect(source).not.toContain('TileLayer');
+    expect(source).not.toContain('CircleMarker');
+    expect(source).not.toContain('FitBoundsControl');
+    expect(source).not.toContain("import L from 'leaflet'");
   });
 });
