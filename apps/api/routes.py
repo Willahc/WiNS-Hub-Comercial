@@ -36,6 +36,35 @@ def standard_error(code: str, message: str, req_id: str, status_code: int = 400,
         content=content
     )
 
+@router.get("/auth/session")
+async def get_auth_session(request: Request):
+    auth_mode = request.headers.get("X-WiNS-Auth-Mode", "maintenance")
+    user = request.headers.get("X-WiNS-Authenticated-User") or request.headers.get("X-Remote-User") or "maintenance"
+    display_name = request.headers.get("X-WiNS-Display-Name", "Administrador de Manutenção")
+    
+    return {
+        "authenticated": True,
+        "username": user,
+        "displayName": display_name,
+        "auth_mode": auth_mode,
+        "roles": ["admin"],
+        "permissions": [
+            "engenharia",
+            "agro",
+            "logistica",
+            "saude",
+            "empresa360",
+            "relacionamentos",
+            "territorial",
+            "busca",
+            "relatorios"
+        ]
+    }
+
+@router.post("/auth/logout")
+async def post_auth_logout():
+    return {"status": "ok", "message": "Sessão encerrada"}
+
 @router.get("/health")
 def health_check(request: Request):
     req_id = getattr(request.state, "request_id", "unknown")
