@@ -32,6 +32,15 @@ export interface AgroMapPoint {
   pct: number;
 }
 
+export interface AgroMapResponse {
+  clusters?: RawAgroPoint[];
+  total_no_recorte?: number;
+  fontes?: string[];
+  ultima_atualizacao?: string | null;
+  data_carga?: string | null;
+  data_consolidacao?: string | null;
+}
+
 /**
  * Valida se as coordenadas estão dentro da janela geográfica configurada do Brasil.
  * Limites: Latitude entre -34.0 e 6.0, Longitude entre -74.0 e -32.0.
@@ -94,7 +103,7 @@ export function normalizeAgroMapPoint(raw: RawAgroPoint, totalQuantidade: number
 
 /**
  * Calcula o percentual de cobertura territorial somente quando houver numerador e denominador
- * semanticamente compatíveis. Retorna null se indisponível ou inválido.
+ * semanticamente compatíveis. Retorna null se totalRepresented > totalNoRecorte ou indisponível.
  */
 export function calculateTerritorialCoveragePercentage(
   totalRepresented: number,
@@ -106,8 +115,7 @@ export function calculateTerritorialCoveragePercentage(
   if (typeof totalRepresented !== 'number' || isNaN(totalRepresented) || totalRepresented < 0) {
     return null;
   }
-  // Se o total representado for desproporcional ao total do recorte, população é incompatível
-  if (totalRepresented > totalNoRecorte * 1.5) {
+  if (totalRepresented > totalNoRecorte) {
     return null;
   }
   const pct = (totalRepresented / totalNoRecorte) * 100;
