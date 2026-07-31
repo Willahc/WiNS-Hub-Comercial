@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import re
 import unicodedata
 import psycopg2
@@ -8,7 +9,8 @@ from typing import Any, Optional
 
 from psycopg2.extras import RealDictCursor
 from database import get_connection, release_connection, get_write_connection, release_write_connection
-from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASS
+
+logger = logging.getLogger("wins_hub_api.wave1")
 
 
 
@@ -2010,10 +2012,6 @@ class Wave1Repository:
                 continue
             seen.add(c["categoria_id"])
             is_confirmado = c["fonte"] == "contractual" if c.get("fonte") else False
-            fase_aplicavel = True
-            if c.get("fases_aplicaveis") and fase:
-                fase_key = fase.upper().replace(" ", "_")
-                fase_aplicavel = fase_key in c["fases_aplicaveis"]
             items.append({
                 "id": str(c["categoria_id"]),
                 "nome": c["categoria_nome"] or f"Serviço CNAE {c['cnae_codigo']}",
@@ -2231,19 +2229,29 @@ class Wave1Repository:
 
         total_imoveis = sum(r["total_imoveis"] for r in filtered)
         codigos_car = total_imoveis
-        com_area = sum(r["com_area_declarada"] for r in filtered)
         area_total = sum(r["area_total_declarada_ha"] for r in filtered)
         area_pasto = sum(r["area_pasto_ha"] for r in filtered)
         area_lavoura = sum(r["area_lavoura_ha"] for r in filtered)
         area_veg = sum(r["area_vegetacao_nativa_ha"] for r in filtered)
         last_update = max((r["ultima_atualizacao"] for r in filtered if r.get("ultima_atualizacao")), default=None)
 
-        # Global metrics cached or constant
+        # Global metrics cached or computed
         total_cnpjs = 67362
         total_municipios_ibge = 5570
         total_ufs = len(set(r["uf"] for r in summary if r.get("uf")))
         mun_car_count = len(set(r["codigo_ibge_mun"] for r in filtered if r.get("codigo_ibge_mun")))
         cache_ts = _AGRO_MUN_CACHE.get("iso_timestamp") or datetime.now(timezone.utc).isoformat()
+
+        try:
+            cnpj_rows = _run_db("wins_agro", "SELECT count(*)::int total FROM prospeccao.holding_lead_ui", [], domain="agro")
+            total_cnpjs = cnpj_rows[0]["total"] if cnpj_rows else 0
+        except Exception:
+            logger.warning("Falha ao contar CNPJs de holding_lead_ui; mantendo fallback.")
+        try:
+            mun_rows = _run_db("wins_agro", "SELECT count(*)::int total FROM referencia.municipio", [], domain="agro")
+            total_municipios_ibge = mun_rows[0]["total"] if mun_rows else total_municipios_ibge
+        except Exception:
+            logger.warning("Falha ao contar municipios de referencia.municipio; mantendo fallback.")
 
         return {
             "total_imoveis_car": total_imoveis,
@@ -2413,7 +2421,7 @@ class Wave1Repository:
 
     @staticmethod
     def agro_oportunidades(imovel_id=None):
-        rows = _run_db("wins_agro", f"""
+        rows = _run_db("wins_agro", """
             SELECT e.relationship_id id, e.source_id, e.target_id, e.tipo_relacao titulo,
                    e.evidencia descricao, e.tipo_fonte vertical_origem,
                    e.classificacao, e.score, e.versao_regra, e.calculado_em::text,
@@ -2435,6 +2443,10 @@ class Wave1Repository:
 
     @staticmethod
     def agro_relacoes(imovel_id=None, cnpj=None):
+        # Fail-closed: no dashboard Agro, relações só podem envolver entidades
+        # Agro (prefixo prop_ de propriedade rural ou CNPJ agro). Sem recorte,
+        # NÃO se devolvem relações globais de outras verticais (ex.: Engenharia
+        # Obra -> Decisor), evitando vazamento cross-domain no dashboard.
         clauses = []
         params = []
         if imovel_id:
@@ -2444,7 +2456,14 @@ class Wave1Repository:
             cleaned = _clean_cnpj(cnpj) or cnpj
             clauses.append("(e.source_id LIKE %s OR e.target_id LIKE %s)")
             params += [f"%{cleaned}%", f"%{cleaned}%"]
-        clause = " AND ".join(clauses) if clauses else "1=1"
+        if not clauses:
+            return {
+                "relacoes": [],
+                "total": 0,
+                "message": "Nenhuma relação cross-domain Agro materializada no recorte atual. Relações de outras verticais não são exibidas no módulo Agro.",
+                "nota": "Recorte Agro necessário (imovel_id ou cnpj) para listar relações."
+            }
+        clause = " AND ".join(clauses)
         rows = _run_db("wins_agro", f"""
             SELECT e.relationship_id, e.source_id, e.target_id, e.source_type,
                    e.target_type, e.tipo_relacao, e.classificacao, e.score,
@@ -2469,10 +2488,6 @@ class Wave1Repository:
             "fonte": "public.relationship_edges",
             "nota": "Relações materializadas por regras de vínculo documental, cadastral e territorial."
         }
-
-        groups.sort(key=lambda group: (group["vertical"], group["entity"]))
-        return {"query": query, "groups": groups,
-                "total": sum(len(group["items"]) for group in groups)}
 
     @staticmethod
     def agro_imoveis_catalog(page=1, page_size=25, search=None, uf=None, min_area=None, max_area=None):
@@ -2533,11 +2548,6 @@ class Wave1Repository:
         if not rows:
             return None
         imovel = rows[0]
-        mun = imovel.get("municipio", "")
-        uf_val = imovel.get("uf", "")
-        area = imovel.get("area_total_ha") or 0.0
-        pasto = imovel.get("area_pasto_ha") or 0.0
-        lavoura = imovel.get("area_lavoura_ha") or 0.0
 
         # Holding / Corporate link
         holding = None
@@ -2548,56 +2558,27 @@ class Wave1Repository:
                 if h_rows:
                     holding = h_rows[0]
 
-        # Decisors linked to farm
+        # Decisores vinculados à fazenda via CNPJ (QSA RFB) — escopo por cnpj_basico,
+        # sem vazamento global (antes era um LIMIT 3 sem filtro).
         decisores = []
-        d_rows = _run_db("wins_agro", "SELECT n_decisores, decisores, socio_jovem FROM prospeccao.decisores_fazenda LIMIT 3", [], domain="agro")
-        if d_rows:
-            decisores = d_rows
+        if imovel.get("cpf_cnpj"):
+            cnpj_clean = _clean_cnpj(imovel["cpf_cnpj"])
+            if cnpj_clean:
+                d_rows = _run_db("wins_agro", """
+                    SELECT n_decisores, decisores, socio_jovem
+                    FROM prospeccao.decisores_fazenda
+                    WHERE cnpj_basico = %s
+                """, [cnpj_clean[:8]], domain="agro")
+                if d_rows:
+                    decisores = d_rows
 
-        # Transportes & Logística no município
-        transportadores = _run_db("wins_agro", "SELECT numero_rntrc, nome_transportador, categoria_transportador, situacao_rntrc FROM log_staging.rntrc_agregado_municipio LIMIT 5", [], domain="agro") if hasattr(Wave1Repository, "_has_table") else []
+        # Transportes & Logística no município (vazio honesto quando indisponível)
+        transportadores = []
 
-        # Calculated Commercial Opportunities
+        # Oportunidades calculadas: motor em validação — nenhuma oportunidade é
+        # inferida heuristicamente a partir de área (o conjunto anterior era
+        # ilustrativo e não persistido). Lista vazia até evidência real.
         opps = []
-        if lavoura > 100 or area > 500:
-            opps.append({
-                "categoria": "Insumos Agrícolas & Fertilizantes",
-                "titulo": "Fornecimento de NPK e Defensivos para Safra",
-                "score": 94,
-                "justificativa": f"Área de lavoura declarada de {lavoura:,.0f} ha exige estimativa de ~{lavoura * 0.35:,.0f} t de corretivos e NPK.",
-                "produto_recomendado": "Fertilizante NPK NPK 04-14-08 + Defensivos Linha Safra",
-                "decisor_contato": imovel.get("nome_proprietario") or "Gerente de Compras Agrícolas",
-                "status": "Identificada"
-            })
-        if area > 1000:
-            opps.append({
-                "categoria": "Armazenagem & Silos Rurais",
-                "titulo": "Silo Metálico & Sistema de Secagem de Grãos",
-                "score": 89,
-                "justificativa": f"Propriedade de grande porte ({area:,.0f} ha) sem silo próprio registrado em cadastro municipal.",
-                "produto_recomendado": "Silo Pulmão 1.500 toneladas + Secador a Biomassa",
-                "decisor_contato": "Diretor Operacional / Proprietário",
-                "status": "Em Análise"
-            })
-        if pasto > 200:
-            opps.append({
-                "categoria": "Genética & Nutrição Animal",
-                "titulo": "Touros Nelore/Angus PO com CEIP para Estação de Monta",
-                "score": 91,
-                "justificativa": f"Área de pastagem produtiva de {pasto:,.0f} ha para ~{pasto * 1.2:,.0f} cabeças de gado de corte.",
-                "produto_recomendado": "Lote de 5 Reprodutores PO Nelore com Avaliação ANCP/PMGZ",
-                "decisor_contato": "Administrador da Fazenda",
-                "status": "Identificada"
-            })
-        opps.append({
-            "categoria": "Frete & Logística de Escoamento",
-            "titulo": "Contratação de Frota Dedicada para Escoamento",
-            "score": 86,
-            "justificativa": f"Demanda de frete rodoviário para escoamento no corredor logístico de {mun}/{uf_val}.",
-            "produto_recomendado": "Frota Carreta Graneleira / Bitrem de Retorno",
-            "decisor_contato": "Coordenador de Logística Agrícola",
-            "status": "Abordagem Inicial"
-        })
 
         return {
             "imovel": imovel,
@@ -2625,25 +2606,33 @@ class Wave1Repository:
             LIMIT %s OFFSET %s
         """, [search, f"%{search}%" if search else None, f"%{search}%" if search else None, f"%{search}%" if search else None, uf, uf.upper() if uf else None, page_size, offset], domain="agro")
 
+        count_rows = _run_db("wins_agro", """
+            SELECT count(*)::int total FROM prospeccao.holding_lead_ui d
+            WHERE (%s IS NULL OR d.razao ILIKE %s OR d.nome_socio_comum ILIKE %s OR d.municipio ILIKE %s)
+              AND (%s IS NULL OR d.uf = %s)
+        """, [search, f"%{search}%" if search else None, f"%{search}%" if search else None, f"%{search}%" if search else None, uf, uf.upper() if uf else None], domain="agro")
+        total = count_rows[0]["total"] if count_rows else 0
+
         decisores_list = []
         for r in rows:
             decisores_list.append({
                 "source_id": r["cnpj14"],
                 "nome": r.get("nome_socio_comum") or r["razao"],
-                "cargo": "Sócio-Administrador Agro" if r.get("n_socios_agro") else "Diretor Executivo",
+                "cargo": "Sócio (QSA RFB)" if r.get("n_socios_agro") else "Sem cargo comprovado",
                 "empresa_vinculada": r["razao"],
                 "cnpj": r["cnpj14"],
                 "municipio": r["municipio"],
                 "uf": r["uf"],
-                "confianca": "CONFIRMADO" if r.get("nome_socio_comum") else "PROVÁVEL",
+                "confianca": "VÍNCULO_QSA" if r.get("nome_socio_comum") else "VÍNCULO_EMPRESARIAL",
                 "email": r.get("email"),
                 "whatsapp": r.get("whatsapp"),
-                "score": r.get("score") or 90
+                "score": r.get("score") or 90,
+                "fonte": "RFB/QSA"
             })
         return {
             "items": decisores_list,
-            "meta": {"page": page, "page_size": page_size, "total": 228000},
-            "fonte": "prospeccao.holding_lead_ui + QSA RFB"
+            "meta": {"page": page, "page_size": page_size, "total": total},
+            "fonte": "prospeccao.holding_lead_ui (QSA RFB)"
         }
 
     @staticmethod
@@ -2659,161 +2648,106 @@ class Wave1Repository:
             ORDER BY h.score DESC NULLS LAST
             LIMIT %s OFFSET %s
         """, [search, f"%{search}%" if search else None, f"%{search}%" if search else None, f"%{search}%" if search else None, uf, uf.upper() if uf else None, page_size, offset], domain="agro")
+        count_rows = _run_db("wins_agro", """
+            SELECT count(*)::int total FROM prospeccao.holding_lead_ui h
+            WHERE (%s IS NULL OR h.razao ILIKE %s OR h.cnpj14 ILIKE %s OR h.municipio ILIKE %s)
+              AND (%s IS NULL OR h.uf = %s)
+        """, [search, f"%{search}%" if search else None, f"%{search}%" if search else None, f"%{search}%" if search else None, uf, uf.upper() if uf else None], domain="agro")
+        total = count_rows[0]["total"] if count_rows else 0
         return {
             "items": rows,
-            "meta": {"page": page, "page_size": page_size, "total": 67362},
+            "meta": {"page": page, "page_size": page_size, "total": total},
             "fonte": "prospeccao.holding_lead_ui"
         }
 
     @staticmethod
     def agro_oportunidades_calculadas(categoria=None, min_score=70, uf=None):
-        opps = [
-            {
-                "id": "opp_agro_001",
-                "categoria": "Insumos Agrícolas & Fertilizantes",
-                "titulo": "Demanda de NPK 04-14-08 para Lavoura de Soja/Milho",
-                "imovel": "Fazenda Boa Vista · CAR MT-5107909-84A1",
-                "empresa_alvo": "GRUPO AGROPECUÁRIO BOA VISTA LTDA",
-                "cnpj": "18.245.910/0001-84",
-                "municipio": "Sorriso",
-                "uf": "MT",
-                "area_ha": 3450,
-                "score": 96,
-                "justificativa": "3.450 ha de lavoura declarada sem contrato formal de fornecimento de fertilizantes registrado.",
-                "produto_recomendado": "Fertilizante Formulão NPK NPK 04-14-08 (Big Bags 1.000 kg)",
-                "decisor_nome": "Carlos Alberto de Mendonça",
-                "decisor_cargo": "Diretor de Suprimentos & Insumos",
-                "contato": "carlos.mendonca@boavistaagro.com.br",
-                "status": "Identificada"
-            },
-            {
-                "id": "opp_agro_002",
-                "categoria": "Armazenagem & Silos Rurais",
-                "titulo": "Instalação de Silo Pulmão de 2.000 Toneladas",
-                "imovel": "Fazenda Santa Maria · CAR GO-5218805-99B2",
-                "empresa_alvo": "SANTA MARIA CEREAIS S.A.",
-                "cnpj": "04.182.731/0001-49",
-                "municipio": "Rio Verde",
-                "uf": "GO",
-                "area_ha": 5200,
-                "score": 92,
-                "justificativa": "5.200 ha de lavoura com gargalo de escoamento e distância de 48 km do secador mais próximo.",
-                "produto_recomendado": "Silo Metálico 2.000t com Elevador de Canecas e Secador",
-                "decisor_nome": "Roberto Prado Filho",
-                "decisor_cargo": "Gerente de Infraestrutura Rurais",
-                "contato": "(64) 99812-4401",
-                "status": "Em Análise"
-            },
-            {
-                "id": "opp_agro_003",
-                "categoria": "Genética & Nutrição Animal",
-                "titulo": "Reprodutores Nelore PO com CEIP para Estação de Monta",
-                "imovel": "Estância Primavera · CAR MS-5003702-12C3",
-                "empresa_alvo": "AGROPECUÁRIA PRIMAVERA LTDA",
-                "cnpj": "08.912.440/0001-20",
-                "municipio": "Dourados",
-                "uf": "MS",
-                "area_ha": 2100,
-                "score": 94,
-                "justificativa": "Rebanho estimado de 2.500 matrizes em estação de monta com demanda de renovação genética de 8% a.a.",
-                "produto_recomendado": "Lote de 8 Touros Nelore PO com Avaliação ANCP (Top 5%)",
-                "decisor_nome": "Marcio Rogério Souza",
-                "decisor_cargo": "Administrador da Fazenda",
-                "contato": "marcio.souza@primaveraagro.com.br",
-                "status": "Abordagem Inicial"
-            },
-            {
-                "id": "opp_agro_004",
-                "categoria": "Frete & Logística de Escoamento",
-                "titulo": "Frota de Bitrens para Corredor Logístico Sorriso–Rondonópolis",
-                "imovel": "Complexo Agrícola Vale do Araguaia · CAR MT-5107909-77D4",
-                "empresa_alvo": "VALE DO ARAGUAIA CEREAIS LTDA",
-                "cnpj": "12.381.990/0001-55",
-                "municipio": "Nova Mutum",
-                "uf": "MT",
-                "area_ha": 8900,
-                "score": 90,
-                "justificativa": "Produção projetada de 31.000 toneladas de soja com necessidade de 860 viagens de carreta graneleira.",
-                "produto_recomendado": "Logística Dedicada Carreta Rodotrem Graneleiro",
-                "decisor_nome": "Eduardo Henrique Silva",
-                "decisor_cargo": "Gerente de Logística e Fretes",
-                "contato": "(65) 99654-1122",
-                "status": "Proposta Enviada"
-            },
-            {
-                "id": "opp_agro_005",
-                "categoria": "Máquinas, Tratores & Irrigação",
-                "titulo": "Renovação de Frota de Tratores 180 cv & Pivô Central",
-                "imovel": "Fazenda São José · CAR SP-3550308-44E5",
-                "empresa_alvo": "AGRO SÃO JOSÉ PARTICIPAÇÕES S.A.",
-                "cnpj": "55.055.019/0001-27",
-                "municipio": "Ribeirão Preto",
-                "uf": "SP",
-                "area_ha": 1850,
-                "score": 88,
-                "justificativa": "Frota mecânica atual com idade média > 8 anos e área irrigável de 240 ha.",
-                "produto_recomendado": "Trator 180 cv Tração 4x4 + Pivô Central Carretado 80 ha",
-                "decisor_nome": "Vinícius Vanzella de Souza",
-                "decisor_cargo": "CEO / Diretor Geral",
-                "contato": "vinicius@vanzellaagro.com.br",
-                "status": "Identificada"
-            }
-        ]
-        if categoria:
-            opps = [o for o in opps if o["categoria"] == categoria]
-        if uf:
-            opps = [o for o in opps if o["uf"] == uf.upper()]
-        opps = [o for o in opps if o["score"] >= min_score]
-
+        # Motor de oportunidades em validação. O conjunto anterior (opp_agro_001..005)
+        # era ilustrativo, não persistido em banco, e foi desativado. Nenhuma
+        # oportunidade é gerada até que haja evidência real persistida (contrato
+        # REQUIRED_REAL_OPPORTUNITY_FIELDS no frontend é fail-closed).
         return {
-            "oportunidades": opps,
-            "total": len(opps),
-            "categorias_disponiveis": [
-                "Insumos Agrícolas & Fertilizantes",
-                "Armazenagem & Silos Rurais",
-                "Genética & Nutrição Animal",
-                "Frete & Logística de Escoamento",
-                "Máquinas, Tratores & Irrigação"
-            ],
-            "fonte": "Motor de Inferência Comercial WiNS Agro"
+            "oportunidades": [],
+            "total": 0,
+            "categorias_disponiveis": [],
+            "fonte": "Motor de Inferência Comercial WiNS Agro",
+            "status": "validation",
+            "message": "Motor de oportunidades em validação. Nenhuma oportunidade é exibida até haver evidência real persistida.",
+            "limitacoes": "O conjunto anterior continha dados ilustrativos não persistidos e foi desativado."
         }
 
     @staticmethod
     def agro_logistica_correlacao(uf=None, municipio=None):
+        # Cobertura real da base de transportadoras RNTRC (log.transportadora).
+        # Os antigos totais fixos (4210 / 128) e as listas fabricadas de
+        # corredores e oportunidades de caminhão vazio foram removidos.
+        filters = []
+        params = []
+        if uf:
+            filters.append("uf = %s")
+            params.append(uf.upper())
+        if municipio:
+            filters.append("municipio ILIKE %s")
+            params.append(f"%{municipio}%")
+        clause = (" WHERE " + " AND ".join(filters)) if filters else ""
+        try:
+            rows = _run_db("wins_agro", f"SELECT count(*)::int total FROM log.transportadora t{clause}", params, domain="agro")
+            transportadores_total = rows[0]["total"] if rows else 0
+            with_numero = _run_db("wins_agro", f"SELECT count(*)::int total FROM log.transportadora t WHERE t.numero_rntrc IS NOT NULL{(' AND ' + ' AND '.join(filters)) if filters else ''}", params, domain="agro")
+            transportadores_rntrc = with_numero[0]["total"] if with_numero else 0
+        except Exception as ex:
+            logger.warning(f"Cobertura RNTRC indisponível: {ex}")
+            transportadores_total = None
+            transportadores_rntrc = None
+
+        # Sem tabela de armazéns CONAB acessível para o recorte -> null honesto.
         return {
             "uf": uf or "Brasil",
             "municipio": municipio or "Geral",
-            "transportadores_rntrc_disponiveis": 4210,
-            "corredores_exportacao": [
-                {"nome": "Corredor BR-163 (Sorriso–Miritituba)", "modal": "Rodoviário", "capacidade_dia": "45.000 t"},
-                {"nome": "Corredor Ferrovia Norte-Sul (Anápolis–Itaqui)", "modal": "Ferroviário", "capacidade_dia": "38.000 t"},
-                {"nome": "Corredor Hidrovia Tietê-Paraná", "modal": "Fluvial", "capacidade_dia": "22.000 t"}
-            ],
-            "armazens_conab_proximos": 128,
-            "oportunidades_caminhao_vazio": [
-                {"rota": "Porto de Santos ➔ Ribeirão Preto/SP", "frete_retorno_medio": "R$ 145/t", "disponibilidade": "Alta"},
-                {"rota": "Porto de Paranaguá ➔ Cascavel/PR", "frete_retorno_medio": "R$ 160/t", "disponibilidade": "Média"}
-            ]
+            "transportadores_rntrc_disponiveis": transportadores_rntrc,
+            "transportadores_base_total": transportadores_total,
+            "armazens_conab_proximos": None,
+            "corredores_exportacao": [],
+            "oportunidades_caminhao_vazio": [],
+            "status": "validation" if transportadores_rntrc is None else "ok",
+            "nota": "Indicadores de cobertura da base (ANTT/RNTRC). Não representam matches, relações comerciais nem capacidade disponível. Armazéns CONAB não disponíveis nesta fonte.",
+            "fonte": "log.transportadora"
         }
 
     @staticmethod
     def agro_genetica_simulador(touro_id=None, raca=None):
+        # Simulador fail-closed: apenas reprodutores com raça declarada, pedigree
+        # mínimo (pai e mãe) e DEP real persistida (mercado.avaliacao) podem ser
+        # selecionados. O bloco ilustrativo "simulador_exemplo" foi removido.
         rows = _run_db("wins_agro", """
-            SELECT id, registro, nome, pai_nome, mae_nome, fazenda_origem, uf, municipio, fonte_programa
-            FROM mercado.reprodutor
-            WHERE (%s IS NULL OR registro ILIKE %s OR nome ILIKE %s)
-            ORDER BY id
+            SELECT r.id, r.registro, r.nome, r.pai_nome, r.mae_nome, r.fazenda_origem,
+                   r.uf, r.municipio, r.fonte_programa, c.nome AS raca,
+                   a.valor AS dep_ganho_peso, a.percentil AS dep_percentil, a.acuracia AS dep_acuracia
+            FROM mercado.reprodutor r
+            LEFT JOIN catalogo.raca c ON c.id = r.raca_id
+            LEFT JOIN LATERAL (
+                SELECT av.valor, av.percentil, av.acuracia
+                FROM mercado.avaliacao av
+                JOIN catalogo.caracteristica ca ON ca.id = av.caracteristica_id
+                WHERE av.reprodutor_id = r.id AND ca.sigla IN ('GPD','PD')
+                ORDER BY av.id DESC
+                LIMIT 1
+            ) a ON true
+            WHERE (%s IS NULL OR r.registro ILIKE %s OR r.nome ILIKE %s)
+              AND (%s IS NULL OR c.nome ILIKE %s)
+            ORDER BY r.id
             LIMIT 15
-        """, [touro_id, f"%{touro_id}%" if touro_id else None, f"%{touro_id}%" if touro_id else None], domain="agro")
+        """, [touro_id, f"%{touro_id}%" if touro_id else None, f"%{touro_id}%" if touro_id else None, raca, f"%{raca}%" if raca else None], domain="agro")
+
+        total_rows = _run_db("wins_agro", "SELECT count(*)::int total FROM mercado.reprodutor", [], domain="agro")
+        total_reprodutores = total_rows[0]["total"] if total_rows else 0
 
         return {
             "reprodutores": rows,
             "total": len(rows),
-            "simulador_exemplo": {
-                "touro_selecionado": rows[0]["nome"] if rows else "CXP0272 · NELORE PO",
-                "ganho_peso_desmama_dep": "+14,8 kg (Top 2%)",
-                "consanguinidade_estimada": "0,85% (Seguro < 3,0%)",
-                "previsao_valor_bezerro": "R$ 3.250,00 (+18% sobre a média de mercado)"
-            }
+            "total_reprodutores": total_reprodutores,
+            "status": "validation",
+            "simulador_exemplo": None,
+            "nota": "Seleção e simulação exigem DEP real (mercado.avaliacao), raça, RGD e pedigree mínimo (pai e mãe). Nenhum resultado fictício é gerado."
         }
 
