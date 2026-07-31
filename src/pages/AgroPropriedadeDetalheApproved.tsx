@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Sprout } from 'lucide-react';
+import { Sprout, ShieldAlert } from 'lucide-react';
 import AgroPageShell from '../components/AgroPageShell';
 import { httpClient } from '../services/http/client';
+import { isMotorOportunidadesReal } from './agroOportunidadesContract';
+import { AGRO_API } from './agroApiEndpoints';
 
 /**
  * Ficha 360° da Fazenda — dados reais de identificação, localização, área, bioma,
  * proprietário, empresa, decisores, logística e oportunidades.
  * Rota: /agro/propriedades/:id
  * Endpoint: GET /agro/imoveis/:id
+ *
+ * Campos não retornados pela API são exibidos como "Não disponível na fonte
+ * atual" — nenhum valor plausível é inferido ou exibido como se fosse dado.
  */
 export default function AgroPropriedadeDetalheApproved() {
   const { id } = useParams<{ id: string }>();
@@ -21,7 +26,7 @@ export default function AgroPropriedadeDetalheApproved() {
     setLoading(true);
     setError(null);
     try {
-      const res = await httpClient.get(`/agro/imoveis/${encodeURIComponent(id)}`);
+      const res = await httpClient.get(AGRO_API.imovel(id));
       setDetail(res.data);
     } catch (err: any) {
       setError(err?.userMessage || err?.message || 'Falha ao carregar ficha da propriedade');
@@ -57,36 +62,45 @@ export default function AgroPropriedadeDetalheApproved() {
 
             {/* Grid de dados cadastrais */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, background: '#0B132B', padding: 16, borderRadius: 6 }}>
-              <div><small style={{ color: '#64748B' }}>Proprietário Registrado</small><strong style={{ display: 'block', color: '#F8FAFC', marginTop: 4 }}>{imovel.nome_proprietario || 'Proprietário SICAR'}</strong><span style={{ fontSize: 10, color: '#64748B' }}>Dado declarado</span></div>
-              <div><small style={{ color: '#64748B' }}>CNPJ / CPF</small><strong style={{ display: 'block', color: '#3B82F6', marginTop: 4 }}>{imovel.cpf_cnpj || 'Não disponível'}</strong><span style={{ fontSize: 10, color: '#64748B' }}>Dado cadastral</span></div>
-              <div><small style={{ color: '#64748B' }}>Bioma</small><strong style={{ display: 'block', color: '#06B6D4', marginTop: 4 }}>{imovel.bioma || 'Inferido pela UF'}</strong><span style={{ fontSize: 10, color: '#64748B' }}>Inferência</span></div>
-              <div><small style={{ color: '#64748B' }}>Uso do Solo</small><strong style={{ display: 'block', color: '#F59E0B', marginTop: 4 }}>{imovel.uso_solo || 'Declarado no CAR'}</strong><span style={{ fontSize: 10, color: '#64748B' }}>Dado declarado</span></div>
+              <div><small style={{ color: '#64748B' }}>Proprietário Registrado</small><strong style={{ display: 'block', color: '#F8FAFC', marginTop: 4 }}>{imovel.nome_proprietario || 'Não disponível na fonte atual'}</strong><span style={{ fontSize: 10, color: '#64748B' }}>{imovel.nome_proprietario ? 'Dado declarado' : 'Campo não retornado pela API'}</span></div>
+              <div><small style={{ color: '#64748B' }}>CNPJ / CPF</small><strong style={{ display: 'block', color: '#3B82F6', marginTop: 4 }}>{imovel.cpf_cnpj || 'Não disponível na fonte atual'}</strong><span style={{ fontSize: 10, color: '#64748B' }}>{imovel.cpf_cnpj ? 'Dado cadastral' : 'Campo não retornado pela API'}</span></div>
+              <div><small style={{ color: '#64748B' }}>Bioma</small><strong style={{ display: 'block', color: '#06B6D4', marginTop: 4 }}>{imovel.bioma || 'Não disponível na fonte atual'}</strong><span style={{ fontSize: 10, color: '#64748B' }}>{imovel.bioma ? 'Dado da fonte' : 'Campo não retornado pela API'}</span></div>
+              <div><small style={{ color: '#64748B' }}>Uso do Solo</small><strong style={{ display: 'block', color: '#F59E0B', marginTop: 4 }}>{imovel.uso_solo || 'Não disponível na fonte atual'}</strong><span style={{ fontSize: 10, color: '#64748B' }}>{imovel.uso_solo ? 'Dado declarado' : 'Campo não retornado pela API'}</span></div>
               <div><small style={{ color: '#64748B' }}>Área de Lavoura</small><strong style={{ display: 'block', color: '#22C55E', marginTop: 4 }}>{imovel.area_lavoura_ha ? `${Number(imovel.area_lavoura_ha).toLocaleString('pt-BR')} ha` : '—'}</strong></div>
               <div><small style={{ color: '#64748B' }}>Área de Pastagem</small><strong style={{ display: 'block', color: '#F59E0B', marginTop: 4 }}>{imovel.area_pasto_ha ? `${Number(imovel.area_pasto_ha).toLocaleString('pt-BR')} ha` : '—'}</strong></div>
             </div>
           </div>
 
-          {/* Oportunidades */}
+          {/* Oportunidades — gate fail-closed */}
           {detail?.oportunidades_calculadas && detail.oportunidades_calculadas.length > 0 && (
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 20 }}>
               <h3 style={{ fontSize: 16, fontWeight: 700, color: '#F8FAFC', marginBottom: 12 }}>Oportunidades Comerciais Calculadas para esta Propriedade</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
-                {(detail.oportunidades_calculadas as any[]).map((opp: any, idx: number) => (
-                  <div key={idx} style={{ background: '#0B132B', border: '1px solid #1E293B', borderRadius: 6, padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6' }}>{opp.categoria}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#22C55E', padding: '2px 6px', borderRadius: 4 }}>Score: {opp.score}</span>
-                    </div>
-                    <strong style={{ fontSize: 14, color: '#F8FAFC' }}>{opp.titulo}</strong>
-                    <p style={{ fontSize: 12, color: '#94A3B8', margin: 0 }}>{opp.justificativa}</p>
-                    {opp.decisor_contato && (
-                      <div style={{ fontSize: 11, color: '#CBD5E1', borderTop: '1px solid #1E293B', paddingTop: 8 }}>
-                        Decisor: <strong>{opp.decisor_contato}</strong> · Status: <span style={{ color: '#F59E0B' }}>{opp.status || 'Não iniciado'}</span>
+              {isMotorOportunidadesReal(detail.oportunidades_calculadas) ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
+                  {(detail.oportunidades_calculadas as any[]).map((opp: any, idx: number) => (
+                    <div key={idx} style={{ background: '#0B132B', border: '1px solid #1E293B', borderRadius: 6, padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6' }}>{opp.categoria}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#22C55E', padding: '2px 6px', borderRadius: 4 }}>Score: {opp.composicao_score?.total ?? '—'}</span>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                      <strong style={{ fontSize: 14, color: '#F8FAFC' }}>{opp.titulo}</strong>
+                      <p style={{ fontSize: 12, color: '#94A3B8', margin: 0 }}>{opp.evidencia || opp.justificativa}</p>
+                      {opp.decisor && (
+                        <div style={{ fontSize: 11, color: '#CBD5E1', borderTop: '1px solid #1E293B', paddingTop: 8 }}>
+                          Decisor: <strong>{opp.decisor.nome}</strong> · Classificação: <strong>{opp.decisor.classificacao}</strong> · Status: <span style={{ color: '#F59E0B' }}>{opp.status || 'Não iniciado'}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: 8, padding: 14 }}>
+                  <ShieldAlert size={18} color="#F59E0B" style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: '#CBD5E1' }}>
+                    <strong>Oportunidades não calculadas para esta propriedade.</strong> O conjunto ilustrativo anterior foi desativado até a conclusão do motor comercial baseado em evidências reais.
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -94,8 +108,7 @@ export default function AgroPropriedadeDetalheApproved() {
           <div style={{ fontSize: 10, color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-default)', paddingTop: 12, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <span>📍 Dado declarado: SICAR/CAR</span>
             <span>📋 Dado cadastral: RFB</span>
-            <span>🧠 Inferência: Algorítmica (bioma por UF)</span>
-            <span>🚫 Indisponível: campo não populado na base</span>
+            <span>🚫 Indisponível: campo não populado na fonte atual</span>
           </div>
         </div>
       )}
