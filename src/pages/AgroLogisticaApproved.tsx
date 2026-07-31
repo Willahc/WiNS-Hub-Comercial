@@ -1,23 +1,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Truck, AlertTriangle } from 'lucide-react';
 import AgroPageShell from '../components/AgroPageShell';
 import { BrazilUfSelect } from '../components/territorial/BrazilUfSelect';
 import { httpClient } from '../services/http/client';
+import { Truck, Warehouse, ShieldAlert } from 'lucide-react';
+import { AGRO_API } from './agroApiEndpoints';
 
-function fmt(n: number): string { return new Intl.NumberFormat('pt-BR').format(n); }
+function fmt(n: number): string {
+  return new Intl.NumberFormat('pt-BR').format(n);
+}
 
 /**
- * Integração Agro–Logística
- * Rota: /agro/logistica
- * Endpoint: GET /agro/logistica/correlacao
+ * Agro-Logística (Módulo Interno do Agro 360)
+ * Exibe unicamente indicadores de cobertura da base Transportadores RNTRC
+ * (ANTT) e Armazéns (CONAB). Os totais são indicadores de cobertura da base,
+ * NÃO representam matches, relações comerciais ou capacidade disponível.
+ * Isento de referências fora do escopo.
  */
 export default function AgroLogisticaApproved() {
-  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [uf, setUf] = useState(searchParams.get('uf') || '');
+  const [uf, setUf] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -25,100 +28,76 @@ export default function AgroLogisticaApproved() {
     try {
       const params: any = {};
       if (uf) params.uf = uf;
-      const res = await httpClient.get('/agro/logistica/correlacao', { params });
-      setData(res.data);
+      const res = await httpClient.get(AGRO_API.logisticaCorrelacao, { params });
+      setData(res.data || null);
     } catch (err: any) {
-      setError(err?.userMessage || err?.message || 'Falha ao carregar dados logísticos');
-      setData(null);
+      setError(err?.userMessage || err?.message || 'Falha ao carregar dados de logística agro');
     } finally {
       setLoading(false);
     }
   }, [uf]);
 
   useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => {
-    const p: Record<string, string> = {};
-    if (uf) p.uf = uf;
-    setSearchParams(p, { replace: true });
-  }, [uf, setSearchParams]);
+
+  const empty = !loading && !error && !data;
 
   return (
     <AgroPageShell
-      title="Integração Agro–Logística"
-      subtitle="Correlação entre imóveis rurais, transportadores RNTRC, armazéns e corredores logísticos. Geografia indica POTENCIAL — não CONFIRMADO."
-      loading={loading} error={error} onRetry={loadData}
+      title="Agro-Logística & Escoamento"
+      subtitle="Indicadores de cobertura da base: transportadores RNTRC (ANTT) e infraestrutura de armazenagem CONAB"
+      loading={loading}
+      error={error}
+      onRetry={loadData}
+      empty={empty}
+      emptyMessage="Nenhum dado logístico encontrado no recorte atual."
+      statusBadge="Cobertura de base ANTT/CONAB"
     >
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 12, display: 'flex', gap: 10 }}>
+      {/* Filtros */}
+      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 12, display: 'flex', gap: 10, alignItems: 'center' }}>
         <BrazilUfSelect value={uf} onChange={v => setUf(v)} showAllLabel="Todas as UFs" />
+        <span style={{ fontSize: 12, color: '#94A3B8' }}>Filtrar por UF da infraestrutura agrícola</span>
+      </div>
+
+      {/* Aviso de ressalva semântica */}
+      <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 8, padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <ShieldAlert size={18} color="#F59E0B" style={{ flexShrink: 0 }} />
+        <div style={{ fontSize: 12, color: '#CBD5E1' }}>
+          <strong>Nota de Proveniência & Ressalva Técnica:</strong> Proximidade geográfica não comprova relação comercial contratada. Os totais exibidos são indicadores de cobertura da base (ANTT/CONAB), não matches, relações comerciais nem capacidade disponível.
+        </div>
       </div>
 
       {data && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-          {data.transportadores_rntrc_disponiveis !== undefined && (
-            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 16 }}>
-              <h4 style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B', margin: 0 }}>Transportadores RNTRC</h4>
-              <span style={{ fontSize: 24, fontWeight: 800, color: '#F8FAFC' }}>{fmt(data.transportadores_rntrc_disponiveis)}</span>
-              <span style={{ fontSize: 11, color: '#94A3B8', display: 'block', marginTop: 4 }}>Empresas ativas de Transporte Rodoviário de Cargas</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <Truck size={18} color="#F59E0B" />
+              <h4 style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC', margin: 0 }}>Transportadores RNTRC — Cobertura da base</h4>
             </div>
-          )}
+            <span style={{ fontSize: 24, fontWeight: 800, color: '#22C55E' }}>
+              {data.transportadores_rntrc_disponiveis !== undefined ? fmt(data.transportadores_rntrc_disponiveis) : '—'}
+            </span>
+            <span style={{ fontSize: 11, color: '#94A3B8', display: 'block', marginTop: 4 }}>
+              Indicador de cobertura agregado pela API. Não representa capacidade ou relação comercial.
+            </span>
+          </div>
 
-          {data.armazens_conab_proximos !== undefined && (
-            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 16 }}>
-              <h4 style={{ fontSize: 13, fontWeight: 700, color: '#3B82F6', margin: 0 }}>Armazéns CONAB</h4>
-              <span style={{ fontSize: 24, fontWeight: 800, color: '#F8FAFC' }}>{fmt(data.armazens_conab_proximos)}</span>
-              <span style={{ fontSize: 11, color: '#94A3B8', display: 'block', marginTop: 4 }}>Unidades de Armazenamento de Grãos</span>
+          <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <Warehouse size={18} color="#3B82F6" />
+              <h4 style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC', margin: 0 }}>Armazéns CONAB — Cobertura da base</h4>
             </div>
-          )}
-
-          {data.caminhao_vazio_oportunidades !== undefined ? (
-            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 16 }}>
-              <h4 style={{ fontSize: 13, fontWeight: 700, color: '#22C55E', margin: 0 }}>Frete Retorno (Caminhão Vazio)</h4>
-              <span style={{ fontSize: 24, fontWeight: 800, color: '#F8FAFC' }}>{data.caminhao_vazio_oportunidades === 0 ? 'Sem dados' : fmt(data.caminhao_vazio_oportunidades)}</span>
-              <span style={{ fontSize: 11, color: '#94A3B8', display: 'block', marginTop: 4 }}>Oportunidades de aproveitamento de retorno</span>
-            </div>
-          ) : (
-            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <AlertTriangle size={14} color="#64748B" />
-              <span style={{ fontSize: 12, color: '#64748B' }}>Caminhão Vazio: dados ainda não disponíveis na base atual.</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tabela de correlações detalhadas */}
-      {data?.correlacoes && data.correlacoes.length > 0 && (
-        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: '#0B132B', color: '#94A3B8', borderBottom: '1px solid #1E293B' }}>
-                <th style={{ padding: 12 }}>Propriedade</th>
-                <th style={{ padding: 12 }}>Transportador</th>
-                <th style={{ padding: 12 }}>RNTRC</th>
-                <th style={{ padding: 12 }}>Armazém</th>
-                <th style={{ padding: 12 }}>Distância</th>
-                <th style={{ padding: 12 }}>Força</th>
-                <th style={{ padding: 12 }}>Evidência</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data.correlacoes as any[]).map((c: any, i: number) => (
-                <tr key={i} style={{ borderBottom: '1px solid #1E293B' }}>
-                  <td style={{ padding: 12, color: '#F8FAFC', fontSize: 12 }}>{c.propriedade || '—'}</td>
-                  <td style={{ padding: 12, color: '#CBD5E1', fontSize: 12 }}>{c.transportador || '—'}</td>
-                  <td style={{ padding: 12, color: '#94A3B8', fontSize: 11 }}>{c.rntrc || '—'}</td>
-                  <td style={{ padding: 12, color: '#CBD5E1', fontSize: 12 }}>{c.armazem || '—'}</td>
-                  <td style={{ padding: 12, color: '#22C55E', fontSize: 12 }}>{c.distancia_km ? `${c.distancia_km} km` : '—'}</td>
-                  <td style={{ padding: 12 }}><span style={{ fontSize: 10, fontWeight: 700, color: (c.score || 0) >= 70 ? '#22C55E' : '#F59E0B' }}>{c.score !== undefined ? `${Math.round(c.score)}/100` : '—'}</span></td>
-                  <td style={{ padding: 12, color: '#64748B', fontSize: 11 }}>{c.evidencia || 'Geografia = POTENCIAL'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            <span style={{ fontSize: 24, fontWeight: 800, color: '#3B82F6' }}>
+              {data.armazens_conab_proximos !== undefined ? fmt(data.armazens_conab_proximos) : '—'}
+            </span>
+            <span style={{ fontSize: 11, color: '#94A3B8', display: 'block', marginTop: 4 }}>
+              Indicador de cobertura agregado pela API. Não representa capacidade ou relação comercial.
+            </span>
+          </div>
         </div>
       )}
 
       <div style={{ fontSize: 10, color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-default)', paddingTop: 12 }}>
-        ⚠️ Geografia gera POTENCIAL, não CONFIRMADO. Proximidade espacial entre propriedade e transportador NÃO comprova relação comercial.
+        <strong>Proveniência Logística:</strong> Agregações de cobertura fornecidas pela API (origem declarada: ANTT/RNTRC e CONAB/SICARM). Totais não devem ser apresentados como matches, relações comerciais ou capacidade disponível.
       </div>
     </AgroPageShell>
   );

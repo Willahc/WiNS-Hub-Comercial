@@ -11,6 +11,8 @@ import {
 import { DesktopSidebar, MobileSidebarContent } from '../components/AppSidebar';
 import { BrazilUfSelect } from '../components/territorial/BrazilUfSelect';
 import { httpClient } from '../services/http/client';
+import { isMotorOportunidadesReal } from './agroOportunidadesContract';
+import { AGRO_API } from './agroApiEndpoints';
 
 function useMediaQuery(q: string) {
   const [match, setMatch] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches);
@@ -134,12 +136,12 @@ export default function AgroApproved() {
       if (selectedUf) params.uf = selectedUf;
 
       const results = await Promise.allSettled([
-        httpClient.get('/api/v1/agro/kpis', { params, signal: controller.signal }),
-        httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'bioma' }, signal: controller.signal }),
-        httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'uso_solo' }, signal: controller.signal }),
-        httpClient.get('/api/v1/agro/mapa', { params: { ...params, zoom: 4 }, signal: controller.signal }),
-        httpClient.get('/api/v1/agro/oportunidades', { params, signal: controller.signal }),
-        httpClient.get('/api/v1/agro/relacoes', { params, signal: controller.signal }),
+        httpClient.get(AGRO_API.kpis, { params, signal: controller.signal }),
+        httpClient.get(AGRO_API.distribuicao, { params: { ...params, tipo: 'bioma' }, signal: controller.signal }),
+        httpClient.get(AGRO_API.distribuicao, { params: { ...params, tipo: 'uso_solo' }, signal: controller.signal }),
+        httpClient.get(AGRO_API.mapa, { params: { ...params, zoom: 4 }, signal: controller.signal }),
+        httpClient.get(AGRO_API.oportunidades, { params, signal: controller.signal }),
+        httpClient.get(AGRO_API.relacoes, { params, signal: controller.signal }),
       ]);
 
       if (controller.signal.aborted) return;
@@ -166,9 +168,9 @@ export default function AgroApproved() {
       setMapaClusters(mapaData?.clusters || []);
       setMapaTotal(mapaData?.total_no_recorte || 0);
 
-      if (oppData?.message) {
+      if (oppData?.message || !isMotorOportunidadesReal(oppData?.oportunidades)) {
         setOportunidades([]);
-        setOportunidadesMsg(oppData.message);
+        setOportunidadesMsg(oppData?.message || 'Oportunidades ainda não calculadas para este recorte.');
       } else {
         setOportunidades(oppData?.oportunidades || []);
         setOportunidadesMsg(null);
@@ -213,7 +215,7 @@ export default function AgroApproved() {
     { label: "🏡 Propriedades Rurais", desc: "Catálogo server-side com CAR, área, bioma, proprietário e CNPJ — acesse a Ficha 360° a partir da tabela", route: "/agro/propriedades", color: "#22C55E" },
     { label: "👨‍💼 Leads e Decisores", desc: "Catálogo com nome, cargo, contato, validação, fonte e score", route: "/agro/leads", color: "#8B5CF6" },
     { label: "🏢 Holdings & Grupos", desc: "Razão social, CNPJ, propriedades, empresas do grupo e força da relação", route: "/agro/holdings", color: "#F59E0B" },
-    { label: "🎯 Oportunidades", desc: "Fila comercial com score, categoria, evidência e próximo passo", route: "/agro/oportunidades", color: "#EC4899" },
+    { label: "🎯 Oportunidades", desc: "Fila comercial com score, categoria, evidência e próximo passo", route: "/agro/oportunidades", color: "#EC4899", badge: "Em validação" },
     { label: "🚚 Agro–Logística", desc: "Transportadores RNTRC, armazéns, distâncias e correlações", route: "/agro/logistica", color: "#06B6D4" },
     { label: "🧬 Genética & Pecuária", desc: "Base de reprodutores com RGD, CEIP e simulador de acasalamento", route: "/agro/genetica", color: "#A855F7" },
   ];
@@ -328,7 +330,14 @@ export default function AgroApproved() {
                       onMouseEnter={e => { e.currentTarget.style.borderColor = card.color; e.currentTarget.style.boxShadow = `0 0 16px ${card.color}22`; e.currentTarget.style.transform = "translateY(-2px)"; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-default, #1E293B)"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}
                     >
-                      <span style={{ fontSize: 14, fontWeight: 700, color: card.color }}>{card.label}</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: card.color, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        {card.label}
+                        {card.badge && (
+                          <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B', padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                            {card.badge}
+                          </span>
+                        )}
+                      </span>
                       <span style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4 }}>{card.desc}</span>
                       <span style={{ fontSize: 10, color: card.color, marginTop: 4, display: "flex", alignItems: "center", gap: 4, fontWeight: 600 }}>
                         Acessar módulo <ArrowRight size={12} />
