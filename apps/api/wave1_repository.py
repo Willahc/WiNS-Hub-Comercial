@@ -2557,11 +2557,6 @@ class Wave1Repository:
         if not rows:
             return None
         imovel = rows[0]
-        mun = imovel.get("municipio", "")
-        uf_val = imovel.get("uf", "")
-        area = imovel.get("area_total_ha") or 0.0
-        pasto = imovel.get("area_pasto_ha") or 0.0
-        lavoura = imovel.get("area_lavoura_ha") or 0.0
 
         # Holding / Corporate link
         holding = None
