@@ -2,7 +2,7 @@ import logging
 import uuid
 from datetime import date
 from typing import Literal, Optional
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from auth import get_current_user, require_permission
@@ -35,6 +35,39 @@ def standard_error(code: str, message: str, req_id: str, status_code: int = 400,
         status_code=status_code,
         content=content
     )
+
+@router.get("/auth/session")
+async def get_auth_session(
+    request: Request,
+    x_wins_authenticated_user: Optional[str] = Header(None, alias="X-WiNS-Authenticated-User")
+):
+    username = (x_wins_authenticated_user or "").strip()
+    if not username:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required: Missing trusted user identity header"
+        )
+    import re
+    if len(username) > 64 or not re.match(r"^[a-zA-Z0-9_\.\-]+$", username):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid authenticated user identity format"
+        )
+    display_name = request.headers.get("X-WiNS-Display-Name", username)
+    return {
+        "authenticated": True,
+        "username": username,
+        "displayName": display_name,
+        "auth_mode": "maintenance",
+        "roles": ["admin"],
+        "permissions": [
+            "engenharia", "agro", "logistica", "saude",
+            "empresa360", "relacionamentos", "territorial", "busca", "relatorios"
+        ]
+    }
+@router.post("/auth/logout")
+async def post_auth_logout():
+    return {"status": "ok", "message": "Sessão encerrada"}
 
 @router.get("/health")
 def health_check(request: Request):
