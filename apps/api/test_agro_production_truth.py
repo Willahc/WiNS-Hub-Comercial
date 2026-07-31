@@ -14,9 +14,6 @@ Validam:
 """
 
 import os
-import sys
-import inspect
-import textwrap
 
 # Caminho do arquivo wave1_repository.py
 WAVE1_PATH = os.path.join(os.path.dirname(__file__), "wave1_repository.py")
@@ -244,7 +241,6 @@ class TestAgroProductionTruthStatic:
         # A query antiga: SELECT ... FROM prospeccao.decisores_fazenda LIMIT 3
         has_limit3 = "LIMIT 3" in code_only
         has_decisores = "decisores_fazenda" in source
-        has_cnpj_basico = "cnpj_basico" in source
         has_where_cnpj = "WHERE cnpj_basico" in code_only or "WHERE cnpj_basico" in source.replace("\n", " ")
 
         # Se tem LIMIT 3 e decisores_fazenda, deve ter WHERE cnpj_basico

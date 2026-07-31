@@ -2012,10 +2012,6 @@ class Wave1Repository:
                 continue
             seen.add(c["categoria_id"])
             is_confirmado = c["fonte"] == "contractual" if c.get("fonte") else False
-            fase_aplicavel = True
-            if c.get("fases_aplicaveis") and fase:
-                fase_key = fase.upper().replace(" ", "_")
-                fase_aplicavel = fase_key in c["fases_aplicaveis"]
             items.append({
                 "id": str(c["categoria_id"]),
                 "nome": c["categoria_nome"] or f"Serviço CNAE {c['cnae_codigo']}",
@@ -2233,7 +2229,6 @@ class Wave1Repository:
 
         total_imoveis = sum(r["total_imoveis"] for r in filtered)
         codigos_car = total_imoveis
-        com_area = sum(r["com_area_declarada"] for r in filtered)
         area_total = sum(r["area_total_declarada_ha"] for r in filtered)
         area_pasto = sum(r["area_pasto_ha"] for r in filtered)
         area_lavoura = sum(r["area_lavoura_ha"] for r in filtered)
@@ -2426,7 +2421,7 @@ class Wave1Repository:
 
     @staticmethod
     def agro_oportunidades(imovel_id=None):
-        rows = _run_db("wins_agro", f"""
+        rows = _run_db("wins_agro", """
             SELECT e.relationship_id id, e.source_id, e.target_id, e.tipo_relacao titulo,
                    e.evidencia descricao, e.tipo_fonte vertical_origem,
                    e.classificacao, e.score, e.versao_regra, e.calculado_em::text,
@@ -2493,10 +2488,6 @@ class Wave1Repository:
             "fonte": "public.relationship_edges",
             "nota": "Relações materializadas por regras de vínculo documental, cadastral e territorial."
         }
-
-        groups.sort(key=lambda group: (group["vertical"], group["entity"]))
-        return {"query": query, "groups": groups,
-                "total": sum(len(group["items"]) for group in groups)}
 
     @staticmethod
     def agro_imoveis_catalog(page=1, page_size=25, search=None, uf=None, min_area=None, max_area=None):
