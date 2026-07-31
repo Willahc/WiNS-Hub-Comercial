@@ -4,6 +4,7 @@ import { Search, Filter } from 'lucide-react';
 import AgroPageShell from '../components/AgroPageShell';
 import { BrazilUfSelect } from '../components/territorial/BrazilUfSelect';
 import { httpClient } from '../services/http/client';
+import { AGRO_API } from './agroApiEndpoints';
 
 function fmt(n: number): string {
   return new Intl.NumberFormat('pt-BR').format(n);
@@ -38,7 +39,7 @@ export default function AgroPropriedadesApproved() {
       if (uf) params.uf = uf;
       if (minArea) params.min_area = minArea;
       if (sort) params.sort = sort;
-      const res = await httpClient.get('/agro/imoveis', { params });
+      const res = await httpClient.get(AGRO_API.imoveis, { params });
       setItems(res.data?.items || []);
       setTotal(res.data?.meta?.total || 0);
       if ((res.data?.items || []).length === 0) setError(null); // vazio legítimo
@@ -118,8 +119,8 @@ export default function AgroPropriedadesApproved() {
                   <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748B' }}>{item.codigo_car || item.source_id}</span>
                 </td>
                 <td style={{ padding: 12 }}>
-                  <span style={{ color: '#CBD5E1', display: 'block' }}>{item.nome_proprietario || 'Proprietário Cadastrado no CAR'}</span>
-                  <span style={{ fontSize: 11, color: '#64748B' }}>{item.cpf_cnpj || 'CPF/CNPJ sob sigilo'}</span>
+                  <span style={{ color: '#CBD5E1', display: 'block' }}>{item.nome_proprietario || 'Titular não identificado na fonte disponível'}</span>
+                  <span style={{ fontSize: 11, color: '#64748B' }}>{item.cpf_cnpj || 'CPF/CNPJ sob sigilo legal no SICAR'}</span>
                 </td>
                 <td style={{ padding: 12, color: '#CBD5E1' }}>{item.municipio} / {item.uf}</td>
                 <td style={{ padding: 12, fontWeight: 700, color: '#22C55E' }}>{item.area_total_ha ? fmt(Number(item.area_total_ha)) : '—'}</td>
