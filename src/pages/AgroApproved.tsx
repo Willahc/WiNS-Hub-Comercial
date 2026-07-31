@@ -133,7 +133,7 @@ export default function AgroApproved() {
       const params: Record<string, string> = {};
       if (selectedUf) params.uf = selectedUf;
 
-      const [kpiRes, biomaRes, usoSoloRes, mapaRes, oppRes, relRes] = await Promise.all([
+      const results = await Promise.allSettled([
         httpClient.get('/api/v1/agro/kpis', { params, signal: controller.signal }),
         httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'bioma' }, signal: controller.signal }),
         httpClient.get('/api/v1/agro/distribuicao', { params: { ...params, tipo: 'uso_solo' }, signal: controller.signal }),
@@ -144,29 +144,41 @@ export default function AgroApproved() {
 
       if (controller.signal.aborted) return;
 
-      setKpis(kpiRes.data);
+      const getData = (idx: number, fallback: any = {}) => {
+        const r = results[idx];
+        return (r.status === 'fulfilled' && r.value && r.value.data) ? r.value.data : fallback;
+      };
 
-      const biomaCats = biomaRes.data?.categorias || [];
-      const usoSoloCats = usoSoloRes.data?.categorias || [];
+      const kpiData = getData(0, null);
+      const biomaData = getData(1, {});
+      const usoSoloData = getData(2, {});
+      const mapaData = getData(3, {});
+      const oppData = getData(4, {});
+      const relData = getData(5, {});
+
+      setKpis(kpiData);
+
+      const biomaCats = biomaData?.categorias || [];
+      const usoSoloCats = usoSoloData?.categorias || [];
       setDistBioma(biomaCats);
       setDistUsoSolo(usoSoloCats);
 
-      setMapaClusters(mapaRes.data?.clusters || []);
-      setMapaTotal(mapaRes.data?.total_no_recorte || 0);
+      setMapaClusters(mapaData?.clusters || []);
+      setMapaTotal(mapaData?.total_no_recorte || 0);
 
-      if (oppRes.data?.message) {
+      if (oppData?.message) {
         setOportunidades([]);
-        setOportunidadesMsg(oppRes.data.message);
+        setOportunidadesMsg(oppData.message);
       } else {
-        setOportunidades(oppRes.data?.oportunidades || []);
+        setOportunidades(oppData?.oportunidades || []);
         setOportunidadesMsg(null);
       }
 
-      if (relRes.data?.message) {
+      if (relData?.message) {
         setRelacoes([]);
-        setRelacoesMsg(relRes.data.message);
+        setRelacoesMsg(relData.message);
       } else {
-        setRelacoes(relRes.data?.relacoes || []);
+        setRelacoes(relData?.relacoes || []);
         setRelacoesMsg(null);
       }
 
