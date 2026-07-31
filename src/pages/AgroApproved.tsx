@@ -13,6 +13,7 @@ import { BrazilUfSelect } from '../components/territorial/BrazilUfSelect';
 import { httpClient } from '../services/http/client';
 import { isMotorOportunidadesReal } from './agroOportunidadesContract';
 import { AGRO_API } from './agroApiEndpoints';
+import { AgroTerritorialMap } from '../components/AgroTerritorialMap';
 
 function useMediaQuery(q: string) {
   const [match, setMatch] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches);
@@ -398,57 +399,13 @@ export default function AgroApproved() {
                 </div>
               </div>
 
-              <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 10, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Layers size={16} color="#22C55E" />
-                    <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Concentração de Cadastros CAR — Clusters por Grade Municipal</h3>
-                  </div>
-                  <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{mapaClusters.length} clusters de {fmt(mapaTotal)} cadastros no recorte</span>
-                </div>
-                <div style={{ height: 380, borderRadius: 8, overflow: 'hidden', position: 'relative', border: '1px solid var(--border-subtle)' }}>
-                  <MapContainer center={BRAZIL_CENTER} zoom={4} style={{ height: '100%', width: '100%', background: '#090D16' }}>
-                    <FitBoundsControl bounds={mapBounds} />
-                    <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                    {mapaClusters.map((cluster, idx) => (
-                      <CircleMarker
-                        key={idx}
-                        center={[cluster.lat, cluster.lng]}
-                        radius={Math.max(3, Math.min(20, Math.log2(cluster.quantidade + 1) * 3))}
-                        pathOptions={{ fillColor: AGRO_COLOR, color: '#FFF', weight: 1, fillOpacity: 0.7 }}
-                        eventHandlers={{ click: () => setSelectedItem(cluster) }}
-                      >
-                        <Tooltip direction="top" offset={[0, -5]}>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: '#0F172A' }}>{cluster.municipio}/{cluster.uf}</div>
-                          <div style={{ fontSize: 10 }}>{cluster.quantidade} cadastros · {fmtArea(cluster.area_ha)}</div>
-                        </Tooltip>
-                      </CircleMarker>
-                    ))}
-                  </MapContainer>
-                  {selectedItem && (
-                    <div style={{ position: 'absolute', bottom: 12, right: 12, width: 260, background: '#0F172A', border: '1px solid #22C55E', borderRadius: 8, padding: 12, zIndex: 1000 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: '#22C55E', background: 'rgba(34,197,94,0.15)', padding: '2px 6px', borderRadius: 4 }}>
-                          {selectedItem.municipio}/{selectedItem.uf}
-                        </span>
-                        <button onClick={() => setSelectedItem(null)} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}>✕</button>
-                      </div>
-                      <p style={{ fontSize: 11, color: '#94A3B8', margin: '6px 0' }}>{selectedItem.quantidade} cadastros CAR · {fmtArea(selectedItem.area_ha)}</p>
-                    </div>
-                  )}
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
-                  Clusters de registros CAR agregados por grade de coordenadas municipais (referencia.municipio). Cada ponto representa dezenas a milhares de cadastros — não são polígonos, centroides de imóveis nem limites fundiários. 98,6% dos 8,29M cadastros têm município na referência; 1,4% sem correspondência por divergência no nome do município.
-                  <button onClick={() => {
-                    if (mapRef.current) {
-                      const b = mapRef.current.getBounds();
-                      setMapBounds([[b.getSouth(), b.getWest()], [b.getNorth(), b.getEast()]]);
-                    }
-                  }} style={{ marginLeft: 8, background: 'none', border: 'none', color: '#22C55E', fontSize: 10, cursor: 'pointer', textDecoration: 'underline' }}>
-                    Centralizar mapa
-                  </button>
-                </div>
-              </div>
+              <AgroTerritorialMap
+                rawClusters={mapaClusters}
+                totalNoRecorte={mapaTotal}
+                loading={loading}
+                error={error}
+                onRetry={loadAllData}
+              />
 
               <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 10, padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
