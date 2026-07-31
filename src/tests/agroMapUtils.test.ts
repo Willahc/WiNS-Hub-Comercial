@@ -51,7 +51,8 @@ describe('Agro Map Utils & Constants', () => {
     // Numerador negativo -> null
     expect(calculateTerritorialCoveragePercentage(-10, 1000)).toBeNull();
 
-    // População incompatível (numerador >> denominador) -> null
+    // População incompatível (totalRepresented > totalNoRecorte) -> null
+    expect(calculateTerritorialCoveragePercentage(120, 100)).toBeNull();
     expect(calculateTerritorialCoveragePercentage(5000, 1000)).toBeNull();
   });
 

@@ -11,6 +11,7 @@ import { httpClient } from '../services/http/client';
 import { isMotorOportunidadesReal } from './agroOportunidadesContract';
 import { AGRO_API } from './agroApiEndpoints';
 import { AgroTerritorialMap } from '../components/AgroTerritorialMap';
+import type { AgroMapResponse } from '../utils/agroMapUtils';
 
 function useMediaQuery(q: string) {
   const [match, setMatch] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches);
@@ -90,14 +91,14 @@ export default function AgroApproved() {
   const [distUsoSolo, setDistUsoSolo] = useState<DistribuicaoCategoria[]>([]);
   const [mapaClusters, setMapaClusters] = useState<MapaCluster[]>([]);
   const [mapaTotal, setMapaTotal] = useState(0);
-  const [mapLoading, setMapLoading] = useState(true);
-  const [mapError, setMapError] = useState<string | null>(null);
-
   const [oportunidades, setOportunidades] = useState<any[]>([]);
   const [relacoes, setRelacoes] = useState<any[]>([]);
   const [oportunidadesMsg, setOportunidadesMsg] = useState<string | null>(null);
   const [relacoesMsg, setRelacoesMsg] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
+  const [mapLoading, setMapLoading] = useState(true);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [mapResponse, setMapResponse] = useState<AgroMapResponse | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const ufFromUrl = searchParams.get('uf') || '';
@@ -106,29 +107,38 @@ export default function AgroApproved() {
   const [selectedUso, setSelectedUso] = useState('');
 
   const abortRef = useRef<AbortController | null>(null);
+  const mapAbortRef = useRef<AbortController | null>(null);
 
   const activeFiltersCount = [searchQuery, selectedUf, selectedBioma, selectedUso].filter(Boolean).length;
 
   const fetchMapaData = useCallback(async () => {
+    if (mapAbortRef.current) mapAbortRef.current.abort();
+    const controller = new AbortController();
+    mapAbortRef.current = controller;
+
     setMapLoading(true);
     setMapError(null);
     try {
-      const params: Record<string, string> = {};
+      const params: Record<string, string> = { zoom: '4' };
       if (selectedUf) params.uf = selectedUf;
-      const res = await httpClient.get(AGRO_API.mapa, { params, signal: abortRef.current?.signal });
+      const res = await httpClient.get(AGRO_API.mapa, { params, signal: controller.signal });
       if (res && res.data) {
-        setMapaClusters(res.data.clusters || []);
-        setMapaTotal(res.data.total_no_recorte || 0);
+        const mapData = res.data as AgroMapResponse;
+        setMapaClusters(mapData.clusters as MapaCluster[] || []);
+        setMapaTotal(mapData.total_no_recorte || 0);
+        setMapResponse(mapData);
         setMapError(null);
       } else {
         setMapaClusters([]);
         setMapaTotal(0);
+        setMapResponse(null);
         setMapError('Não foi possível carregar o mapa territorial.');
       }
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
       setMapaClusters([]);
       setMapaTotal(0);
+      setMapResponse(null);
       setMapError(err?.message || 'Não foi possível carregar o mapa territorial.');
     } finally {
       setMapLoading(false);
@@ -181,12 +191,15 @@ export default function AgroApproved() {
       // Tratamento isolado do resultado do Mapa (índice 3)
       const mapaResult = results[3];
       if (mapaResult.status === 'fulfilled' && mapaResult.value && mapaResult.value.data) {
-        setMapaClusters(mapaResult.value.data.clusters || []);
-        setMapaTotal(mapaResult.value.data.total_no_recorte || 0);
+        const mapData = mapaResult.value.data as AgroMapResponse;
+        setMapaClusters(mapData.clusters as MapaCluster[] || []);
+        setMapaTotal(mapData.total_no_recorte || 0);
+        setMapResponse(mapData);
         setMapError(null);
       } else {
         setMapaClusters([]);
         setMapaTotal(0);
+        setMapResponse(null);
         const errMsg = mapaResult.status === 'rejected'
           ? (mapaResult.reason?.message || 'Não foi possível carregar o mapa territorial.')
           : 'Não foi possível carregar o mapa territorial.';
@@ -221,125 +234,178 @@ export default function AgroApproved() {
 
   useEffect(() => {
     loadAllData();
-    return () => { if (abortRef.current) abortRef.current.abort(); };
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+      if (mapAbortRef.current) mapAbortRef.current.abort();
+    };
   }, [loadAllData]);
 
   useEffect(() => {
-    const p: Record<string, string> = {};
-    if (selectedUf) p.uf = selectedUf;
-    setSearchParams(p, { replace: true });
+    const next = new URLSearchParams(searchParams);
+    if (selectedUf) next.set('uf', selectedUf);
+    else next.delete('uf');
+    setSearchParams(next, { replace: true });
   }, [selectedUf, setSearchParams]);
 
-  const clearAllFilters = () => {
+  const resetFilters = () => {
+    setSearchQuery('');
     setSelectedUf('');
     setSelectedBioma('');
     setSelectedUso('');
-    setSearchQuery('');
   };
 
+  const navCards = [
+    { label: "🏡 Propriedades Rurais", desc: "Catálogo server-side com CAR, área, bioma, proprietário e CNPJ — acesse a Ficha 360° a partir da tabela", route: "/agro/propriedades", color: "#22C55E" },
+    { label: "👨‍💼 Leads e Decisores", desc: "Catálogo com nome, cargo, contato, validação, fonte e score", route: "/agro/leads", color: "#8B5CF6" },
+    { label: "🏢 Holdings & Grupos", desc: "Razão social, CNPJ, propriedades, empresas do grupo e força da relação", route: "/agro/holdings", color: "#F59E0B" },
+    { label: "🎯 Oportunidades", desc: "Fila comercial com score, categoria, evidência e próximo passo", route: "/agro/oportunidades", color: "#EC4899", badge: "Em validação" },
+    { label: "🚚 Agro–Logística", desc: "Transportadores RNTRC, armazéns, distâncias e correlações", route: "/agro/logistica", color: "#06B6D4" },
+    { label: "🧬 Genética & Pecuária", desc: "Base de reprodutores com RGD, CEIP e simulador de acasalamento", route: "/agro/genetica", color: "#A855F7" },
+  ];
+
+  const kpiCards = kpis ? [
+    { label: 'Cadastros CAR Únicos', value: fmt(kpis.total_imoveis_car), sub: 'Unicidade pelo código CAR cadastral', color: AGRO_COLOR, tooltip: `Total de ${kpis.total_imoveis_car.toLocaleString('pt-BR')} cadastros no SICAR/CAR. Cada linha = 1 código CAR distinto (coluna codigo_car: UNIQUE, 0 duplicatas). Não comprova unicidade física ou fundiária.` },
+    { label: 'Geometrias Válidas', value: kpis.geometrias_validas > 0 ? fmt(kpis.geometrias_validas) : 'N/D', sub: 'Indisponível na base atual', color: '#94A3B8', tooltip: 'A tabela prospeccao.imovel_rural não possui coluna de geometria (PostGIS). Impossível calcular área geométrica ou dissolvida. Os pontos no mapa são coordenadas municipais de referência, não geometria de imóveis.' },
+    { label: 'Área Declarada (SICAR)', value: fmtArea(kpis.area_declarada_ha), sub: 'Soma bruta, sujeita a sobreposições', color: '#3B82F6', tooltip: `Soma bruta de area_total_ha: ${kpis.area_declarada_ha.toLocaleString('pt-BR', {maximumFractionDigits:0})} ha. Valor declaratório do proprietário no CAR. Pode conter sobreposições entre cadastros. Não é área geoespacial, nem área sem sobreposição, nem área auditada geometricamente.` },
+    { label: 'Municípios com CAR', value: `${kpis.municipios_com_registro_car}`, sub: `de ${kpis.municipios_ibge_total} mun. IBGE · ${kpis.ufs_presentes} UFs`, color: '#F59E0B', tooltip: `${kpis.municipios_com_registro_car} municípios com ao menos um registro CAR. ${kpis.municipios_ibge_total - kpis.municipios_com_registro_car} municípios sem qualquer registro.` },
+    { label: 'CNPJs Relacionados', value: fmt(kpis.pessoas_juridicas_relacionadas), sub: 'Holdings/investidores c/ vínculo agro', color: '#8B5CF6', tooltip: `${kpis.pessoas_juridicas_relacionadas.toLocaleString('pt-BR')} CNPJs de holdings, investidores e imobiliárias com sócio em comum com empresas rurais. Fonte: RFB via prospeccao.holding_lead_ui.` },
+  ] : [];
+
   return (
-    <div className="wins-layout" style={{ background: 'var(--bg-base, #030712)', minHeight: '100vh', color: 'var(--text-primary, #F8FAFC)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base, #090D16)', position: 'relative', overflow: 'hidden' }}>
       {isMobile ? (
-        <MobileSidebarContent onCloseMobile={() => setSidebarOpen(false)} />
+        <>
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', zIndex: 200, opacity: sidebarOpen ? 1 : 0, pointerEvents: sidebarOpen ? 'auto' : 'none', transition: 'opacity 0.2s' }} onClick={() => setSidebarOpen(false)} />
+          <aside style={{ position: 'fixed', top: 0, left: 0, height: '100vh', width: 280, background: 'var(--bg-sidebar, #0F172A)', zIndex: 201, transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.25s ease', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-default, #1E293B)', overflow: 'hidden' }}>
+            <MobileSidebarContent onCloseMobile={() => setSidebarOpen(false)} />
+          </aside>
+        </>
       ) : (
         <DesktopSidebar />
       )}
 
-      <div className="wins-main" style={{ marginLeft: isMobile ? 0 : 240, transition: 'margin 0.2s', padding: isMobile ? 12 : 24 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-tertiary)' }}>
-                <span>WiNS Hub</span>
-                <ChevronRight size={12} />
-                <span>Verticais</span>
-                <ChevronRight size={12} />
-                <span style={{ color: AGRO_COLOR, fontWeight: 600 }}>Agro</span>
-              </div>
-              <h1 style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, margin: '4px 0 0 0', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Sprout color={AGRO_COLOR} size={isMobile ? 22 : 26} />
-                Vertical Agro — Produção e Regularidade CAR
-              </h1>
+      <div style={{ marginLeft: isMobile ? 0 : 'var(--sidebar-w, 240px)', flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, maxWidth: '100vw' }}>
+        <header style={{ height: 'var(--topbar-h, 60px)', background: 'var(--bg-surface, #0F172A)', borderBottom: '1px solid var(--border-default, #1E293B)', display: 'flex', alignItems: 'center', padding: isMobile ? '0 12px' : '0 24px', gap: isMobile ? 8 : 16, position: 'sticky', top: 0, zIndex: 50 }}>
+          {isMobile && (
+            <button onClick={() => setSidebarOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 4 }}><Menu size={20} /></button>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <h1 style={{ fontSize: isMobile ? 14 : 16, fontWeight: 700, color: 'var(--text-primary, #F8FAFC)', margin: 0 }}>Inteligência Territorial Rural</h1>
+              <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(34,197,94,0.15)', color: '#22C55E', padding: '2px 6px', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <ShieldCheck size={11} /> Dados Declaratórios CAR / Referência IBGE / Derivados RFB
+              </span>
             </div>
-
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button onClick={() => navigate('/agro/propriedades')} className="btn-secondary" style={{ fontSize: 12, padding: '6px 12px' }}>
-                Catalogar Imóveis
-              </button>
-              <button onClick={() => navigate('/agro/leads')} className="btn-primary" style={{ background: AGRO_COLOR, fontSize: 12, padding: '6px 12px' }}>
-                Explorar Leads
-              </button>
-            </div>
+            {!isMobile && kpis?.ultima_atualizacao && <p style={{ fontSize: 11, color: 'var(--text-tertiary, #64748B)', margin: 0, marginTop: 1 }}>Atualizado em {new Date(kpis.ultima_atualizacao).toLocaleDateString('pt-BR')}</p>}
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={() => navigate('/territorial')} style={{ height: 32, padding: '0 12px', fontSize: 11, fontWeight: 600, background: '#22C55E', color: '#FFF', border: 'none', borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <MapPin size={13} /> {!isMobile && <span>Inteligência Territorial</span>}
+            </button>
+          </div>
+        </header>
 
-          <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 10, padding: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ minWidth: 140 }}>
-              <BrazilUfSelect value={selectedUf} onChange={setSelectedUf} showAllLabel="Todas as UFs" />
+        <div style={{ padding: isMobile ? 12 : 24, flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 8, padding: 12, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+            <div style={{ position: 'relative', width: isMobile ? '100%' : 220 }}>
+              <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Buscar imóvel CAR, município..." style={{ width: '100%', height: 30, paddingLeft: 28, fontSize: 11, background: 'var(--bg-base)', border: '1px solid var(--border-subtle)', borderRadius: 4, color: 'var(--text-primary)' }} />
             </div>
-
+            <BrazilUfSelect value={selectedUf} onChange={(val) => setSelectedUf(val)} showAllLabel="Todas as UFs" />
             {activeFiltersCount > 0 && (
-              <button onClick={clearAllFilters} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: '#EF4444', fontSize: 11, cursor: 'pointer', padding: '4px 8px' }}>
-                <X size={12} /> Limpar ({activeFiltersCount})
+              <button onClick={resetFilters} style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <RotateCcw size={11} /> Limpar ({activeFiltersCount})
               </button>
             )}
           </div>
 
-          {loading ? (
-            <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>
-              <RefreshCw className="animate-spin" size={24} style={{ marginBottom: 12, color: AGRO_COLOR }} />
-              <div>Carregando indicadores do Agro...</div>
+          {loading && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, gap: 12 }}>
+              <div className="spinner" />
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Consultando base canônica do CAR...</p>
             </div>
-          ) : error ? (
-            <div style={{ padding: 20, background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #EF4444', borderRadius: 8, color: '#EF4444' }}>
-              <AlertTriangle size={20} style={{ marginBottom: 8 }} />
-              <div>{error}</div>
-              <button onClick={loadAllData} style={{ marginTop: 12, padding: '6px 12px', background: '#EF4444', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
-                Tentar Novamente
-              </button>
+          )}
+
+          {error && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, gap: 12 }}>
+              <AlertTriangle size={36} color="#EF4444" />
+              <h3 style={{ color: '#EF4444', margin: 0 }}>Erro ao Carregar Dados do Agro</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{error}</p>
+              <button onClick={loadAllData} style={{ height: 32, padding: '0 16px', fontSize: 12, fontWeight: 600, background: '#22C55E', color: '#FFF', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Tentar novamente</button>
             </div>
-          ) : kpis && (
+          )}
+
+          {!loading && !error && kpis && (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 12 }}>
-                <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14 }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>Total de Cadastros CAR</div>
-                  <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: AGRO_COLOR }}>{fmt(kpis.total_imoveis_car)}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>{fmt(kpis.codigos_car_unicos)} códigos únicos</div>
-                </div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)', gap: 12 }}>
+                {kpiCards.map((kpi, idx) => (
+                  <div key={idx} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14 }} title={kpi.tooltip}>
+                    <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{kpi.label}</span>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: kpi.color, margin: '2px 0' }}>{kpi.value}</div>
+                    <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{kpi.sub}</span>
+                  </div>
+                ))}
+              </div>
 
-                <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14 }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>Área Declarada Total</div>
-                  <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: '#38BDF8' }}>{fmtArea(kpis.area_declarada_ha)}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>Pasto: {fmtArea(kpis.area_pasto_ha)}</div>
-                </div>
-
-                <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14 }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>Cobertura Municipal IBGE</div>
-                  <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: '#F59E0B' }}>{fmt(kpis.municipios_com_registro_car)}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>de {fmt(kpis.municipios_ibge_total)} municípios ({kpis.ufs_presentes} UFs)</div>
-                </div>
-
-                <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 14 }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4 }}>Pessoas Jurídicas Viculadas</div>
-                  <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: '#A855F7' }}>{fmt(kpis.pessoas_juridicas_relacionadas)}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 4 }}>CNPJs cruzados no SICAR</div>
+              {/* Módulos Agro 360° — Navegação Ativa */}
+              <div style={{ background: "var(--bg-surface, #0F172A)", border: "1px solid var(--border-default, #1E293B)", borderRadius: 10, padding: 16 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC", marginBottom: 12 }}>Suíte Agro 360° — Módulos Disponíveis</h3>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12 }}>
+                  {navCards.map((card, idx) => (
+                    <div
+                      key={idx}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(card.route)}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(card.route); } }}
+                      aria-label={`Acessar módulo ${card.label}`}
+                      style={{
+                        background: "var(--bg-base, #090D16)",
+                        border: "1px solid var(--border-default, #1E293B)",
+                        borderRadius: 8,
+                        padding: 16,
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = card.color; e.currentTarget.style.boxShadow = `0 0 16px ${card.color}22`; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-default, #1E293B)"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}
+                    >
+                      <span style={{ fontSize: 14, fontWeight: 700, color: card.color, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        {card.label}
+                        {card.badge && (
+                          <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B', padding: '2px 8px', borderRadius: 4, border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                            {card.badge}
+                          </span>
+                        )}
+                      </span>
+                      <span style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4 }}>{card.desc}</span>
+                      <span style={{ fontSize: 10, color: card.color, marginTop: 4, display: "flex", alignItems: "center", gap: 4, fontWeight: 600 }}>
+                        Acessar módulo <ArrowRight size={12} />
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
-                <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 10, padding: 16 }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <BarChart2 size={16} color={AGRO_COLOR} />
-                    Distribuição por Bioma Declarado
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 10, padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+                  <BarChart2 size={16} color="#22C55E" />
+                  <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Distribuição — Dados Declaratórios do CAR</h3>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>Imóveis por Bioma (inferido pela UF do cadastro)</span>
                     {distBioma.map((cat, idx) => {
-                      const pct = cat.percentual || 0;
-                      const colors = ['#22C55E', '#38BDF8', '#F59E0B', '#A855F7', '#EC4899', '#64748B'];
+                      const pct = cat.percentual_imoveis || 0;
+                      const colors = ['#F59E0B', '#22C55E', '#06B6D4', '#8B5CF6', '#EF4444', '#EC4899', '#94A3B8'];
                       return (
-                        <div key={idx} style={{ marginBottom: 6 }}>
+                        <div key={idx} onClick={() => setSelectedBioma(selectedBioma === cat.bioma ? '' : (cat.bioma || ''))} style={{ cursor: 'pointer', marginBottom: 6, opacity: cat.imoveis === 0 ? 0.5 : 1 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginBottom: 2 }}>
                             <span>{cat.bioma}</span>
-                            <strong>{fmt(cat.imoveis || 0)} ({pct}%)</strong>
+                            <strong>{cat.imoveis ? fmt(cat.imoveis) : '0'} ({pct}%)</strong>
                           </div>
                           <div style={{ height: 6, background: 'var(--bg-base)', borderRadius: 3, overflow: 'hidden' }}>
                             <div style={{ width: `${Math.max(pct, 1)}%`, height: '100%', background: colors[idx % colors.length], borderRadius: 3 }} />
@@ -347,15 +413,12 @@ export default function AgroApproved() {
                         </div>
                       );
                     })}
+                    <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 8 }}>
+                      Bioma inferido pela UF do cadastro (mapeamento IBGE UF→bioma dominante). Estados com mais de um bioma (MG, BA, etc.) são aproximações. Não substitui interseção geométrica do imóvel com bioma.
+                    </div>
                   </div>
-                </div>
-
-                <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 10, padding: 16 }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <BarChart2 size={16} color="#38BDF8" />
-                    Distribuição por Uso do Solo Declarado
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>Uso do solo declarado no CAR (ha)</span>
                     {distUsoSolo.map((cat, idx) => {
                       const pct = cat.percentual || 0;
                       const colors2 = ['#F59E0B', '#22C55E', '#06B6D4', '#94A3B8'];
@@ -378,15 +441,17 @@ export default function AgroApproved() {
                 </div>
               </div>
 
-              {/* Componente do Mapa Agro com Estado Isolado */}
+              {/* Componente do Mapa Agro com Estado Isolado e Proveniência Exclusiva do Endpoint /agro/mapa */}
               <AgroTerritorialMap
                 rawClusters={mapaClusters}
                 totalNoRecorte={mapaTotal}
                 loading={mapLoading}
                 error={mapError}
                 onRetry={fetchMapaData}
-                sources={kpis.fontes}
-                sourceDate={kpis.ultima_atualizacao}
+                sources={mapResponse?.fontes}
+                sourceDate={mapResponse?.ultima_atualizacao}
+                loadedAt={mapResponse?.data_carga}
+                consolidatedAt={mapResponse?.data_consolidacao}
               />
 
               <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 10, padding: 16 }}>
