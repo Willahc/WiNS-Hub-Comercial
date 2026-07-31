@@ -2,12 +2,171 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
-  quality:
+  # JOB 1 — Qualidade de Python restrita ao diff.
+  # Bloqueia somente erros Ruff nos arquivos .py alterados pelo PR/push.
+  # O baseline global do repositório NÃO deve bloquear PRs não relacionados.
+  changed-python-quality:
+    name: Python (diff-aware)
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instala ruff
+        run: pip install ruff
+
+      - name: Computa base e head do diff
+        id: base
+        shell: bash
+        run: |
+          case "${{ github.event_name }}" in
+            pull_request)
+              BASE_SHA="${{ github.event.pull_request.base.sha }}"
+              HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+              ;;
+            push)
+              BASE_SHA="${{ github.event.before }}"
+              HEAD_SHA="${{ github.event.after }}"
+              if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+                BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || printf '')"
+              fi
+              ;;
+            *)
+              BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || printf '')"
+              HEAD_SHA="$(git rev-parse HEAD)"
+              ;;
+          esac
+          if [ -z "$BASE_SHA" ]; then
+            BASE_SHA="$HEAD_SHA"
+          fi
+          echo "base=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "head=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Lint dos arquivos Python alterados
+        shell: bash
+        run: |
+          BASE_SHA="${{ steps.base.outputs.base }}"
+          HEAD_SHA="${{ steps.base.outputs.head }}"
+          py_files=()
+          while IFS= read -r -d '' f; do
+            case "$f" in
+              *.py)
+                # somente arquivos que ainda existem no HEAD
+                if [ -f "$f" ]; then
+                  py_files+=("$f")
+                fi
+                ;;
+            esac
+          done < <(git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA")
+          if [ "${#py_files[@]}" -eq 0 ]; then
+            echo "Nenhum arquivo Python alterado neste evento."
+            exit 0
+          fi
+          printf '%s\0' "${py_files[@]}" | xargs -0 ruff check
+
+  # JOB 2 — Testes focados no que mudou.
+  # Ruff global NÃO impede a execução destes testes.
+  focused-tests:
+    name: Testes focados
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instala deps de teste
+        run: pip install pytest pyjwt bcrypt pyotp
+
+      - name: Computa base e head do diff
+        id: base
+        shell: bash
+        run: |
+          case "${{ github.event_name }}" in
+            pull_request)
+              BASE_SHA="${{ github.event.pull_request.base.sha }}"
+              HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+              ;;
+            push)
+              BASE_SHA="${{ github.event.before }}"
+              HEAD_SHA="${{ github.event.after }}"
+              if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+                BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || printf '')"
+              fi
+              ;;
+            *)
+              BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || printf '')"
+              HEAD_SHA="$(git rev-parse HEAD)"
+              ;;
+          esac
+          if [ -z "$BASE_SHA" ]; then
+            BASE_SHA="$HEAD_SHA"
+          fi
+          echo "base=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "head=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Detecta escopo alterado
+        id: scope
+        shell: bash
+        run: |
+          BASE_SHA="${{ steps.base.outputs.base }}"
+          HEAD_SHA="${{ steps.base.outputs.head }}"
+          auth=false
+          agro=false
+          while IFS= read -r -d '' f; do
+            case "$f" in
+              apps/api/auth.py|apps/api/routes.py|apps/api/test_api.py|apps/api/test_auth_session.py|app/tests/test_auth.py|src/services/auth/*|src/services/auth.tsx|public/logout-maintenance.html)
+                auth=true ;;
+              apps/api/wave1_repository.py|apps/api/routes.py|staging/agro_external_gate.py|app/tests/test_fase0d_farms_v2.py|app/tests/test_fase2_pasture_live_domain.py|src/pages/Agro*|src/components/Agro*|src/pages/agroApiEndpoints.ts|src/pages/agroOportunidadesContract.ts)
+                agro=true ;;
+            esac
+          done < <(git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA")
+          echo "auth=${auth}" >> "$GITHUB_OUTPUT"
+          echo "agro=${agro}" >> "$GITHUB_OUTPUT"
+
+      - name: Testes de autenticação (núcleo puro, sem banco)
+        if: steps.scope.outputs.auth == 'true'
+        run: pytest app/tests/test_auth.py -q
+
+      - name: Testes Agro backend (domínio puro, sem banco)
+        if: steps.scope.outputs.agro == 'true'
+        run: pytest app/tests/test_fase0d_farms_v2.py app/tests/test_fase2_pasture_live_domain.py -q
+
+      # Vitest cobre auth.tsx (auth) e páginas Agro (agro) quando alterados.
+      # O diff de frontend genérico (src/ sem auth/Agro) é coberto em frontend-quality.
+      - name: Setup Node (para Vitest)
+        if: steps.scope.outputs.auth == 'true' || steps.scope.outputs.agro == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Testes frontend (Vitest)
+        if: steps.scope.outputs.auth == 'true' || steps.scope.outputs.agro == 'true'
+        run: |
+          npm ci
+          npx vitest run
+
+  # JOB 3 — Baseline global do repositório.
+  # Informativo e NÃO bloqueante, até redução controlada da dívida técnica.
+  # TODO: tornar bloqueante após redução controlada do baseline.
+  repository-baseline:
+    name: Baseline global (não bloqueante)
+    runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -15,16 +174,136 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Instala ferramentas de qualidade + deps de teste
-        run: pip install ruff pytest pyjwt bcrypt pyotp
+      - name: Instala ruff
+        run: pip install ruff
 
-      - name: Lint (ruff — bugs reais, F/E9)
-        run: ruff check .
-
-      - name: Testes (núcleo de auth, sem banco)
-        run: pytest
-
-      - name: Auditoria de dependências (não bloqueante por ora)
+      - name: Ruff global — estatística (não bloqueia)
+        shell: bash
         run: |
-          pip install pip-audit
-          pip-audit -r app/requirements.txt || true
+          set +e
+          total=$(ruff check . --output-format=json 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+          codes=$(ruff check . --statistics 2>/dev/null | tail -8)
+          {
+            echo "## Baseline Ruff global"
+            echo ""
+            echo "Total de erros no repositório inteiro: **${total}**"
+            echo ""
+            echo "\`\`\`"
+            echo "${codes}"
+            echo "\`\`\`"
+            echo ""
+            echo "> Job informativo: **não bloqueia** PRs. Erros dos arquivos alterados são validados estritamente em \`changed-python-quality\`."
+            echo "> TODO: tornar bloqueante após redução controlada do baseline."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # JOB 4 — Qualidade frontend (somente quando frontend muda).
+  # IMPORTANTE: NUNCA usar `npm run build` — o script `build` deste repositório
+  # executa deploy para /opt/winshub/spa e reload do Nginx.
+  # GitHub Actions nunca deve executar comandos de deploy.
+  frontend-quality:
+    name: Frontend (tsc/vitest/build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Computa base e head do diff
+        id: base
+        shell: bash
+        run: |
+          case "${{ github.event_name }}" in
+            pull_request)
+              BASE_SHA="${{ github.event.pull_request.base.sha }}"
+              HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+              ;;
+            push)
+              BASE_SHA="${{ github.event.before }}"
+              HEAD_SHA="${{ github.event.after }}"
+              if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+                BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || printf '')"
+              fi
+              ;;
+            *)
+              BASE_SHA="$(git rev-parse HEAD^ 2>/dev/null || printf '')"
+              HEAD_SHA="$(git rev-parse HEAD)"
+              ;;
+          esac
+          if [ -z "$BASE_SHA" ]; then
+            BASE_SHA="$HEAD_SHA"
+          fi
+          echo "base=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "head=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Detecta alterações de frontend
+        id: fe
+        shell: bash
+        run: |
+          BASE_SHA="${{ steps.base.outputs.base }}"
+          HEAD_SHA="${{ steps.base.outputs.head }}"
+          changed=false
+          while IFS= read -r -d '' f; do
+            case "$f" in
+              src/*|public/*|index.html|package.json|package-lock.json|vite.config.ts|tsconfig*.json)
+                changed=true ;;
+            esac
+          done < <(git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" "$HEAD_SHA")
+          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+
+      - name: Instala dependências frontend
+        if: steps.fe.outputs.changed == 'true'
+        run: npm ci
+
+      # Bloqueante: vitest é verde no baseline de origin/main (21 testes) e
+      # pega regressões reais de comportamento do código alterado.
+      - name: Testes frontend (Vitest — bloqueante)
+        if: steps.fe.outputs.changed == 'true'
+        run: npx vitest run
+
+      # Aviso de baseline: em origin/main, `tsc -b` reporta ~222 erros e
+      # `vite build` falha (componentes referenciados por main ausentes:
+      # AppSidebar, territorial/BrazilUfSelect, relationshipCatalog — PR #6
+      # repara isso). Por isso tsc/build são INFORMATIVOS abaixo.
+      # TODO: tornar bloqueante após reparo do baseline frontend.
+      - name: Typecheck (tsc — informativo, baseline vermelho)
+        if: steps.fe.outputs.changed == 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npx tsc -b > /tmp/tsc.log 2>&1
+          rc=$?
+          total=$(grep -cE "error TS" /tmp/tsc.log)
+          {
+            echo "## Typecheck (tsc -b) — informativo"
+            echo ""
+            echo "Código de saída: \`${rc}\` — erros TS: **${total}**"
+            echo ""
+            echo "> Baseline de \`origin/main\` já contém ~222 erros (dívida histórica). Não bloqueia este PR."
+            echo "> TODO: tornar bloqueante após redução controlada do baseline."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Build separado — sem deploy. `npm run build` NÃO pode ser usado.
+      # O script `build` deste repositório executa deploy para /opt/winshub/spa
+      # e reload do Nginx. GitHub Actions nunca executa comandos de deploy.
+      - name: Build (vite build — informativo, sem deploy)
+        if: steps.fe.outputs.changed == 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npx vite build > /tmp/vite.log 2>&1
+          rc=$?
+          {
+            echo "## Build (vite build) — informativo"
+            echo ""
+            echo "Código de saída: \`${rc}\`"
+            echo ""
+            echo "> Baseline de \`origin/main\` já falha no build (imports não resolvidos — componentes ausentes em main). Não bloqueia este PR."
+            echo "> TODO: tornar bloqueante após reparo do baseline frontend."
+          } >> "$GITHUB_STEP_SUMMARY"

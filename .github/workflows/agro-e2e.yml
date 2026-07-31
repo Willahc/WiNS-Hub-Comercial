@@ -3,8 +3,27 @@ name: Agro E2E Gate
 on:
   workflow_dispatch:
   push:
-    branches: [master]
+    branches: [main]
+    paths:
+      - 'src/pages/Agro*.tsx'
+      - 'src/components/Agro*.tsx'
+      - 'src/pages/agroApiEndpoints.ts'
+      - 'src/pages/agroOportunidadesContract.ts'
+      # Backend Agro específico (evita apps/api/** amplo demais).
+      - 'apps/api/wave1_repository.py'
+      - 'apps/api/routes.py'
+      - 'staging/agro_external_gate.py'
+      - '.github/workflows/agro-e2e.yml'
   pull_request:
+    paths:
+      - 'src/pages/Agro*.tsx'
+      - 'src/components/Agro*.tsx'
+      - 'src/pages/agroApiEndpoints.ts'
+      - 'src/pages/agroOportunidadesContract.ts'
+      - 'apps/api/wave1_repository.py'
+      - 'apps/api/routes.py'
+      - 'staging/agro_external_gate.py'
+      - '.github/workflows/agro-e2e.yml'
 
 jobs:
   agro-e2e:
@@ -23,18 +42,71 @@ jobs:
           pip install playwright
           python3 -m playwright install chromium
 
-      - name: E2E — Agro External Gate
+      # FASE 5 — Segredos nunca são impressos. Apenas verifica presença.
+      # PR de fork não recebe segredos de produção; neste caso o job é
+      # explicitamente pulado com summary explicativo (sem "No jobs were run").
+      - name: Verifica segredos (sem exibir valores)
+        id: secrets
+        env:
+          GATE_USER: ${{ secrets.WINS_HUB_GATE_USER }}
+          GATE_PASSWORD: ${{ secrets.WINS_HUB_GATE_PASSWORD }}
+        run: |
+          if [ -z "$GATE_USER" ] || [ -z "$GATE_PASSWORD" ]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip explícito quando segredos indisponíveis
+        if: steps.secrets.outputs.available == 'false'
+        shell: bash
+        run: |
+          {
+            echo "## Agro E2E: job não executado"
+            echo ""
+            echo "Motivo: \`WINS_HUB_GATE_USER\`/\`WINS_HUB_GATE_PASSWORD\` indisponíveis neste evento (ex.: PR de fork não recebe segredos de produção)."
+            echo "Nenhuma autenticação foi tentada."
+            echo ""
+            echo "> Para executar manualmente, use \`workflow_dispatch\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # FASE 6 — Semântica do gate externo de produção:
+      #   * pull_request: testa o bundle ATUALMENTE PUBLICADO, não o código do
+      #     PR. Por isso é INFORMATIVO (continue-on-error) e não bloqueia.
+      #   * push em main: pós-deploy, valida a implantação — BLOQUEANTE.
+      #   * workflow_dispatch: manual — BLOQUEANTE (operador decide).
+      # Testes reproduzíveis do código do PR ficam em ci.yml (focused-tests /
+      # frontend-quality), que são os bloqueantes.
+      - name: E2E — Agro External Gate (produção)
+        if: steps.secrets.outputs.available == 'true'
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
         env:
           WINS_HUB_GATE_USER: ${{ secrets.WINS_HUB_GATE_USER }}
           WINS_HUB_GATE_PASSWORD: ${{ secrets.WINS_HUB_GATE_PASSWORD }}
         run: python3 staging/agro_external_gate.py
+
+      - name: Resumo da semântica do gate
+        if: steps.secrets.outputs.available == 'true'
+        shell: bash
+        run: |
+          {
+            echo "## Agro E2E — gate externo de produção"
+            echo ""
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "Este teste consulta **o bundle atualmente publicado** (winshubcomercial.com.br), **não o código deste PR** — portanto é **informativo** e não bloqueia."
+            else
+              echo "Execução **bloqueante** (push em \`main\` ou manual): valida a implantação publicada."
+            fi
+            echo ""
+            echo "Testes reproduzíveis do código do PR (bloqueantes) são executados em \`ci.yml\`."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Secret scan — ensure no credentials leaked
         run: |
           if grep -rE '(WINS_HUB_GATE_USER|WINS_HUB_GATE_PASSWORD|password|senha|secret)' \
             --include='*.py' --include='*.yml' --include='*.yaml' \
             --include='*.json' --include='*.ts' --include='*.tsx' \
-            .github/ staging/agro_external_gate.py | grep -v 'os.environ\|secrets\.\|${{' | grep -v 'node_modules' ; then
+            .github/ staging/agro_external_gate.py | grep -v 'os.environ\|secrets\.\|\$\{\{' | grep -v 'node_modules' ; then
             echo "ERRO: Possível credencial hardcoded detectada"
             exit 1
           fi
