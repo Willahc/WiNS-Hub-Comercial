@@ -33,3 +33,5 @@ export interface HubOverview {
   entities:OverviewEntity[];
 }
 export interface HubDataset { events:HubEvent[]; companies:HubCompany[]; opportunities:HubOpportunity[]; assets:VerticalAsset[]; territories:TerritoryProfile[]; overview:HubOverview; appliedFilters?:{scope:string;uf?:string} }
+
+export interface HubFilters { scope?: string; uf?: string; }
