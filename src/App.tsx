@@ -10,6 +10,13 @@ import EngenhariaApproved from './pages/EngenhariaApproved';
 import EngenhariaObrasApproved from './pages/EngenhariaObrasApproved';
 import EngenhariaObraDetalheApproved from './pages/EngenhariaObraDetalheApproved';
 import AgroApproved from './pages/AgroApproved';
+import AgroPropriedadesApproved from './pages/AgroPropriedadesApproved';
+import AgroPropriedadeDetalheApproved from './pages/AgroPropriedadeDetalheApproved';
+import AgroLeadsApproved from './pages/AgroLeadsApproved';
+import AgroHoldingsApproved from './pages/AgroHoldingsApproved';
+import AgroOportunidadesApproved from './pages/AgroOportunidadesApproved';
+import AgroLogisticaApproved from './pages/AgroLogisticaApproved';
+import AgroGeneticaApproved from './pages/AgroGeneticaApproved';
 import LogisticaApproved from './pages/LogisticaApproved';
 import SaudeApproved from './pages/SaudeApproved';
 import EmpresasApproved from './pages/EmpresasApproved';
@@ -377,7 +384,7 @@ const LoginPage: React.FC = () => {
           <span>Autenticação Corporativa</span>
         </div>
 
-        {/* Real Keycloak Button */}
+        {/* Maintenance Auth Button */}
         <button
           onClick={login}
           disabled={!authReady}
@@ -396,29 +403,16 @@ const LoginPage: React.FC = () => {
           onMouseLeave={e => { if (authReady) e.currentTarget.style.background = 'var(--accent-blue)'; }}
         >
           <ShieldCheck size={16} />
-          {authReady ? 'Entrar com Keycloak' : 'Validando sessão...'}
+          {authReady ? 'Entrar no WiNS Hub' : 'Verificando acesso...'}
           <ExternalLink size={13} />
         </button>
 
         {/* Support */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-          <a
-            href="https://winshubcomercial.com.br:18443/auth/realms/wins-hub-staging/account"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              fontSize: 12, color: 'var(--text-tertiary)',
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              textDecoration: 'none', cursor: 'pointer',
-              padding: '4px 8px', borderRadius: 4,
-              transition: 'all var(--transition-fast)',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-blue)'; e.currentTarget.style.background = 'var(--accent-blue-bg)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.background = 'transparent'; }}
-          >
+          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 8px' }}>
             <HelpCircle size={13} />
-            Suporte Keycloak
-          </a>
+            Ambiente de Manutenção
+          </span>
         </div>
 
         {/* Environment & Version */}
@@ -624,7 +618,7 @@ const ProtectedWrapper: React.FC<{ children: React.ReactElement }> = ({ children
       <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}>
         <div style={{ textAlign: 'center' }}>
           <div className="spinner" style={{ marginBottom: '16px' }}></div>
-          <p style={{ fontSize: '14px', fontWeight: 600 }}>Validando sessão corporativa SSO Keycloak...</p>
+          <p style={{ fontSize: '14px', fontWeight: 600 }}>Verificando acesso...</p>
         </div>
       </div>
     );
@@ -686,6 +680,36 @@ function App() {
 
         <Route path="/agro" element={
           <ProtectedWrapper><AgroApproved /></ProtectedWrapper>
+        } />
+        <Route path="/agro/propriedades" element={
+          <ProtectedWrapper><AgroPropriedadesApproved /></ProtectedWrapper>
+        } />
+        <Route path="/agro/propriedades/:id" element={
+          <ProtectedWrapper><AgroPropriedadeDetalheApproved /></ProtectedWrapper>
+        } />
+        <Route path="/agro/leads" element={
+          <ProtectedWrapper><AgroLeadsApproved /></ProtectedWrapper>
+        } />
+        <Route path="/agro/leads/:id" element={
+          <ProtectedWrapper><AgroLeadsApproved /></ProtectedWrapper>
+        } />
+        <Route path="/agro/holdings" element={
+          <ProtectedWrapper><AgroHoldingsApproved /></ProtectedWrapper>
+        } />
+        <Route path="/agro/holdings/:id" element={
+          <ProtectedWrapper><AgroHoldingsApproved /></ProtectedWrapper>
+        } />
+        <Route path="/agro/oportunidades" element={
+          <ProtectedWrapper><AgroOportunidadesApproved /></ProtectedWrapper>
+        } />
+        <Route path="/agro/logistica" element={
+          <ProtectedWrapper><AgroLogisticaApproved /></ProtectedWrapper>
+        } />
+        <Route path="/agro/genetica" element={
+          <ProtectedWrapper><AgroGeneticaApproved /></ProtectedWrapper>
+        } />
+        <Route path="/agro/genetica/reprodutores/:id" element={
+          <ProtectedWrapper><AgroGeneticaApproved /></ProtectedWrapper>
         } />
 
         <Route path="/saude" element={

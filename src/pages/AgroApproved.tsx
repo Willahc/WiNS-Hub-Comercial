@@ -197,6 +197,15 @@ export default function AgroApproved() {
     setSelectedUso('');
   };
 
+  const navCards = [
+    { label: "🏡 Propriedades Rurais", desc: "Catálogo server-side com CAR, área, bioma, proprietário e CNPJ — acesse a Ficha 360° a partir da tabela", route: "/agro/propriedades", color: "#22C55E" },
+    { label: "👨‍💼 Leads e Decisores", desc: "Catálogo com nome, cargo, contato, validação, fonte e score", route: "/agro/leads", color: "#8B5CF6" },
+    { label: "🏢 Holdings & Grupos", desc: "Razão social, CNPJ, propriedades, empresas do grupo e força da relação", route: "/agro/holdings", color: "#F59E0B" },
+    { label: "🎯 Oportunidades", desc: "Fila comercial com score, categoria, evidência e próximo passo", route: "/agro/oportunidades", color: "#EC4899" },
+    { label: "🚚 Agro–Logística", desc: "Transportadores RNTRC, armazéns, distâncias e correlações", route: "/agro/logistica", color: "#06B6D4" },
+    { label: "🧬 Genética & Pecuária", desc: "Base de reprodutores com RGD, CEIP e simulador de acasalamento", route: "/agro/genetica", color: "#A855F7" },
+  ];
+
   const kpiCards = kpis ? [
     { label: 'Cadastros CAR Únicos', value: fmt(kpis.total_imoveis_car), sub: 'Unicidade pelo código CAR cadastral', color: AGRO_COLOR, tooltip: `Total de ${kpis.total_imoveis_car.toLocaleString('pt-BR')} cadastros no SICAR/CAR. Cada linha = 1 código CAR distinto (coluna codigo_car: UNIQUE, 0 duplicatas). Não comprova unicidade física ou fundiária.` },
     { label: 'Geometrias Válidas', value: kpis.geometrias_validas > 0 ? fmt(kpis.geometrias_validas) : 'N/D', sub: 'Indisponível na base atual', color: '#94A3B8', tooltip: 'A tabela prospeccao.imovel_rural não possui coluna de geometria (PostGIS). Impossível calcular área geométrica ou dissolvida. Os pontos no mapa são coordenadas municipais de referência, não geometria de imóveis.' },
@@ -279,6 +288,42 @@ export default function AgroApproved() {
                     <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>{kpi.sub}</span>
                   </div>
                 ))}
+              </div>
+
+              {/* Módulos Agro 360° — Navegação Ativa */}
+              <div style={{ background: "var(--bg-surface, #0F172A)", border: "1px solid var(--border-default, #1E293B)", borderRadius: 10, padding: 16 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: "#F8FAFC", marginBottom: 12 }}>Suíte Agro 360° — Módulos Disponíveis</h3>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12 }}>
+                  {navCards.map((card, idx) => (
+                    <div
+                      key={idx}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => navigate(card.route)}
+                      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(card.route); } }}
+                      aria-label={`Acessar módulo ${card.label}`}
+                      style={{
+                        background: "var(--bg-base, #090D16)",
+                        border: "1px solid var(--border-default, #1E293B)",
+                        borderRadius: 8,
+                        padding: 16,
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = card.color; e.currentTarget.style.boxShadow = `0 0 16px ${card.color}22`; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border-default, #1E293B)"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}
+                    >
+                      <span style={{ fontSize: 14, fontWeight: 700, color: card.color }}>{card.label}</span>
+                      <span style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1.4 }}>{card.desc}</span>
+                      <span style={{ fontSize: 10, color: card.color, marginTop: 4, display: "flex", alignItems: "center", gap: 4, fontWeight: 600 }}>
+                        Acessar módulo <ArrowRight size={12} />
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div style={{ background: 'var(--bg-surface, #0F172A)', border: '1px solid var(--border-default, #1E293B)', borderRadius: 10, padding: 16 }}>
