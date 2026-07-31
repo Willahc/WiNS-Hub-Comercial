@@ -1,5 +1,7 @@
 /**
  * Funções utilitárias puras para processamento, validação e cálculo de escala do Mapa Agro.
+ * Nota: O bounding box limita a visualização ao entorno territorial brasileiro,
+ * mas não substitui validação por geometria oficial.
  */
 
 export const BRAZIL_CENTER: [number, number] = [-14.235, -51.925];
@@ -10,13 +12,13 @@ export const BRAZIL_BOUNDS: [[number, number], [number, number]] = [
 ];
 
 export interface RawAgroPoint {
-  lat?: any;
-  lng?: any;
-  quantidade?: any;
-  municipio?: any;
-  uf?: any;
-  area_ha?: any;
-  municipios?: any;
+  lat?: unknown;
+  lng?: unknown;
+  quantidade?: unknown;
+  municipio?: unknown;
+  uf?: unknown;
+  area_ha?: unknown;
+  municipios?: unknown;
 }
 
 export interface AgroMapPoint {
@@ -31,31 +33,35 @@ export interface AgroMapPoint {
 }
 
 /**
- * Validar se as coordenadas pertencem estritamente ao território brasileiro.
+ * Valida se as coordenadas estão dentro da janela geográfica configurada do Brasil.
  * Limites: Latitude entre -34.0 e 6.0, Longitude entre -74.0 e -32.0.
  * Descarta lat/lng ausentes, NaN, (0,0) ou fora do bounding box.
  */
-export function isBrazilCoordinate(lat: any, lng: any): boolean {
-  if (typeof lat !== 'number' || typeof lng !== 'number') return false;
-  if (isNaN(lat) || isNaN(lng)) return false;
-  if (lat === 0 && lng === 0) return false;
-  if (lat < BRAZIL_BOUNDS[0][0] || lat > BRAZIL_BOUNDS[1][0]) return false;
-  if (lng < BRAZIL_BOUNDS[0][1] || lng > BRAZIL_BOUNDS[1][1]) return false;
+export function isWithinBrazilBounds(lat: unknown, lng: unknown): boolean {
+  const numLat = typeof lat === 'string' ? parseFloat(lat) : Number(lat);
+  const numLng = typeof lng === 'string' ? parseFloat(lng) : Number(lng);
+
+  if (typeof lat !== 'number' && typeof lat !== 'string') return false;
+  if (typeof lng !== 'number' && typeof lng !== 'string') return false;
+  if (isNaN(numLat) || isNaN(numLng)) return false;
+  if (numLat === 0 && numLng === 0) return false;
+  if (numLat < BRAZIL_BOUNDS[0][0] || numLat > BRAZIL_BOUNDS[1][0]) return false;
+  if (numLng < BRAZIL_BOUNDS[0][1] || numLng > BRAZIL_BOUNDS[1][1]) return false;
   return true;
 }
 
 /**
  * Normaliza um registro de ponto vindo da API /agro/mapa.
- * Retorna null se a coordenada for inválida ou fora do Brasil.
+ * Retorna null se a coordenada for inválida ou fora da janela geográfica.
  */
 export function normalizeAgroMapPoint(raw: RawAgroPoint, totalQuantidade: number = 0): AgroMapPoint | null {
-  if (!raw) return null;
+  if (!raw || typeof raw !== 'object') return null;
 
   const lat = typeof raw.lat === 'string' ? parseFloat(raw.lat) : Number(raw.lat);
   const lng = typeof raw.lng === 'string' ? parseFloat(raw.lng) : Number(raw.lng);
   const quantidade = Math.max(0, Math.floor(Number(raw.quantidade) || 0));
 
-  if (!isBrazilCoordinate(lat, lng)) {
+  if (!isWithinBrazilBounds(lat, lng)) {
     return null;
   }
 
@@ -87,6 +93,29 @@ export function normalizeAgroMapPoint(raw: RawAgroPoint, totalQuantidade: number
 }
 
 /**
+ * Calcula o percentual de cobertura territorial somente quando houver numerador e denominador
+ * semanticamente compatíveis. Retorna null se indisponível ou inválido.
+ */
+export function calculateTerritorialCoveragePercentage(
+  totalRepresented: number,
+  totalNoRecorte: number
+): number | null {
+  if (typeof totalNoRecorte !== 'number' || isNaN(totalNoRecorte) || totalNoRecorte <= 0) {
+    return null;
+  }
+  if (typeof totalRepresented !== 'number' || isNaN(totalRepresented) || totalRepresented < 0) {
+    return null;
+  }
+  // Se o total representado for desproporcional ao total do recorte, população é incompatível
+  if (totalRepresented > totalNoRecorte * 1.5) {
+    return null;
+  }
+  const pct = (totalRepresented / totalNoRecorte) * 100;
+  const clamped = Math.max(0, Math.min(100, pct));
+  return Number(clamped.toFixed(1));
+}
+
+/**
  * Calcula o raio do CircleMarker no mapa.
  * Raio mínimo: 4px, Raio máximo: 16px.
  * Utiliza escala de raiz quadrada para preservar proporcionalidade visual.
@@ -114,7 +143,7 @@ export function calculateMarkerRadius(
 }
 
 /**
- * Calcula o fitBounds e métricas de cobertura dos pontos válidos no Brasil.
+ * Calcula o fitBounds e métricas de cobertura dos pontos válidos na janela geográfica.
  */
 export function calculateMapCoverage(rawPoints: RawAgroPoint[], totalCountFromApi: number = 0): {
   validPoints: AgroMapPoint[];
@@ -136,7 +165,7 @@ export function calculateMapCoverage(rawPoints: RawAgroPoint[], totalCountFromAp
     const lng = typeof raw?.lng === 'string' ? parseFloat(raw.lng) : Number(raw?.lng);
     const qty = Math.max(0, Math.floor(Number(raw?.quantidade) || 0));
 
-    if (isBrazilCoordinate(lat, lng)) {
+    if (isWithinBrazilBounds(lat, lng)) {
       tempValid.push({ raw, lat, lng, quantidade: qty });
       sumQty += qty;
     } else {
@@ -162,7 +191,6 @@ export function calculateMapCoverage(rawPoints: RawAgroPoint[], totalCountFromAp
     if (pt.lng > maxLng) maxLng = pt.lng;
   }
 
-  // Clampar estritamente aos limites do Brasil
   minLat = Math.max(BRAZIL_BOUNDS[0][0], minLat);
   maxLat = Math.min(BRAZIL_BOUNDS[1][0], maxLat);
   minLng = Math.max(BRAZIL_BOUNDS[0][1], minLng);

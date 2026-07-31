@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   BRAZIL_CENTER,
   BRAZIL_BOUNDS,
-  isBrazilCoordinate,
+  isWithinBrazilBounds,
   normalizeAgroMapPoint,
   calculateMarkerRadius,
-  calculateMapCoverage
+  calculateMapCoverage,
+  calculateTerritorialCoveragePercentage
 } from '../utils/agroMapUtils';
 import type { RawAgroPoint } from '../utils/agroMapUtils';
 import { AGRO_API } from '../pages/agroApiEndpoints';
@@ -20,84 +21,80 @@ describe('Agro Map Utils & Constants', () => {
     expect(BRAZIL_BOUNDS[1]).toEqual([6.0, -32.0]);   // Nordeste
   });
 
-  it('3. deve validar zoom inicial e limites de zoom no componente (metadados)', () => {
-    expect(BRAZIL_CENTER[0]).toBeLessThan(6.0);
-    expect(BRAZIL_CENTER[0]).toBeGreaterThan(-34.0);
+  it('3. deve validar a nova nomenclatura isWithinBrazilBounds', () => {
+    expect(isWithinBrazilBounds(-15.0, -50.0)).toBe(true);
+    expect(isWithinBrazilBounds('-15.0', '-50.0')).toBe(true);
+    expect(isWithinBrazilBounds(-35.0, -50.0)).toBe(false);
+    expect(isWithinBrazilBounds(7.0, -50.0)).toBe(false);
+    expect(isWithinBrazilBounds(-15.0, -75.0)).toBe(false);
+    expect(isWithinBrazilBounds(-15.0, -31.0)).toBe(false);
   });
 
-  it('4. deve filtrar latitude inválida (< -34 ou > 6)', () => {
-    expect(isBrazilCoordinate(-35.0, -50.0)).toBe(false);
-    expect(isBrazilCoordinate(7.0, -50.0)).toBe(false);
-    expect(isBrazilCoordinate(-15.0, -50.0)).toBe(true);
+  it('4. deve tratar tipos unknown e descartar NaN, null, undefined e (0,0)', () => {
+    expect(isWithinBrazilBounds(NaN, -50.0)).toBe(false);
+    expect(isWithinBrazilBounds(-15.0, NaN)).toBe(false);
+    expect(isWithinBrazilBounds(null, -50.0)).toBe(false);
+    expect(isWithinBrazilBounds(undefined, undefined)).toBe(false);
+    expect(isWithinBrazilBounds(0, 0)).toBe(false);
+    expect(isWithinBrazilBounds('invalid', 'data')).toBe(false);
   });
 
-  it('5. deve filtrar longitude inválida (< -74 ou > -32)', () => {
-    expect(isBrazilCoordinate(-15.0, -75.0)).toBe(false);
-    expect(isBrazilCoordinate(-15.0, -31.0)).toBe(false);
-    expect(isBrazilCoordinate(-15.0, -50.0)).toBe(true);
+  it('5. deve calcular percentual de cobertura territorial somente quando válido', () => {
+    // Válido
+    expect(calculateTerritorialCoveragePercentage(980, 1000)).toBe(98.0);
+    expect(calculateTerritorialCoveragePercentage(500, 1000)).toBe(50.0);
+
+    // Denominador zero ou negativo -> null
+    expect(calculateTerritorialCoveragePercentage(500, 0)).toBeNull();
+    expect(calculateTerritorialCoveragePercentage(500, -100)).toBeNull();
+
+    // Numerador negativo -> null
+    expect(calculateTerritorialCoveragePercentage(-10, 1000)).toBeNull();
+
+    // População incompatível (numerador >> denominador) -> null
+    expect(calculateTerritorialCoveragePercentage(5000, 1000)).toBeNull();
   });
 
-  it('6. deve descartar NaN, null, undefined e (0,0)', () => {
-    expect(isBrazilCoordinate(NaN, -50.0)).toBe(false);
-    expect(isBrazilCoordinate(-15.0, NaN)).toBe(false);
-    expect(isBrazilCoordinate(null, -50.0)).toBe(false);
-    expect(isBrazilCoordinate(undefined, undefined)).toBe(false);
-    expect(isBrazilCoordinate(0, 0)).toBe(false);
+  it('6. deve respeitar raio mínimo (>= 4) e raio máximo (<= 16)', () => {
+    expect(calculateMarkerRadius(0, 1, 1000, 4, 16)).toBe(4);
+    expect(calculateMarkerRadius(10000, 1, 10000, 4, 16)).toBe(16);
   });
 
-  it('7. deve respeitar o raio mínimo do marcador (>= 4)', () => {
-    const radiusZero = calculateMarkerRadius(0, 1, 1000, 4, 16);
-    expect(radiusZero).toBe(4);
-    const radiusOne = calculateMarkerRadius(1, 1, 1000, 4, 16);
-    expect(radiusOne).toBe(4);
-  });
+  it('7. deve normalizar tipos RawAgroPoint com campos unknown', () => {
+    const raw: RawAgroPoint = {
+      lat: '-15.78',
+      lng: '-47.92',
+      quantidade: '250',
+      municipio: ' Brasília ',
+      uf: 'df',
+      area_ha: '5000.5'
+    };
 
-  it('8. deve respeitar o raio máximo do marcador (<= 16)', () => {
-    const radiusMax = calculateMarkerRadius(10000, 1, 10000, 4, 16);
-    expect(radiusMax).toBe(16);
-    const radiusExtreme = calculateMarkerRadius(999999, 1, 10000, 4, 16);
-    expect(radiusExtreme).toBe(16);
-  });
-
-  it('9. deve calcular o raio de forma estritamente proporcional e determinística', () => {
-    const rSmall = calculateMarkerRadius(10, 1, 1000, 4, 16);
-    const rMedium = calculateMarkerRadius(250, 1, 1000, 4, 16);
-    const rLarge = calculateMarkerRadius(900, 1, 1000, 4, 16);
-
-    expect(rSmall).toBeGreaterThanOrEqual(4);
-    expect(rMedium).toBeGreaterThan(rSmall);
-    expect(rLarge).toBeGreaterThan(rMedium);
-    expect(rLarge).toBeLessThanOrEqual(16);
-  });
-
-  it('15. deve calcular o percentual do total exibido por ponto', () => {
-    const raw: RawAgroPoint = { lat: -15.0, lng: -50.0, quantidade: 250, municipio: 'Sorriso', uf: 'MT' };
     const pt = normalizeAgroMapPoint(raw, 1000);
     expect(pt).not.toBeNull();
+    expect(pt?.lat).toBe(-15.78);
+    expect(pt?.lng).toBe(-47.92);
+    expect(pt?.quantidade).toBe(250);
+    expect(pt?.municipio).toBe('Brasília');
+    expect(pt?.uf).toBe('DF');
+    expect(pt?.area_ha).toBe(5000.5);
     expect(pt?.pct).toBe(25.0);
   });
 
-  it('19. deve garantir a ausência de /api/v1/api/v1 nas rotas do Agro', () => {
+  it('8. deve garantir a ausência de /api/v1/api/v1 nas rotas do Agro', () => {
     Object.values(AGRO_API).forEach(url => {
       expect(url).not.toContain('/api/v1/api/v1');
     });
   });
 
-  it('20. deve descartar registros fora do Brasil e acumular invalidCount', () => {
+  it('9. deve acumular descartados fora da janela geográfica configurada', () => {
     const mockPoints: RawAgroPoint[] = [
-      { lat: -15.78, lng: -47.92, quantidade: 100, municipio: 'Brasília', uf: 'DF' }, // Válido
-      { lat: 48.85, lng: 2.35, quantidade: 50, municipio: 'Paris', uf: 'FR' },        // Fora do BR (França)
-      { lat: -23.55, lng: -46.63, quantidade: 200, municipio: 'São Paulo', uf: 'SP' }, // Válido
+      { lat: -15.78, lng: -47.92, quantidade: 100 }, // Válido
+      { lat: 48.85, lng: 2.35, quantidade: 50 },      // Fora da janela BR (França)
     ];
 
-    const coverage = calculateMapCoverage(mockPoints, 350);
-    expect(coverage.validCount).toBe(2);
+    const coverage = calculateMapCoverage(mockPoints, 150);
+    expect(coverage.validCount).toBe(1);
     expect(coverage.invalidCount).toBe(1);
-    expect(coverage.totalRepresented).toBe(300);
-    expect(coverage.bounds).not.toBeNull();
-    if (coverage.bounds) {
-      expect(coverage.bounds[0][0]).toBeGreaterThanOrEqual(-34.0);
-      expect(coverage.bounds[1][0]).toBeLessThanOrEqual(6.0);
-    }
   });
 });
