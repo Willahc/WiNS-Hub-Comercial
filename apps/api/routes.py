@@ -11,6 +11,7 @@ from repositories import (
 )
 from wave1_repository import Wave1Repository
 from agro_canal_repository import AgroCanalRepository
+from agro_people_repository import AgroPeopleRepository
 
 
 class ReviewRequest(BaseModel):
@@ -666,11 +667,73 @@ def get_agro_relacoes(request: Request, imovel_id: Optional[str] = None,
         logger.error(f"Erro ao buscar relações cross-domain agro: {e} reqId={req_id}")
         return standard_error("AGRO_RELATIONSHIPS_UNAVAILABLE", "Não foi possível carregar as relações neste momento.", req_id, 500, retryable=True)
 
+def _people_list(page, page_size, q, uf, municipio, tipo_vinculo, motivo_inclusao,
+                 evidencia_agro, evidencia_decisao, tipo_contato, com_contato,
+                 com_varias_empresas, com_car, cnae, com_grupo, sort, order):
+    if page_size not in (25, 50, 100):
+        raise HTTPException(422, "page_size deve ser 25, 50 ou 100")
+    return AgroPeopleRepository.list_people(
+        page=page, page_size=page_size, q=q, uf=uf, municipio=municipio,
+        tipo_vinculo=tipo_vinculo, motivo_inclusao=motivo_inclusao,
+        evidencia_agro=evidencia_agro, evidencia_decisao=evidencia_decisao,
+        tipo_contato=tipo_contato, com_contato=com_contato,
+        com_varias_empresas=com_varias_empresas, com_car=com_car, cnae=cnae,
+        com_grupo=com_grupo, sort=sort, order=order)
+
+
+@router.get("/agro/pessoas-vinculos")
+def get_agro_people(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25),
+                    q: Optional[str] = None, uf: Optional[str] = None, municipio: Optional[str] = None,
+                    tipo_vinculo: Optional[str] = None, motivo_inclusao: Optional[str] = None,
+                    evidencia_agro: Optional[str] = None, evidencia_decisao: Optional[str] = None,
+                    tipo_contato: Optional[str] = None, com_contato: Optional[bool] = None,
+                    com_varias_empresas: Optional[bool] = None, com_car: Optional[bool] = None,
+                    cnae: Optional[str] = None, com_grupo: Optional[bool] = None,
+                    sort: Literal["nome","total_empresas","total_ufs","evidencia_agro","evidencia_decisao","atualizacao"] = "total_empresas",
+                    order: Literal["asc","desc"] = "desc", user=Depends(require_permission("agro"))):
+    try:
+        return _people_list(page,page_size,q,uf,municipio,tipo_vinculo,motivo_inclusao,
+                            evidencia_agro,evidencia_decisao,tipo_contato,com_contato,
+                            com_varias_empresas,com_car,cnae,com_grupo,sort,order)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        req_id = getattr(request.state, "request_id", "unknown")
+        logger.error("Erro no catálogo de pessoas Agro: %s reqId=%s", exc, req_id)
+        return standard_error("AGRO_PEOPLE_UNAVAILABLE", "Não foi possível carregar pessoas e vínculos societários.", req_id, 500, True)
+
+
+@router.get("/agro/pessoas-vinculos/stats")
+def get_agro_people_stats(request: Request, user=Depends(require_permission("agro"))):
+    try:
+        return AgroPeopleRepository.stats()
+    except Exception as exc:
+        req_id = getattr(request.state, "request_id", "unknown")
+        logger.error("Erro nas estatísticas de pessoas Agro: %s reqId=%s", exc, req_id)
+        return standard_error("AGRO_PEOPLE_STATS_UNAVAILABLE", "Não foi possível carregar as estatísticas.", req_id, 500, True)
+
+
+@router.get("/agro/pessoas-vinculos/{person_id}")
+def get_agro_person(person_id: str, request: Request, user=Depends(require_permission("agro"))):
+    try:
+        item = AgroPeopleRepository.detail(person_id)
+    except Exception as exc:
+        req_id = getattr(request.state, "request_id", "unknown")
+        logger.error("Erro no detalhe de pessoa Agro: %s reqId=%s", exc, req_id)
+        return standard_error("AGRO_PERSON_UNAVAILABLE", "Não foi possível carregar a ficha da pessoa.", req_id, 500, True)
+    if not item:
+        raise HTTPException(404, "Pessoa não encontrada")
+    return item
+
+
 @router.get("/agro/decisores")
-def get_agro_decisores(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
-                       search: Optional[str] = None, uf: Optional[str] = None,
+def get_agro_decisores(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25),
+                       search: Optional[str] = None, q: Optional[str] = None, uf: Optional[str] = None,
                        user=Depends(require_permission("agro"))):
-    return Wave1Repository.agro_decisores(page=page, page_size=page_size, search=search, uf=uf)
+    response = _people_list(page,page_size,q or search,uf,None,None,None,None,None,None,None,None,None,None,None,"total_empresas","desc")
+    response["deprecated"] = True
+    response["canonical_endpoint"] = "/api/v1/agro/pessoas-vinculos"
+    return response
 
 @router.get("/agro/holdings")
 def get_agro_holdings(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
