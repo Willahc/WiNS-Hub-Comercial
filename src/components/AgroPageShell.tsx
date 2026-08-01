@@ -122,7 +122,7 @@ export default function AgroPageShell({
           {[
             { label: 'Dashboard', path: '/agro' },
             { label: 'Propriedades', path: '/agro/propriedades' },
-            { label: 'Leads & Decisores', path: '/agro/leads' },
+            { label: 'Pessoas & Vínculos', path: '/agro/leads' },
             { label: 'Holdings', path: '/agro/holdings' },
             { label: 'Oportunidades', path: '/agro/oportunidades' },
             { label: 'Agro-Logística', path: '/agro/logistica' },

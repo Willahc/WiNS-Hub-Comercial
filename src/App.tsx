@@ -13,6 +13,7 @@ import AgroApproved from './pages/AgroApproved';
 import AgroPropriedadesApproved from './pages/AgroPropriedadesApproved';
 import AgroPropriedadeDetalheApproved from './pages/AgroPropriedadeDetalheApproved';
 import AgroLeadsApproved from './pages/AgroLeadsApproved';
+import AgroPersonDetailApproved from './pages/AgroPersonDetailApproved';
 import AgroHoldingsApproved from './pages/AgroHoldingsApproved';
 import AgroOportunidadesApproved from './pages/AgroOportunidadesApproved';
 import AgroLogisticaApproved from './pages/AgroLogisticaApproved';
@@ -694,7 +695,7 @@ function App() {
           <ProtectedWrapper><AgroLeadsApproved /></ProtectedWrapper>
         } />
         <Route path="/agro/leads/:id" element={
-          <ProtectedWrapper><AgroLeadsApproved /></ProtectedWrapper>
+          <ProtectedWrapper><AgroPersonDetailApproved /></ProtectedWrapper>
         } />
         <Route path="/agro/holdings" element={
           <ProtectedWrapper><AgroHoldingsApproved /></ProtectedWrapper>
