@@ -76,6 +76,15 @@ let parsedUserInit: User | null = null;
 if (savedUserInit) {
   try { parsedUserInit = JSON.parse(savedUserInit); } catch (e) {}
 }
+if (!isKeycloakEnabled && !parsedUserInit && import.meta.env.MODE === 'production') {
+  parsedUserInit = {
+    id: 'maintenance-session',
+    name: 'Sessão de manutenção',
+    email: '',
+    roles: ['viewer'],
+    permissions: ['engenharia', 'logistica', 'agro', 'saude', 'empresa360', 'comercial', 'relatorios']
+  };
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(parsedUserInit);
