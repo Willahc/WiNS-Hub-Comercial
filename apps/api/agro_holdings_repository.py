@@ -10,7 +10,7 @@ LIMITATIONS = [
     "Grupos documentais exigem relação persistida e fonte identificável.",
 ]
 HOLDING_CNAE = "(l.cnae_principal='6462-0/00')"
-REAL_ESTATE_CNAE = "(COALESCE(l.cnae_principal,'') LIKE '6810-%')"
+REAL_ESTATE_CNAE = "(COALESCE(l.cnae_principal,'') LIKE '6810-%%')"
 PARTICIPATION_CNAE = "(l.cnae_principal='6463-8/00')"
 
 
