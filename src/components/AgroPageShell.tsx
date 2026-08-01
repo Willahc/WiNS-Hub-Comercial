@@ -126,6 +126,8 @@ export default function AgroPageShell({
             { label: 'Holdings', path: '/agro/holdings' },
             { label: 'Oportunidades', path: '/agro/oportunidades' },
             { label: 'Agro-Logística', path: '/agro/logistica' },
+            { label: 'Técnica', path: '/agro/tecnica' },
+            { label: 'Deserto Veterinário', path: '/agro/deserto-veterinario' },
             { label: 'Genética & Pecuária', path: '/agro/genetica' },
           ].map((item, idx) => {
             const isActive = window.location.pathname === item.path;

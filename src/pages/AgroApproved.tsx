@@ -260,6 +260,8 @@ export default function AgroApproved() {
     { label: "🏢 Holdings & Grupos", desc: "Razão social, CNPJ, propriedades, empresas do grupo e força da relação", route: "/agro/holdings", color: "#F59E0B" },
     { label: "🎯 Oportunidades", desc: "Fila comercial com score, categoria, evidência e próximo passo", route: "/agro/oportunidades", color: "#EC4899", badge: "Em validação" },
     { label: "🚚 Agro–Logística", desc: "Transportadores RNTRC, armazéns, distâncias e correlações", route: "/agro/logistica", color: "#06B6D4" },
+    { label: "🩺 Canal Técnico", desc: "Profissionais, estabelecimentos e origens técnicas com confiança explícita", route: "/agro/tecnica", color: "#14B8A6" },
+    { label: "📍 Deserto Veterinário", desc: "Cobertura potencial por carga bovina regional em raio de 75 km", route: "/agro/deserto-veterinario", color: "#EF4444" },
     { label: "🧬 Genética & Pecuária", desc: "Base de reprodutores com RGD, CEIP e simulador de acasalamento", route: "/agro/genetica", color: "#A855F7" },
   ];
 

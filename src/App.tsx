@@ -17,6 +17,9 @@ import AgroHoldingsApproved from './pages/AgroHoldingsApproved';
 import AgroOportunidadesApproved from './pages/AgroOportunidadesApproved';
 import AgroLogisticaApproved from './pages/AgroLogisticaApproved';
 import AgroGeneticaApproved from './pages/AgroGeneticaApproved';
+import AgroTecnicaApproved from './pages/AgroTecnicaApproved';
+import AgroTecnicoDetailApproved from './pages/AgroTecnicoDetailApproved';
+import AgroDesertoVeterinarioApproved from './pages/AgroDesertoVeterinarioApproved';
 import LogisticaApproved from './pages/LogisticaApproved';
 import SaudeApproved from './pages/SaudeApproved';
 import EmpresasApproved from './pages/EmpresasApproved';
@@ -705,6 +708,9 @@ function App() {
         <Route path="/agro/logistica" element={
           <ProtectedWrapper><AgroLogisticaApproved /></ProtectedWrapper>
         } />
+        <Route path="/agro/tecnica" element={<ProtectedWrapper><AgroTecnicaApproved /></ProtectedWrapper>} />
+        <Route path="/agro/tecnica/:id" element={<ProtectedWrapper><AgroTecnicoDetailApproved /></ProtectedWrapper>} />
+        <Route path="/agro/deserto-veterinario" element={<ProtectedWrapper><AgroDesertoVeterinarioApproved /></ProtectedWrapper>} />
         <Route path="/agro/genetica" element={
           <ProtectedWrapper><AgroGeneticaApproved /></ProtectedWrapper>
         } />
