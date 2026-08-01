@@ -39,6 +39,11 @@ def test_filtros_uf_profissao_e_whitelist_sort():
     assert "ORDER BY nome ASC" in sql and "DROP TABLE" not in sql
 
 
+def test_crea_nao_e_contado_como_crmv():
+    assert "c.registro_crea, c.uf, false" not in repo.TECH_CTE
+    assert "c.titulo, NULL, NULL, NULL, false" in repo.TECH_CTE
+
+
 def test_semantica_nominal_estabelecimento_cnae_e_crmv_nao_oficial():
     rows=[nominal(),nominal(id="EST:2",entidade_tipo="ESTABELECIMENTO_VETERINARIO",profissao=None,
       confianca_profissao="ESTABELECIMENTO_EMPRESARIAL",crmv_numero=None),

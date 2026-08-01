@@ -8,7 +8,7 @@ from psycopg2.extras import RealDictCursor
 
 
 TECH_SOURCES = [
-    "prospeccao.v_tecnico_full", "prospeccao.tecnico_crea",
+    "prospeccao.v_tecnico_full", "prospeccao.tecnico_social", "prospeccao.tecnico_crea",
     "prospeccao.canal_central", "cnpj.estabelecimento_vet",
 ]
 GEO_MESSAGE = "A camada de proximidade técnico–fazenda está temporariamente indisponível."
@@ -34,7 +34,8 @@ WITH canal AS (
    CASE WHEN NULLIF(t.profissao,'') IS NOT NULL OR t.crmv IS NOT NULL
         THEN 'PROFISSIONAL_NOMINAL'
         WHEN t.categoria IN ('inseminacao','apoio_pecuaria','repro_secundario')
-        THEN 'REPRODUCAO_MANEJO' ELSE 'PROVAVEL_POR_CNAE' END AS entidade_tipo,
+        THEN 'REPRODUCAO_MANEJO' WHEN t.categoria='veterinaria'
+        THEN 'ESTABELECIMENTO_VETERINARIO' ELSE 'PROVAVEL_POR_CNAE' END AS entidade_tipo,
    CASE WHEN lower(COALESCE(t.profissao,'')) LIKE '%%zootec%%' OR t.crmv_cat='Z' THEN 'ZOOTECNISTA'
         WHEN lower(COALESCE(t.profissao,'')) LIKE '%%veter%%' OR t.crmv_cat='V' THEN 'VETERINARIO'
         WHEN t.categoria IN ('inseminacao','apoio_pecuaria','repro_secundario') THEN 'REPRODUCAO_MANEJO'
@@ -58,7 +59,7 @@ WITH canal AS (
  WHERE t.nome IS NOT NULL AND t.nome !~ '^[0-9]'
  UNION ALL
  SELECT 'CREA:' || c.id::text, NULL, c.nome, 'AGRONOMO_CREA', 'AGRONOMO', 'CREA',
-   'REGISTRO_CONSELHO_INFORMADO', c.titulo, NULL, c.registro_crea, c.uf, false,
+   'REGISTRO_CONSELHO_INFORMADO', c.titulo, NULL, NULL, NULL, false,
    c.municipio, c.uf, c.telefone, c.email, NULL, NULL, 'CREA', 'REGISTRO_INFORMADO', NULL, 'tecnico_crea'
  FROM prospeccao.tecnico_crea c WHERE c.nome IS NOT NULL
  UNION ALL
