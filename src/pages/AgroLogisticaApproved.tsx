@@ -8,6 +8,9 @@ import { AGRO_API } from './agroApiEndpoints';
 function fmt(n: number): string {
   return new Intl.NumberFormat('pt-BR').format(n);
 }
+function available(value: unknown): string {
+  return typeof value === 'number' && Number.isFinite(value) ? fmt(value) : 'Não disponível';
+}
 
 /**
  * Agro-Logística (Módulo Interno do Agro 360)
@@ -74,7 +77,7 @@ export default function AgroLogisticaApproved() {
               <h4 style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC', margin: 0 }}>Transportadores RNTRC — Cobertura da base</h4>
             </div>
             <span style={{ fontSize: 24, fontWeight: 800, color: '#22C55E' }}>
-              {data.transportadores_rntrc_disponiveis !== undefined ? fmt(data.transportadores_rntrc_disponiveis) : '—'}
+              {available(data.transportadores_rntrc_disponiveis)}
             </span>
             <span style={{ fontSize: 11, color: '#94A3B8', display: 'block', marginTop: 4 }}>
               Indicador de cobertura agregado pela API. Não representa capacidade ou relação comercial.
@@ -87,7 +90,7 @@ export default function AgroLogisticaApproved() {
               <h4 style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC', margin: 0 }}>Armazéns CONAB — Cobertura da base</h4>
             </div>
             <span style={{ fontSize: 24, fontWeight: 800, color: '#3B82F6' }}>
-              {data.armazens_conab_proximos !== undefined ? fmt(data.armazens_conab_proximos) : '—'}
+              {available(data.armazens_conab_proximos)}
             </span>
             <span style={{ fontSize: 11, color: '#94A3B8', display: 'block', marginTop: 4 }}>
               Indicador de cobertura agregado pela API. Não representa capacidade ou relação comercial.

@@ -74,7 +74,7 @@ export default function AgroOportunidadesApproved() {
   const empty = !loading && !error && motorReal && items.length === 0;
   const emptyFiltered = !loading && !error && motorReal && items.length > 0 && filteredItems.length === 0;
 
-  const errorMessage = error?.userMessage || error?.message || 'Falha ao carregar oportunidades';
+  const errorMessage = error ? (error?.userMessage || error?.message || 'Falha ao carregar oportunidades') : null;
   const retryable = isRetryableError(error);
 
   return (

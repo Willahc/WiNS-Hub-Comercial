@@ -11,4 +11,9 @@ export const AGRO_API = {
   holdings: '/agro/holdings',
   imoveis: '/agro/imoveis',
   imovel: (id: string) => `/agro/imoveis/${encodeURIComponent(id)}`,
+  tecnicos: '/agro/tecnicos',
+  tecnicosStats: '/agro/tecnicos/stats',
+  tecnico: (id: string) => `/agro/tecnicos/${encodeURIComponent(id)}`,
+  desertoVeterinario: '/agro/deserto-veterinario',
+  desertoVeterinarioStats: '/agro/deserto-veterinario/stats',
 } as const;
