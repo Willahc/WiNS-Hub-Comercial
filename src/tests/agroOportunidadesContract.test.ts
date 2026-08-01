@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
+  isEngineActive,
+  isEngineStatusExplicit,
   isMotorOportunidadesReal,
   isRetryableError,
-  REQUIRED_REAL_OPPORTUNITY_FIELDS,
+  isSignalReal,
+  hasNoFabricatedFields,
+  REQUIRED_REAL_SIGNAL_FIELDS,
+  FORBIDDEN_FABRICATED_SIGNAL_FIELDS,
 } from '../pages/agroOportunidadesContract';
 
 const fabricatedFixture = [
@@ -15,59 +20,85 @@ const fabricatedFixture = [
     cnpj: '18.245.910/0001-84',
     score: 96,
     justificativa: '3.450 ha de lavoura declarada sem contrato formal.',
-    produto_recomendado: 'Fertilizante Formulão NPK NPK 04-14-08 (Big Bags 1.000 kg)',
     decisor_nome: 'Carlos Alberto de Mendonça',
-    decisor_cargo: 'Diretor de Suprimentos & Insumos',
     contato: 'carlos.mendonca@boavistaagro.com.br',
     status: 'Identificada',
   },
 ];
 
-const realFixture = [
+const realSignalFixture = [
   {
-    id: '8a0f90cd-0001-4b00-8000-000000000001',
-    entidade_agro: 'Fazenda Boa Vista — CAR MT-5107909-84A1',
-    codigo_car: 'MT-5107909-84A1',
-    cnpj: '18245910000184',
-    evidencia: 'Lavoura de soja declarada sem contrato de fornecimento registrado.',
-    regra_geracao: 'regra-v1-fertilizantes',
-    composicao_score: { total: 96 },
-    fonte: 'SICAR/CAR + RFB/QSA',
-    data_calculo: '2026-07-31T00:00:00Z',
-    versao_algoritmo: 'v1.0.0',
-    decisor: { nome: 'Carlos Alberto de Mendonça', classificacao: 'sócio' },
-    limitacoes: 'Base declaratória; sem validação geométrica.',
+    signal_id: 'SIG-abc123',
+    stage: 'SIGNAL',
+    signal_type: 'TECHNICAL_COVERAGE_GAP_MUNICIPAL',
+    entity_type: 'MUNICIPIO',
+    entity_id: '5107909',
+    municipio: 'Vila Bela da Santíssima Trindade',
+    uf: 'MT',
+    priority: 'ALTA',
+    classification: 'DESERTO_VET',
+    evidence_summary: 'Município classificado como Deserto Veterinário.',
+    metrics: { rebanho_bovino: 220000, tecnicos_regionais: 3, bovinos_por_tecnico: 12000, raio_km: 75 },
+    rule: { rule_id: 'TECHNICAL_COVERAGE_GAP_MUNICIPAL_V1', version: '1.0', description: 'Lacuna de cobertura técnica veterinária municipal' },
+    sources: ['prospeccao.v_white_space_pecuaria', 'IBGE PPM 2023'],
+    reference_date: null,
+    calculated_at: '2026-08-01T00:00:00Z',
+    actionability: 'REQUIRES_ENRICHMENT',
+    missing_fields: [],
+    limitations: ['A classificação é territorial.'],
+    next_step: 'Identificar propriedades, empresas e canais técnicos do município antes de qualquer abordagem comercial.',
   },
 ];
 
-describe('Agro 360 — Contrato fail-closed do Motor de Oportunidades', () => {
-  it('rejeita o conjunto fabricado retornado pelo endpoint (dados ilustrativos não persistidos)', () => {
+describe('Radar de Sinais — contrato fail-closed do motor Agro', () => {
+  it('lista vazia NÃO implica motor real/ativo', () => {
+    expect(isMotorOportunidadesReal([])).toBe(false);
+    expect(isMotorOportunidadesReal(undefined)).toBe(false);
+    expect(isMotorOportunidadesReal(null)).toBe(false);
+  });
+
+  it('rejeita sinais fabricados com score, decisor, contato, CNPJ ou CAR', () => {
     expect(isMotorOportunidadesReal(fabricatedFixture)).toBe(false);
+    expect(hasNoFabricatedFields(fabricatedFixture[0])).toBe(false);
+    expect(hasNoFabricatedFields(realSignalFixture[0])).toBe(true);
   });
 
-  it('rejeita item nulo, não-objeto ou com campos obrigatórios ausentes', () => {
-    expect(isMotorOportunidadesReal([null])).toBe(false);
-    expect(isMotorOportunidadesReal(['texto'])).toBe(false);
-    expect(isMotorOportunidadesReal([{}])).toBe(false);
-    const parcial: Record<string, unknown> = { ...realFixture[0] };
-    delete parcial.evidencia;
-    expect(isMotorOportunidadesReal([parcial])).toBe(false);
+  it('aceita apenas sinais que satisfazem todos os campos do contrato de sinal real', () => {
+    expect(isSignalReal(realSignalFixture[0])).toBe(true);
+    expect(isMotorOportunidadesReal(realSignalFixture)).toBe(true);
   });
 
-  it('aceita lista vazia (recorte legítimo sem oportunidades)', () => {
-    expect(isMotorOportunidadesReal([])).toBe(true);
-  });
-
-  it('aceita apenas itens que satisfazem todos os campos do contrato de dado real', () => {
-    expect(isMotorOportunidadesReal(realFixture)).toBe(true);
+  it('rejeita sinal nulo, não-objeto ou com campos obrigatórios ausentes', () => {
+    expect(isSignalReal(null)).toBe(false);
+    expect(isSignalReal('texto')).toBe(false);
+    expect(isSignalReal({})).toBe(false);
+    const parcial: Record<string, unknown> = { ...realSignalFixture[0] };
+    delete parcial.evidence_summary;
+    expect(isSignalReal(parcial)).toBe(false);
   });
 
   it('exige todos os campos do contrato documentado', () => {
     const expected = [
-      'id', 'entidade_agro', 'codigo_car', 'cnpj', 'evidencia', 'regra_geracao',
-      'composicao_score', 'fonte', 'data_calculo', 'versao_algoritmo', 'decisor', 'limitacoes',
+      'signal_id', 'stage', 'signal_type', 'entity_type', 'entity_id', 'municipio',
+      'uf', 'priority', 'classification', 'evidence_summary', 'metrics', 'rule',
+      'sources', 'limitations', 'next_step',
     ];
-    expect(REQUIRED_REAL_OPPORTUNITY_FIELDS).toEqual(expected);
+    expect(REQUIRED_REAL_SIGNAL_FIELDS).toEqual(expected);
+  });
+
+  it('proíbe campos fabricados no contrato', () => {
+    for (const f of ['score', 'min_score', 'composicao_score', 'decisor', 'contato', 'telefone', 'email', 'cnpj', 'codigo_car']) {
+      expect(FORBIDDEN_FABRICATED_SIGNAL_FIELDS).toContain(f);
+    }
+  });
+
+  it('motor só é ativo com status explícito ACTIVE', () => {
+    expect(isEngineStatusExplicit({ engine_status: 'VALIDATION' })).toBe(true);
+    expect(isEngineStatusExplicit({ engine_status: 'ACTIVE' })).toBe(true);
+    expect(isEngineStatusExplicit({})).toBe(false);
+    expect(isEngineStatusExplicit(null)).toBe(false);
+    expect(isEngineActive({ engine_status: 'VALIDATION' })).toBe(false);
+    expect(isEngineActive({ engine_status: 'ACTIVE' })).toBe(true);
   });
 
   it('marca como retryable apenas erros transitórios (5xx/sem resposta)', () => {
