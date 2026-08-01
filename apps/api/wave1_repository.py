@@ -724,42 +724,8 @@ class Wave1Repository:
           "source":"CNPJ idêntico: engenharia.obras/matches_v2 + fontes oficiais Agro, Logística e Saúde"}
 
     @staticmethod
-    def agro_imoveis(page=1, page_size=25, search=None, municipality=None, uf=None):
-        size, offset = _page(page, page_size)
-        where = ["1=1"]
-        params = []
-        if search:
-            where.append("(i.codigo_car ILIKE %s OR i.nome_imovel ILIKE %s OR i.nome_proprietario ILIKE %s OR i.municipio ILIKE %s)")
-            params += [f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"]
-        if municipality:
-            where.append("i.municipio ILIKE %s")
-            params.append(municipality)
-        if uf:
-            where.append("i.uf = %s")
-            params.append(uf.upper())
-        clause = " AND ".join(where)
-        sql = f"""SELECT i.id::text source_id, i.codigo_car, i.nome_imovel, i.nome_proprietario, i.cpf_cnpj, i.municipio, i.uf,
-                         i.area_total_ha, i.area_pasto_ha, i.fonte_principal, i.coletado_em source_updated_at
-                  FROM prospeccao.imovel_rural i
-                  WHERE {clause} ORDER BY i.id DESC LIMIT %s OFFSET %s"""
-        rows = _run_db("wins_agro", sql, params + [size, offset])
-        total = 8291331 if not (search or municipality or uf) else len(rows) * 10
-        items = []
-        for r in rows:
-            items.append({
-                "canonicalId": _canonical("agro_property", r["source_id"]),
-                **r,
-                "confidenceLevel": "confirmed" if r.get("codigo_car") else "probable",
-                "provenance": {
-                    "sourceSystem": "wins_agro",
-                    "sourceSchema": "prospeccao",
-                    "sourceTable": "imovel_rural",
-                    "sourceId": r["source_id"],
-                    "sourceUpdatedAt": r["source_updated_at"],
-                    "sourceUrl": "https://car.gov.br/"
-                }
-            })
-        return {"items": items, "meta": _meta(page, size, total, rows, "wins_agro.prospeccao.imovel_rural")}
+    def agro_imoveis(page=1, page_size=25, **filters):
+        return Wave1Repository.agro_imoveis_catalog(page=page, page_size=page_size, **filters)
 
     @staticmethod
     def agro_tecnicos(page=1, page_size=25, search=None, municipality=None, uf=None):
@@ -2495,108 +2461,157 @@ class Wave1Repository:
         }
 
     @staticmethod
-    def agro_imoveis_catalog(page=1, page_size=25, search=None, uf=None, min_area=None, max_area=None):
-        offset = (page - 1) * page_size
-        where_clauses = ["1=1"]
-        params = []
-        if search:
-            where_clauses.append("(i.codigo_car ILIKE %s OR i.nome_imovel ILIKE %s OR i.municipio ILIKE %s OR i.nome_proprietario ILIKE %s OR i.cpf_cnpj ILIKE %s)")
-            p = f"%{search}%"
-            params += [p, p, p, p, p]
-        if uf:
-            where_clauses.append("i.uf = %s")
-            params.append(uf.upper())
-        if min_area is not None:
-            where_clauses.append("i.area_total_ha >= %s")
-            params.append(min_area)
-        if max_area is not None:
-            where_clauses.append("i.area_total_ha <= %s")
-            params.append(max_area)
+    def agro_imoveis_catalog(page=1, page_size=25, q=None, uf=None, municipio=None,
+                             area_min=None, area_max=None, com_titular=None, com_cnpj=None,
+                             com_bioma=None, com_uso_solo=None, cobertura_veterinaria=None,
+                             completude_min=None, sort="relevancia", order="desc"):
+        size = page_size if page_size in (25, 50, 100) else 25
+        safe_page = max(1, min(int(page), 1000))
+        offset = (safe_page - 1) * size
+        bioma = """CASE i.uf WHEN 'AC' THEN 'Amazônia' WHEN 'AP' THEN 'Amazônia' WHEN 'AM' THEN 'Amazônia'
+          WHEN 'PA' THEN 'Amazônia' WHEN 'RO' THEN 'Amazônia' WHEN 'RR' THEN 'Amazônia'
+          WHEN 'AL' THEN 'Mata Atlântica' WHEN 'ES' THEN 'Mata Atlântica' WHEN 'PR' THEN 'Mata Atlântica'
+          WHEN 'RJ' THEN 'Mata Atlântica' WHEN 'SC' THEN 'Mata Atlântica' WHEN 'SP' THEN 'Mata Atlântica'
+          WHEN 'BA' THEN 'Caatinga' WHEN 'CE' THEN 'Caatinga' WHEN 'PB' THEN 'Caatinga'
+          WHEN 'PE' THEN 'Caatinga' WHEN 'PI' THEN 'Caatinga' WHEN 'RN' THEN 'Caatinga' WHEN 'SE' THEN 'Caatinga'
+          WHEN 'DF' THEN 'Cerrado' WHEN 'GO' THEN 'Cerrado' WHEN 'MA' THEN 'Cerrado'
+          WHEN 'MT' THEN 'Cerrado' WHEN 'MS' THEN 'Cerrado' WHEN 'MG' THEN 'Cerrado' WHEN 'TO' THEN 'Cerrado'
+          WHEN 'RS' THEN 'Pampa' END"""
+        cnpj = "(regexp_replace(COALESCE(i.cpf_cnpj,''),'\\D','','g') ~ '^[0-9]{14}$')"
+        titular = "(NULLIF(btrim(i.nome_proprietario),'') IS NOT NULL)"
+        uso = "(i.area_pasto_ha IS NOT NULL OR i.area_lavoura_ha IS NOT NULL OR i.area_vegetacao_nativa_ha IS NOT NULL)"
+        score = f"""((i.codigo_car IS NOT NULL AND btrim(i.codigo_car)<>'')::int*20
+          + (i.municipio IS NOT NULL AND i.uf IS NOT NULL)::int*15
+          + (i.area_total_ha IS NOT NULL AND i.area_total_ha>0)::int*15
+          + {titular}::int*15 + {cnpj}::int*15 + ({bioma} IS NOT NULL)::int*10 + {uso}::int*10)"""
+        base = f"""SELECT i.id::text detail_id, i.codigo_car, i.municipio, i.uf,
+          i.codigo_ibge_mun codigo_ibge, i.area_total_ha::float area_ha,
+          NULLIF(btrim(i.nome_proprietario),'') titular_nome, {titular} tem_titular,
+          {cnpj} tem_cnpj, CASE WHEN {cnpj} THEN regexp_replace(i.cpf_cnpj,'\\D','','g') END cnpj_vinculado,
+          {bioma} bioma, i.area_pasto_ha::float area_pasto_ha,
+          i.area_lavoura_ha::float area_lavoura_ha, i.area_vegetacao_nativa_ha::float area_vegetacao_nativa_ha,
+          {uso} tem_uso_solo, {score} completude_score,
+          i.fonte_principal, i.coletado_em::text data_atualizacao
+          FROM prospeccao.imovel_rural i"""
+        where, params = ["i.fonte_principal='SICAR'"], []
+        if q:
+            where.append("(i.codigo_car ILIKE %s OR i.nome_imovel ILIKE %s OR i.municipio ILIKE %s OR i.nome_proprietario ILIKE %s)")
+            params.extend([f"%{q}%"] * 4)
+        if uf: where.append("i.uf=%s"); params.append(uf.upper())
+        if municipio: where.append("i.municipio ILIKE %s"); params.append(municipio)
+        if area_min is not None: where.append("i.area_total_ha >= %s"); params.append(area_min)
+        if area_max is not None: where.append("i.area_total_ha <= %s"); params.append(area_max)
+        for value, expression in ((com_titular,titular),(com_cnpj,cnpj),(com_bioma,f"({bioma} IS NOT NULL)"),(com_uso_solo,uso)):
+            if value is not None: where.append(expression if value else f"NOT {expression}")
+        if cobertura_veterinaria:
+            coverage_rows = _run_db("wins_agro", """SELECT codigo_ibge::text codigo_ibge
+              FROM prospeccao.v_white_space_pecuaria
+              WHERE replace(classificacao_vet,' ','_')=%s""", [cobertura_veterinaria], domain="agro")
+            coverage_codes = [r["codigo_ibge"] for r in coverage_rows]
+            if cobertura_veterinaria == "INDISPONIVEL":
+                all_rows = _run_db("wins_agro", "SELECT codigo_ibge::text codigo_ibge FROM prospeccao.v_white_space_pecuaria", [], domain="agro")
+                where.append("NOT (i.codigo_ibge_mun::text=ANY(%s::text[]))"); params.append([r["codigo_ibge"] for r in all_rows])
+            elif coverage_codes:
+                where.append("i.codigo_ibge_mun::text=ANY(%s::text[])"); params.append(coverage_codes)
+            else:
+                where.append("FALSE")
+        if completude_min is not None: where.append(f"{score} >= %s"); params.append(completude_min)
+        clause = " AND ".join(where)
+        sort_map = {"area":"area_ha", "municipio":"municipio", "uf":"uf",
+                    "completude":"completude_score", "codigo_car":"codigo_car"}
+        if sort == "relevancia":
+            ordering = "completude_score DESC, area_ha DESC NULLS LAST, codigo_car ASC"
+        else:
+            col = sort_map.get(sort, "completude_score")
+            direction = "ASC" if str(order).lower() == "asc" else "DESC"
+            ordering = f"{col} {direction} NULLS LAST, codigo_car ASC"
+        try:
+            count_rows = _run_db("wins_agro", f"SELECT count(*)::int total FROM ({base} WHERE {clause}) c", params, domain="agro")
+            total = int(count_rows[0]["total"] if count_rows else 0)
+            rows = _run_db("wins_agro", f"""SELECT c.*,
+                COALESCE(replace(w.classificacao_vet,' ','_'),'INDISPONIVEL') cobertura_veterinaria,
+                w.bovinos::bigint bovinos_municipio, w.tecnicos_75km::int
+              FROM (SELECT * FROM ({base} WHERE {clause}) c0 ORDER BY {ordering} LIMIT %s OFFSET %s) c
+              LEFT JOIN prospeccao.v_white_space_pecuaria w ON w.codigo_ibge::text=c.codigo_ibge::text
+              ORDER BY {ordering}""", params + [size, offset], domain="agro")
+            items = [Wave1Repository._agro_catalog_item(row) for row in rows]
+            pages = (total + size - 1) // size if total else 0
+            limitations = ["Paginação operacional limitada às primeiras 1.000 páginas; use filtros para recortes mais profundos."]
+            return {"items":items,"total":total,"page":safe_page,"page_size":size,"total_pages":pages,
+                    "has_previous":safe_page>1,"has_next":safe_page<pages and safe_page<1000,
+                    "sort":sort,"order":order,"status":"ok",
+                    "sources":["SICAR/CAR — prospeccao.imovel_rural","IBGE — referencia municipal","prospeccao.v_white_space_pecuaria"],
+                    "limitations":limitations}
+        except Exception as exc:
+            logger.error("Falha no catálogo de propriedades: %s", exc)
+            return {"items":[],"total":0,"page":safe_page,"page_size":size,"total_pages":0,
+                    "has_previous":False,"has_next":False,"sort":sort,"order":order,"status":"partial",
+                    "sources":["SICAR/CAR — prospeccao.imovel_rural"],
+                    "limitations":["Não foi possível carregar o catálogo de propriedades."]}
 
-        where_str = " AND ".join(where_clauses)
-        count_rows = _run_db("wins_agro", f"SELECT count(*)::int total FROM prospeccao.imovel_rural i WHERE {where_str}", params, domain="agro")
-        total = count_rows[0]["total"] if count_rows else 0
-
-        rows = _run_db("wins_agro", f"""
-            SELECT i.id, i.codigo_car, i.nome_imovel, i.municipio, i.uf,
-                   i.area_total_ha::float, i.area_pasto_ha::float, i.area_lavoura_ha::float,
-                   i.area_vegetacao_nativa_ha::float, i.nome_proprietario, i.cpf_cnpj,
-                   i.fonte_principal, i.coletado_em::text data_atualizacao
-            FROM prospeccao.imovel_rural i
-            WHERE {where_str}
-            ORDER BY i.area_total_ha DESC NULLS LAST, i.id ASC
-            LIMIT %s OFFSET %s
-        """, params + [page_size, offset], domain="agro")
-
-        for r in rows:
-            r["source_id"] = str(r["id"])
-            r["confidenceLevel"] = "CONFIRMADO" if r.get("cpf_cnpj") else "PROVÁVEL"
-
-        pages = (total + page_size - 1) // page_size if page_size > 0 else 1
-        return {
-            "items": rows,
-            "meta": {"page": page, "page_size": page_size, "total": total, "pages": pages},
-            "fonte": "prospeccao.imovel_rural"
-        }
+    @staticmethod
+    def _agro_catalog_item(r):
+        uso = None
+        if r.get("tem_uso_solo"):
+            uso = {"pastagem_ha":r.get("area_pasto_ha"),"agricultura_ha":r.get("area_lavoura_ha"),
+                   "vegetacao_nativa_ha":r.get("area_vegetacao_nativa_ha")}
+        score = int(r.get("completude_score") or 0)
+        flags = {"car":bool(r.get("codigo_car")),"localizacao":bool(r.get("municipio") and r.get("uf")),
+                 "area":r.get("area_ha") is not None and r.get("area_ha")>0,"titular":bool(r.get("tem_titular")),
+                 "cnpj":bool(r.get("tem_cnpj")),"bioma":bool(r.get("bioma")),"uso_solo":bool(r.get("tem_uso_solo"))}
+        return {"detail_id":r["detail_id"],"detail_available":True,"codigo_car":r.get("codigo_car"),
+                "codigo_car_exibicao":r.get("codigo_car"),"municipio":r.get("municipio"),"uf":r.get("uf"),
+                "codigo_ibge":r.get("codigo_ibge"),"area_ha":r.get("area_ha"),
+                "titular_nome":r.get("titular_nome"),"titular_status":"DISPONIVEL_NA_FONTE" if r.get("tem_titular") else "NAO_DISPONIBILIZADO",
+                "documento_status":"CNPJ_COMPROVADO" if r.get("tem_cnpj") else "NAO_EXPOSTO_OU_NAO_COMPROVADO",
+                "cnpj_vinculado":r.get("cnpj_vinculado"),"cnpj_evidencia":"Vínculo declarado no cadastro SICAR/CAR" if r.get("tem_cnpj") else None,
+                "bioma":r.get("bioma"),"bioma_origem":"INFERIDO_PELA_UF" if r.get("bioma") else "INDISPONIVEL",
+                "uso_solo":uso,"uso_solo_origem":"DECLARADO_NO_CADASTRO_CAR" if uso else "INDISPONIVEL",
+                "cobertura_veterinaria":r.get("cobertura_veterinaria") or "INDISPONIVEL",
+                "bovinos_municipio":r.get("bovinos_municipio"),"tecnicos_75km":r.get("tecnicos_75km"),
+                "completude_score":score,"completude_flags":flags,
+                "sources":[r.get("fonte_principal") or "SICAR/CAR","Classificação municipal de cobertura veterinária"],
+                "limitations":["Cadastro declaratório; não comprova titularidade, domínio ou limites fundiários.",
+                  "Cobertura veterinária municipal; não representa vínculo ou proximidade de técnico com este cadastro."]}
 
     @staticmethod
     def agro_imovel_360_detail(id: str):
-        rows = _run_db("wins_agro", """
-            SELECT i.id, i.codigo_car, i.nome_imovel, i.municipio, i.uf, i.codigo_ibge_mun,
-                   i.area_total_ha::float, i.area_pasto_ha::float, i.area_lavoura_ha::float,
-                   i.area_vegetacao_nativa_ha::float, i.nome_proprietario, i.cpf_cnpj,
+        rows = _run_db("wins_agro", r"""
+            SELECT i.id::text detail_id, i.codigo_car, i.municipio, i.uf, i.codigo_ibge_mun codigo_ibge,
+                   i.area_total_ha::float area_ha, i.area_pasto_ha::float, i.area_lavoura_ha::float,
+                   i.area_vegetacao_nativa_ha::float, NULLIF(btrim(i.nome_proprietario),'') titular_nome,
+                   (NULLIF(btrim(i.nome_proprietario),'') IS NOT NULL) tem_titular,
+                   (regexp_replace(COALESCE(i.cpf_cnpj,''),'\D','','g') ~ '^[0-9]{14}$') tem_cnpj,
+                   CASE WHEN regexp_replace(COALESCE(i.cpf_cnpj,''),'\D','','g') ~ '^[0-9]{14}$'
+                        THEN regexp_replace(i.cpf_cnpj,'\D','','g') END cnpj_vinculado,
+                   CASE i.uf WHEN 'AC' THEN 'Amazônia' WHEN 'AP' THEN 'Amazônia' WHEN 'AM' THEN 'Amazônia'
+                     WHEN 'PA' THEN 'Amazônia' WHEN 'RO' THEN 'Amazônia' WHEN 'RR' THEN 'Amazônia'
+                     WHEN 'AL' THEN 'Mata Atlântica' WHEN 'ES' THEN 'Mata Atlântica' WHEN 'PR' THEN 'Mata Atlântica'
+                     WHEN 'RJ' THEN 'Mata Atlântica' WHEN 'SC' THEN 'Mata Atlântica' WHEN 'SP' THEN 'Mata Atlântica'
+                     WHEN 'BA' THEN 'Caatinga' WHEN 'CE' THEN 'Caatinga' WHEN 'PB' THEN 'Caatinga'
+                     WHEN 'PE' THEN 'Caatinga' WHEN 'PI' THEN 'Caatinga' WHEN 'RN' THEN 'Caatinga' WHEN 'SE' THEN 'Caatinga'
+                     WHEN 'DF' THEN 'Cerrado' WHEN 'GO' THEN 'Cerrado' WHEN 'MA' THEN 'Cerrado'
+                     WHEN 'MT' THEN 'Cerrado' WHEN 'MS' THEN 'Cerrado' WHEN 'MG' THEN 'Cerrado' WHEN 'TO' THEN 'Cerrado'
+                     WHEN 'RS' THEN 'Pampa' END bioma,
+                   (i.area_pasto_ha IS NOT NULL OR i.area_lavoura_ha IS NOT NULL OR i.area_vegetacao_nativa_ha IS NOT NULL) tem_uso_solo,
+                   COALESCE(replace(w.classificacao_vet,' ','_'),'INDISPONIVEL') cobertura_veterinaria,
+                   w.bovinos::bigint bovinos_municipio, w.tecnicos_75km::int,
                    i.fonte_principal, i.coletado_em::text data_atualizacao
             FROM prospeccao.imovel_rural i
-            WHERE i.id::text = %s OR i.codigo_car = %s
+            LEFT JOIN prospeccao.v_white_space_pecuaria w ON w.codigo_ibge::text=i.codigo_ibge_mun::text
+            WHERE i.id::text = %s
             LIMIT 1
-        """, [str(id), str(id)], domain="agro")
+        """, [str(id)], domain="agro")
         if not rows:
             return None
-        imovel = rows[0]
-
-        # Holding / Corporate link
-        holding = None
-        if imovel.get("cpf_cnpj"):
-            cnpj_clean = _clean_cnpj(imovel["cpf_cnpj"])
-            if cnpj_clean:
-                h_rows = _run_db("wins_agro", "SELECT cnpj14, razao, nome_fantasia, cnae_principal, email, whatsapp, score FROM prospeccao.holding_lead_ui WHERE cnpj14 LIKE %s LIMIT 1", [f"%{cnpj_clean[:8]}%"], domain="agro")
-                if h_rows:
-                    holding = h_rows[0]
-
-        # Decisores vinculados à fazenda via CNPJ (QSA RFB) — escopo por cnpj_basico,
-        # sem vazamento global (antes era um LIMIT 3 sem filtro).
-        decisores = []
-        if imovel.get("cpf_cnpj"):
-            cnpj_clean = _clean_cnpj(imovel["cpf_cnpj"])
-            if cnpj_clean:
-                d_rows = _run_db("wins_agro", """
-                    SELECT n_decisores, decisores, socio_jovem
-                    FROM prospeccao.decisores_fazenda
-                    WHERE cnpj_basico = %s
-                """, [cnpj_clean[:8]], domain="agro")
-                if d_rows:
-                    decisores = d_rows
-
-        # Transportes & Logística no município (vazio honesto quando indisponível)
-        transportadores = []
-
-        # Oportunidades calculadas: motor em validação — nenhuma oportunidade é
-        # inferida heuristicamente a partir de área (o conjunto anterior era
-        # ilustrativo e não persistido). Lista vazia até evidência real.
-        opps = []
-
-        return {
-            "imovel": imovel,
-            "holding_vinculada": holding,
-            "decisores": decisores,
-            "logistica_proxima": transportadores,
-            "oportunidades_calculadas": opps,
-            "proveniencia": {
-                "fonte": imovel.get("fonte_principal") or "SICAR / MMA",
-                "data_atualizacao": imovel.get("data_atualizacao"),
-                "sistema": "WiNS Hub Agro Pipeline Real"
-            }
-        }
+        row = rows[0]
+        row["completude_score"] = (20 if row.get("codigo_car") else 0)+(15 if row.get("municipio") and row.get("uf") else 0)+(15 if row.get("area_ha") and row["area_ha"]>0 else 0)+(15 if row.get("tem_titular") else 0)+(15 if row.get("tem_cnpj") else 0)+(10 if row.get("bioma") else 0)+(10 if row.get("tem_uso_solo") else 0)
+        prop = Wave1Repository._agro_catalog_item(row)
+        return {"status":"partial","property":prop,"company":None,"owner":None,
+                "technical_coverage":{"classification":prop["cobertura_veterinaria"],
+                  "bovinos_municipio":prop["bovinos_municipio"],"tecnicos_75km":prop["tecnicos_75km"],
+                  "scope":"MUNICIPAL","specific_technician":None},
+                "limitations":prop["limitations"]}
 
     @staticmethod
     def agro_decisores(page=1, page_size=25, search=None, uf=None):

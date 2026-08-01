@@ -522,10 +522,27 @@ def get_real_directory_detail(vertical: str, entity: str, source_id: str, reques
     return result
 
 @router.get("/agro/imoveis")
-def get_agro_imoveis(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
-                     search: Optional[str] = None, municipality: Optional[str] = None, uf: Optional[str] = None,
-                     user=Depends(require_permission("agro"))):
-    return Wave1Repository.agro_imoveis(page=page, page_size=page_size, search=search, municipality=municipality, uf=uf)
+def get_agro_imoveis(request: Request, page: int = Query(1, ge=1, le=1000),
+                     page_size: int = Query(25, ge=1, le=100), q: Optional[str] = Query(None, max_length=120),
+                     uf: Optional[str] = Query(None, min_length=2, max_length=2), municipio: Optional[str] = None,
+                     area_min: Optional[float] = Query(None, ge=0), area_max: Optional[float] = Query(None, ge=0),
+                     com_titular: Optional[bool] = None, com_cnpj: Optional[bool] = None,
+                     com_bioma: Optional[bool] = None, com_uso_solo: Optional[bool] = None,
+                     cobertura_veterinaria: Optional[Literal["DESERTO_VET","BAIXA_COBERTURA","NORMAL","INDISPONIVEL"]] = None,
+                     completude_min: Optional[int] = Query(None, ge=0, le=100),
+                     sort: Literal["relevancia","area","municipio","uf","completude","codigo_car"] = "relevancia",
+                     order: Literal["asc","desc"] = "desc", user=Depends(require_permission("agro"))):
+    if page_size not in (25, 50, 100): raise HTTPException(422, "page_size deve ser 25, 50 ou 100")
+    return Wave1Repository.agro_imoveis(page=page,page_size=page_size,q=q,uf=uf,municipio=municipio,
+        area_min=area_min,area_max=area_max,com_titular=com_titular,com_cnpj=com_cnpj,
+        com_bioma=com_bioma,com_uso_solo=com_uso_solo,cobertura_veterinaria=cobertura_veterinaria,
+        completude_min=completude_min,sort=sort,order=order)
+
+@router.get("/agro/imoveis/{id}")
+def get_agro_imovel_detail(id: str, request: Request, user=Depends(require_permission("agro"))):
+    item = Wave1Repository.agro_imovel_360_detail(id)
+    if not item: raise HTTPException(404, "Cadastro CAR não encontrado")
+    return item
 
 @router.get("/agro/tecnicos")
 def get_agro_tecnicos(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
@@ -648,20 +665,6 @@ def get_agro_relacoes(request: Request, imovel_id: Optional[str] = None,
     except Exception as e:
         logger.error(f"Erro ao buscar relações cross-domain agro: {e} reqId={req_id}")
         return standard_error("AGRO_RELATIONSHIPS_UNAVAILABLE", "Não foi possível carregar as relações neste momento.", req_id, 500, retryable=True)
-
-@router.get("/agro/imoveis")
-def get_agro_imoveis_catalog(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
-                             search: Optional[str] = None, uf: Optional[str] = None,
-                             min_area: Optional[float] = None, max_area: Optional[float] = None,
-                             user=Depends(require_permission("agro"))):
-    return Wave1Repository.agro_imoveis_catalog(page=page, page_size=page_size, search=search, uf=uf, min_area=min_area, max_area=max_area)
-
-@router.get("/agro/imoveis/{id}")
-def get_agro_imovel_detail(id: str, request: Request, user=Depends(require_permission("agro"))):
-    item = Wave1Repository.agro_imovel_360_detail(id) or Wave1Repository.agro_imovel(id)
-    if not item:
-        raise HTTPException(404, "Imóvel rural não encontrado")
-    return item
 
 @router.get("/agro/decisores")
 def get_agro_decisores(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),

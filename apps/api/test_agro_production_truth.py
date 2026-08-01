@@ -247,16 +247,17 @@ class TestAgroProductionTruthStatic:
         if has_limit3 and has_decisores:
             assert has_where_cnpj, "deve filtrar por cnpj_basico"
 
-        # Deve ter _clean_cnpj
-        assert "_clean_cnpj" in source
+        # O novo contrato não consulta decisores: empresa/titular enriquecidos
+        # permanecem nulos quando não há evidência no cadastro básico.
+        assert "decisores_fazenda" not in source
+        assert '"owner":None' in code_only or '"owner": None' in code_only
 
     def test_agro_imovel_360_sem_oportunidades_heuristicas(self):
         source = read_source("agro_imovel_360_detail")
         code_only = source_without_comments(source)
 
-        # Oportunidades calculadas deve ser lista vazia
-        assert "oportunidades_calculadas" in source
-        assert "opps = []" in code_only or '"oportunidades_calculadas": []' in code_only or "'oportunidades_calculadas': []" in code_only
+        # A ficha cadastral não cria nem expõe oportunidades comerciais.
+        assert "oportunidades_calculadas" not in source
 
         # NÃO deve ter scores fabricados 94, 89, 91, 86
         heuristic_titles = [
