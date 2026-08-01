@@ -9,8 +9,9 @@ import agro_holdings_repository as repo
 
 
 STATS={"empresas_representadas":25849,"vinculos_selecionados":151550,"pessoas_unicas":52567,
-       "pessoas_multiplas_empresas":27586,"empresas_individuais":1,"vinculos_societarios_isolados":8,
-       "holdings_declaradas":25777,"candidatas_holding":27586,"empresas_ligadas_grupo":0,
+       "pessoas_multiplas_empresas":27586,"empresas_individuais":0,"vinculos_societarios_isolados":8,
+       "holdings_declaradas":12561,"empresas_imobiliarias":9982,"empresas_candidatas_holding":3298,
+       "candidatos_pessoas":27586,"pessoas_no_universo_empresas":11583,"empresas_ligadas_grupo":0,
        "grupos_documentais":0,"empresas_propriedade_comprovada":0,"empresas_empresa_360":0}
 
 
@@ -53,6 +54,24 @@ def test_declared_holding_uses_cadastral_classification_not_group():
     assert item["documented_group_id"] is None
 
 
+def test_generic_real_estate_activity_is_not_declared_holding():
+    with patch.object(repo,"_run_db",side_effect=company_calls([company(tipo_entidade="EMPRESA_IMOBILIARIA",cnae_principal="6810-2/02")])):
+        item=repo.AgroHoldingsRepository.list()["items"][0]
+    assert item["tipo_entidade"]=="EMPRESA_IMOBILIARIA"
+    assert item["tipo_entidade"]!="HOLDING_DECLARADA"
+
+
+def test_specific_holding_cnae_is_the_only_declared_holding_rule():
+    _,_,classification=repo.AgroHoldingsRepository._company_where()
+    assert "l.cnae_principal='6462-0/00'" in classification
+    assert "6810" not in classification.split("THEN 'HOLDING_DECLARADA'")[0]
+
+
+def test_participacoes_name_alone_does_not_prove_holding():
+    _,_,classification=repo.AgroHoldingsRepository._company_where(q="PARTICIPAÇÕES")
+    assert "razao" not in classification and "nome_fantasia" not in classification
+
+
 def test_candidate_requires_same_stable_person_and_multiple_companies():
     person={"person_id":"b"*64,"nome":"ANA CONECTORA","total_companies":3,"total_municipalities":2,"total_states":2}
     preview={"person_id":"b"*64,"cnpj14":"11111111000111","razao":"EMPRESA A","municipio":"Sinop","uf":"MT"}
@@ -78,12 +97,13 @@ def test_documented_group_requires_persisted_document_source():
 
 def test_empty_documented_groups_are_honest():
     with patch.object(repo,"_run_db",side_effect=[[{"total":0}],[],[STATS]]): data=repo.AgroHoldingsRepository.list(tab="grupos")
-    assert data["items"]==[] and data["total_documented_groups"]==0
+    assert data["items"]==[] and data["filtered_total"]==0
+    assert data["universe"]["total_groups"]==0
 
 
 def test_real_totals_keep_entities_candidates_and_groups_separate():
     with patch.object(repo,"_run_db",return_value=[STATS]): data=repo.AgroHoldingsRepository.stats()
-    assert data["empresas_representadas"]==25849 and data["candidatas_holding"]==27586
+    assert data["empresas_representadas"]==25849 and data["candidatos_pessoas"]==27586
     assert data["grupos_documentais"]==0 and data["vinculos_selecionados"]==151550
 
 
@@ -91,6 +111,28 @@ def test_pagination_is_specific_to_current_tab():
     with patch.object(repo,"_run_db",side_effect=company_calls(total=51)):
         data=repo.AgroHoldingsRepository.list(page=2,page_size=25)
     assert data["total_entities"]==51 and data["total_pages"]==3 and data["page"]==2
+
+
+def test_tab_universes_are_independent_and_use_correct_sources():
+    with patch.object(repo,"_run_db",side_effect=company_calls()): companies=repo.AgroHoldingsRepository.list()
+    with patch.object(repo,"_run_db",side_effect=[[{"total":0}],[],[STATS]]): candidates=repo.AgroHoldingsRepository.list(tab="candidatos")
+    with patch.object(repo,"_run_db",side_effect=[[{"total":0}],[],[STATS]]): groups=repo.AgroHoldingsRepository.list(tab="grupos")
+    assert companies["source_object"]=="prospeccao.holding_lead_ui"
+    assert candidates["source_object"]=="prospeccao.holding_blind_spot"
+    assert groups["source_object"]=="public.relationship_edges"
+    assert candidates["universe"]["total_companies"]==151550
+    assert groups["universe"]["total_groups"]==0
+    assert candidates["filtered_total"]==0 and companies["filtered_total"]==1
+
+
+def test_company_classification_counts_close_without_duplication():
+    total=sum(STATS[k] for k in ("holdings_declaradas","empresas_imobiliarias","empresas_candidatas_holding","empresas_individuais","vinculos_societarios_isolados","empresas_ligadas_grupo"))
+    assert total==STATS["empresas_representadas"]
+
+
+def test_no_fixed_98_or_fallback_90_in_contract_source():
+    source=open(repo.__file__,encoding="utf-8").read()
+    assert '"score"' not in source and " or 90" not in source and "98" not in source
 
 
 def test_filters_are_parameterized_and_sort_is_whitelisted():

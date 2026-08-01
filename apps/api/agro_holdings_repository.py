@@ -9,7 +9,9 @@ LIMITATIONS = [
     "Pessoa em comum não comprova grupo econômico, controle, beneficiário final ou atuação operacional conjunta.",
     "Grupos documentais exigem relação persistida e fonte identificável.",
 ]
-HOLDING_CNAE = "(COALESCE(l.cnae_principal,'') ~ '^(6462|6463|6810)')"
+HOLDING_CNAE = "(l.cnae_principal='6462-0/00')"
+REAL_ESTATE_CNAE = "(COALESCE(l.cnae_principal,'') LIKE '6810-%')"
+PARTICIPATION_CNAE = "(l.cnae_principal='6463-8/00')"
 
 
 def _person_type(code):
@@ -26,7 +28,8 @@ class AgroHoldingsRepository:
         rows = _run_db("wins_agro", f"""WITH pc AS (
           SELECT cpf_socio_comum,count(*)::int n FROM prospeccao.holding_blind_spot GROUP BY 1),
         companies AS (
-          SELECT l.cnpj_basico,{HOLDING_CNAE} declared,b.cnpj_basico IS NOT NULL linked,COALESCE(pc.n,0) person_companies
+          SELECT l.cnpj_basico,{HOLDING_CNAE} declared,{REAL_ESTATE_CNAE} real_estate,
+          {PARTICIPATION_CNAE} participation,b.cnpj_basico IS NOT NULL linked,COALESCE(pc.n,0) person_companies
           FROM prospeccao.holding_lead_ui l LEFT JOIN prospeccao.holding_blind_spot b USING(cnpj_basico)
           LEFT JOIN pc ON pc.cpf_socio_comum=b.cpf_socio_comum), documented AS (
           SELECT source_id FROM public.relationship_edges
@@ -35,10 +38,14 @@ class AgroHoldingsRepository:
           (SELECT count(*)::int FROM prospeccao.holding_blind_spot) vinculos_selecionados,
           (SELECT count(*)::int FROM pc) pessoas_unicas,
           (SELECT count(*)::int FROM pc WHERE n>=2) pessoas_multiplas_empresas,
-          count(*) FILTER(WHERE NOT declared AND NOT linked)::int empresas_individuais,
-          count(*) FILTER(WHERE NOT declared AND linked AND person_companies<2)::int vinculos_societarios_isolados,
+          count(*) FILTER(WHERE NOT declared AND NOT real_estate AND NOT participation AND NOT linked)::int empresas_individuais,
+          count(*) FILTER(WHERE NOT declared AND NOT real_estate AND NOT participation AND linked AND person_companies<2)::int vinculos_societarios_isolados,
           count(*) FILTER(WHERE declared)::int holdings_declaradas,
-          (SELECT count(*)::int FROM pc WHERE n>=2) candidatas_holding,
+          count(*) FILTER(WHERE NOT declared AND NOT real_estate AND (participation OR person_companies>=2))::int empresas_candidatas_holding,
+          count(*) FILTER(WHERE real_estate)::int empresas_imobiliarias,
+          (SELECT count(*)::int FROM pc WHERE n>=2) candidatos_pessoas,
+          (SELECT count(DISTINCT b.cpf_socio_comum)::int FROM prospeccao.holding_lead_ui l
+             JOIN prospeccao.holding_blind_spot b USING(cnpj_basico)) pessoas_no_universo_empresas,
           0::int empresas_ligadas_grupo,(SELECT count(*)::int FROM documented) grupos_documentais,
           0::int empresas_propriedade_comprovada,
           0::int empresas_empresa_360 FROM companies""", domain="agro")
@@ -64,7 +71,7 @@ class AgroHoldingsRepository:
             params.extend([f"%{q}%"] * 4)
         if uf: where.append("l.uf=%s"); params.append(uf.upper())
         if municipio: where.append("l.municipio ILIKE %s"); params.append(f"%{municipio}%")
-        classification = f"CASE WHEN {HOLDING_CNAE} THEN 'HOLDING_DECLARADA' WHEN COALESCE(pc.n,0)>=2 THEN 'CANDIDATA_A_HOLDING' WHEN b.cnpj_basico IS NOT NULL THEN 'VINCULO_SOCIETARIO_ISOLADO' ELSE 'EMPRESA_INDIVIDUAL' END"
+        classification = f"CASE WHEN {HOLDING_CNAE} THEN 'HOLDING_DECLARADA' WHEN {REAL_ESTATE_CNAE} THEN 'EMPRESA_IMOBILIARIA' WHEN {PARTICIPATION_CNAE} OR COALESCE(pc.n,0)>=2 THEN 'CANDIDATA_A_HOLDING' WHEN b.cnpj_basico IS NOT NULL THEN 'VINCULO_SOCIETARIO_ISOLADO' ELSE 'EMPRESA_INDIVIDUAL' END"
         if tipo_entidade: where.append(f"({classification})=%s"); params.append(tipo_entidade)
         if motivo_inclusao:
             where.append("(CASE WHEN b.cnpj_basico IS NOT NULL THEN 'PESSOA_LIGADA_A_EMPRESA_AGRO' ELSE 'OUTRA_EVIDENCIA_DOCUMENTAL' END)=%s")
@@ -184,8 +191,22 @@ class AgroHoldingsRepository:
     def _response(items,total,page,size,tab):
         pages=math.ceil(total/size) if total else 0
         stats=AgroHoldingsRepository.stats()
-        return {"items":items,"total_entities":total,"total_companies":stats.get("empresas_representadas",0),
-                "total_candidates":stats.get("candidatas_holding",0),"total_documented_groups":stats.get("grupos_documentais",0),
+        if tab=="empresas":
+            source="prospeccao.holding_lead_ui"
+            universe={"description":"Empresas com cadastro suficiente em holding_lead_ui.",
+                      "total_companies":stats.get("empresas_representadas",0),
+                      "total_people":stats.get("pessoas_no_universo_empresas",0),"total_groups":None}
+        elif tab=="candidatos":
+            source="prospeccao.holding_blind_spot"
+            universe={"description":"Universo ampliado com um vínculo societário representativo por empresa.",
+                      "total_companies":stats.get("vinculos_selecionados",0),
+                      "total_people":stats.get("pessoas_unicas",0),"total_groups":None}
+        else:
+            source="public.relationship_edges"
+            universe={"description":"Relações Grupo → Empresa persistidas com fonte documental.",
+                      "total_companies":None,"total_people":None,
+                      "total_groups":stats.get("grupos_documentais",0)}
+        return {"items":items,"total_entities":total,"filtered_total":total,"source_object":source,"universe":universe,
                 "page":page,"page_size":size,"total_pages":pages,"has_previous":page>1,
                 "has_next":page<pages,"tab":tab,"status":"partial","sources":SOURCES,"limitations":LIMITATIONS}
 
