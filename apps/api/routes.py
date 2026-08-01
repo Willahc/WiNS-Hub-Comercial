@@ -13,6 +13,7 @@ from wave1_repository import Wave1Repository
 from agro_canal_repository import AgroCanalRepository
 from agro_people_repository import AgroPeopleRepository
 from agro_holdings_repository import AgroHoldingsRepository
+from agro_radar_repository import AgroRadarRepository
 
 
 class ReviewRequest(BaseModel):
@@ -647,15 +648,62 @@ def get_agro_mapa(request: Request, min_lat: float = Query(-35.5, ge=-90, le=90)
         logger.error(f"Erro no mapa agro: {e} reqId={req_id}")
         return standard_error("INTERNAL_SERVER_ERROR", "Error fetching agro map", req_id, 500)
 
-@router.get("/agro/oportunidades")
-def get_agro_oportunidades(request: Request, imovel_id: Optional[str] = None,
-                           user=Depends(require_permission("agro"))):
+@router.get("/agro/oportunidades/status")
+def get_agro_oportunidades_status(request: Request, user=Depends(require_permission("agro"))):
     req_id = getattr(request.state, "request_id", "unknown")
     try:
-        return Wave1Repository.agro_oportunidades(imovel_id=imovel_id)
-    except Exception as e:
-        logger.error(f"Erro ao buscar oportunidades agro: {e} reqId={req_id}")
-        return standard_error("AGRO_OPPORTUNITIES_UNAVAILABLE", "Não foi possível carregar as oportunidades neste momento.", req_id, 500, retryable=True)
+        return AgroRadarRepository.status()
+    except Exception as exc:
+        logger.error("Erro no status do Radar de Sinais Agro: %s reqId=%s", exc, req_id)
+        return standard_error("AGRO_RADAR_STATUS_UNAVAILABLE", "Não foi possível carregar o status do motor de sinais.", req_id, 500, True)
+
+
+@router.get("/agro/oportunidades/funil")
+def get_agro_oportunidades_funil(request: Request, user=Depends(require_permission("agro"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        return AgroRadarRepository.funnel()
+    except Exception as exc:
+        logger.error("Erro no funil do Radar de Sinais Agro: %s reqId=%s", exc, req_id)
+        return standard_error("AGRO_RADAR_FUNNEL_UNAVAILABLE", "Não foi possível carregar o funil de sinais.", req_id, 500, True)
+
+
+@router.get("/agro/oportunidades/regras")
+def get_agro_oportunidades_regras(request: Request, user=Depends(require_permission("agro"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        return AgroRadarRepository.rules()
+    except Exception as exc:
+        logger.error("Erro nas regras do Radar de Sinais Agro: %s reqId=%s", exc, req_id)
+        return standard_error("AGRO_RADAR_RULES_UNAVAILABLE", "Não foi possível carregar as regras do motor.", req_id, 500, True)
+
+
+@router.get("/agro/oportunidades")
+def get_agro_oportunidades_radar(
+        request: Request,
+        stage: Literal["SIGNAL", "CANDIDATE", "VALIDATION", "VALIDATED"] = "SIGNAL",
+        page: int = Query(1, ge=1), page_size: int = Query(25),
+        q: Optional[str] = None, uf: Optional[str] = None, municipio: Optional[str] = None,
+        signal_type: Optional[str] = None, classification: Optional[str] = None,
+        priority: Optional[str] = None, rule_id: Optional[str] = None,
+        sort: Literal["priority", "municipio", "uf", "rebanho_bovino", "bovinos_por_tecnico", "calculated_at"] = "priority",
+        order: Literal["asc", "desc"] = "desc",
+        user=Depends(require_permission("agro"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    if page_size not in (25, 50, 100):
+        raise HTTPException(422, "page_size deve ser 25, 50 ou 100")
+    try:
+        if stage == "CANDIDATE":
+            return AgroRadarRepository.candidates(page=page, page_size=page_size, q=q, uf=uf, municipio=municipio)
+        return AgroRadarRepository.signals(
+            page=page, page_size=page_size, stage=stage, q=q, uf=uf, municipio=municipio,
+            signal_type=signal_type, classification=classification, priority=priority,
+            rule_id=rule_id, sort=sort, order=order)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Erro no Radar de Sinais Agro: %s reqId=%s", exc, req_id)
+        return standard_error("AGRO_RADAR_UNAVAILABLE", "Não foi possível carregar o Radar de Sinais Agro.", req_id, 500, True)
 
 @router.get("/agro/relacoes")
 def get_agro_relacoes(request: Request, imovel_id: Optional[str] = None,
@@ -796,7 +844,10 @@ def get_agro_holdings(request: Request, page: int = Query(1, ge=1), page_size: i
 @router.get("/agro/oportunidades/calculadas")
 def get_agro_oportunidades_calculadas(request: Request, categoria: Optional[str] = None, min_score: int = Query(70, ge=0, le=100),
                                       uf: Optional[str] = None, user=Depends(require_permission("agro"))):
-    return Wave1Repository.agro_oportunidades_calculadas(categoria=categoria, min_score=min_score, uf=uf)
+    response = Wave1Repository.agro_oportunidades_calculadas(categoria=categoria, min_score=min_score, uf=uf)
+    response["deprecated"] = True
+    response["canonical_endpoint"] = "/api/v1/agro/oportunidades"
+    return response
 
 @router.get("/agro/logistica/correlacao")
 def get_agro_logistica_correlacao(request: Request, uf: Optional[str] = None, municipio: Optional[str] = None,
