@@ -45,6 +45,7 @@ WITH canal AS (
         ELSE 'INFERIDO_POR_CNAE' END AS profissao_origem,
    CASE WHEN NULLIF(t.profissao,'') IS NOT NULL THEN 'CADASTRO_INTERNO'
         WHEN t.crmv IS NOT NULL THEN 'REGISTRO_CONSELHO_INFORMADO'
+        WHEN t.categoria='veterinaria' THEN 'ESTABELECIMENTO_EMPRESARIAL'
         ELSE 'INFERIDO_POR_CNAE' END AS confianca_profissao,
    t.categoria AS atividade, ev.cnae_fiscal_principal::text AS cnae,
    t.crmv AS crmv_numero, t.crmv_uf, false AS registro_oficial_validado,
