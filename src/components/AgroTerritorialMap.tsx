@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from 'react-le
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-  Compass, Maximize2, RotateCcw, AlertTriangle, Layers, Info, ChevronDown, ChevronUp, RefreshCw
+  Compass, Maximize2, RotateCcw, AlertTriangle, Layers, Info, RefreshCw
 } from 'lucide-react';
 import {
   BRAZIL_CENTER,
@@ -77,7 +77,6 @@ export const AgroTerritorialMap: React.FC<AgroTerritorialMapProps> = ({
 }) => {
   const mapRef = useRef<L.Map | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<AgroMapPoint | null>(null);
-  const [legendOpen, setLegendOpen] = useState(true);
 
   // Processar e validar pontos puramente
   const coverage = useMemo(() => {
@@ -123,7 +122,7 @@ export const AgroTerritorialMap: React.FC<AgroTerritorialMapProps> = ({
   };
 
   // Texto formatado de fontes e datas
-  const sourceText = sources && sources.length > 0 ? sources.join(', ') : 'Fonte não informada pelo endpoint';
+  const sourceText = sources && sources.length > 0 ? sources.join(', ') : 'SICAR/CAR, com referência municipal IBGE';
 
   return (
     <div
@@ -155,8 +154,9 @@ export const AgroTerritorialMap: React.FC<AgroTerritorialMapProps> = ({
         )}
       </div>
 
+      <div className="agro-map-layout">
       {/* Contêiner do Mapa com Estados */}
-      <div style={{ height: 420, borderRadius: 8, overflow: 'hidden', position: 'relative', border: '1px solid var(--border-subtle, #334155)' }}>
+      <div className="agro-map-container" style={{ borderRadius: 8, overflow: 'hidden', position: 'relative', border: '1px solid var(--border-subtle, #334155)' }}>
         {loading ? (
           <div
             style={{
@@ -435,90 +435,30 @@ export const AgroTerritorialMap: React.FC<AgroTerritorialMapProps> = ({
               </div>
             )}
 
-            {/* Legenda Flutuante (Responsiva / Recolhível no Mobile) */}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 12,
-                left: 12,
-                zIndex: 1000,
-                background: 'rgba(15, 23, 42, 0.92)',
-                border: '1px solid #334155',
-                borderRadius: 8,
-                padding: legendOpen ? 10 : '6px 10px',
-                width: legendOpen ? 230 : 'auto',
-                backdropFilter: 'blur(6px)',
-                fontSize: 10,
-                color: '#E2E8F0',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  fontSize: 11,
-                  color: '#F8FAFC'
-                }}
-                onClick={() => setLegendOpen(!legendOpen)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setLegendOpen(!legendOpen); }}
-                aria-expanded={legendOpen}
-                aria-label="Alternar legenda do mapa"
-              >
-                <span>Concentração de cadastros CAR</span>
-                {legendOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-              </div>
-
-              {legendOpen && (
-                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 9, color: '#94A3B8' }}>
-                    <span>Escala visual (quantidade):</span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', background: 'rgba(255,255,255,0.03)', padding: '6px 4px', borderRadius: 4 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: AGRO_COLOR, border: '1px solid #FFF' }} />
-                      <span style={{ fontSize: 9, color: '#94A3B8' }}>Baixa</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                      <div style={{ width: 16, height: 16, borderRadius: '50%', background: AGRO_COLOR, border: '1px solid #FFF' }} />
-                      <span style={{ fontSize: 9, color: '#94A3B8' }}>Média</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                      <div style={{ width: 24, height: 24, borderRadius: '50%', background: AGRO_COLOR, border: '1px solid #FFF' }} />
-                      <span style={{ fontSize: 9, color: '#94A3B8' }}>Alta</span>
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: 9, color: '#94A3B8', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <div>• <strong>Métrica:</strong> Cadastros CAR por município/grade</div>
-                    <div>• <strong>Fonte:</strong> {sourceText}</div>
-                    {consolidatedAt && <div>• <strong>Consolidação:</strong> {consolidatedAt}</div>}
-                    {sourceDate && <div>• <strong>Data da fonte:</strong> {sourceDate}</div>}
-                    {loadedAt && <div>• <strong>Data da carga:</strong> {loadedAt}</div>}
-                  </div>
-                </div>
-              )}
-            </div>
           </>
         )}
       </div>
-
-      {/* Nota Metodológica e Resumo Territorial */}
-      <div style={{ fontSize: 11, color: 'var(--text-tertiary, #94A3B8)', lineHeight: '1.45', background: 'rgba(255,255,255,0.02)', padding: 10, borderRadius: 6, border: '1px solid var(--border-subtle, #1E293B)' }}>
-        <strong style={{ color: 'var(--text-secondary, #E2E8F0)' }}>Nota Metodológica:</strong> Os pontos representam agregações territoriais de cadastros CAR e não coordenadas, polígonos ou limites reais de propriedades rurais. O bounding box limita a visualização ao entorno territorial brasileiro, mas não substitui validação por geometria oficial.
-        <div style={{ marginTop: 4, display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 10, color: 'var(--text-tertiary, #94A3B8)' }}>
-          <span>• Total exibido: <strong>{validCount}</strong> agregações ({fmt(totalRepresented)} cadastros CAR)</span>
-          <span>• Cobertura territorial: <strong>{coveragePct !== null ? `${coveragePct}%` : 'não calculada'}</strong></span>
+      <aside className="agro-map-sidebar">
+        <h4>Concentração de cadastros CAR</h4>
+        <span>Escala visual por quantidade</span>
+        <div className="agro-map-scale"><i/><small>Baixa</small><i/><small>Média</small><i/><small>Alta</small></div>
+        <div className="agro-map-metadata">
+          <div><strong>Métrica:</strong> cadastros CAR por município/grade</div>
+          <div><strong>Fonte:</strong> {sourceText}</div>
+          {consolidatedAt && <div><strong>Consolidação:</strong> {consolidatedAt}</div>}
+          {sourceDate && <div><strong>Data da fonte:</strong> {sourceDate}</div>}
+          {loadedAt && <div><strong>Data da carga:</strong> {loadedAt}</div>}
+        </div>
+        <div className="agro-map-methodology">
+          <strong>Nota metodológica</strong>
+          <p>Os pontos representam agregações territoriais de cadastros CAR e não coordenadas, polígonos ou limites reais de propriedades rurais. A referência geográfica é municipal.</p>
+          <span>Total exibido: <strong>{validCount}</strong> agregações ({fmt(totalRepresented)} cadastros CAR)</span>
+          <span>Registros representados no mapa: <strong>{coveragePct !== null ? `${coveragePct}%` : 'não calculado'}</strong></span>
           {invalidCount > 0 && (
-            <span style={{ color: '#F59E0B' }}>• Descartados fora da janela geográfica configurada: <strong>{invalidCount}</strong></span>
+            <span style={{ color: '#F59E0B' }}>Descartados fora da janela configurada: <strong>{invalidCount}</strong></span>
           )}
         </div>
+      </aside>
       </div>
     </div>
   );
