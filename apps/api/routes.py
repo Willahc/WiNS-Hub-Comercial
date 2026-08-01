@@ -1,5 +1,4 @@
 import logging
-import uuid
 from datetime import date
 from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
@@ -8,9 +7,10 @@ from pydantic import BaseModel
 from auth import get_current_user, require_permission
 from repositories import (
     HealthRepository, DashboardRepository, EventosRepository,
-    IndicadoresRepository, EmpresasRepository, OportunidadesRepository
+    IndicadoresRepository
 )
 from wave1_repository import Wave1Repository
+from agro_canal_repository import AgroCanalRepository
 
 
 class ReviewRequest(BaseModel):
@@ -529,9 +529,35 @@ def get_agro_imoveis(request: Request, page: int = Query(1, ge=1), page_size: in
 
 @router.get("/agro/tecnicos")
 def get_agro_tecnicos(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
-                      search: Optional[str] = None, municipality: Optional[str] = None, uf: Optional[str] = None,
-                      user=Depends(require_permission("agro"))):
-    return Wave1Repository.agro_tecnicos(page=page, page_size=page_size, search=search, municipality=municipality, uf=uf)
+                      q: Optional[str] = None, uf: Optional[str] = None, municipio: Optional[str] = None,
+                      profissao: Optional[str] = None, origem: Optional[str] = None, confianca: Optional[str] = None,
+                      com_crmv: Optional[bool] = None, com_telefone: Optional[bool] = None,
+                      com_email: Optional[bool] = None, atividade: Optional[str] = None,
+                      sort: str = "nome", order: str = "asc", user=Depends(require_permission("agro"))):
+    return AgroCanalRepository.tecnicos(page=page,page_size=page_size,q=q,uf=uf,municipio=municipio,
+        profissao=profissao,origem=origem,confianca=confianca,com_crmv=com_crmv,
+        com_telefone=com_telefone,com_email=com_email,atividade=atividade,sort=sort,order=order)
+
+@router.get("/agro/tecnicos/stats")
+def get_agro_tecnicos_stats(request: Request, user=Depends(require_permission("agro"))):
+    return AgroCanalRepository.tecnicos_stats()
+
+@router.get("/agro/tecnicos/{id}")
+def get_agro_tecnico(id: str, request: Request, user=Depends(require_permission("agro"))):
+    item=AgroCanalRepository.tecnico(id)
+    if not item: raise HTTPException(404,"Cadastro técnico não encontrado")
+    return item
+
+@router.get("/agro/deserto-veterinario")
+def get_agro_deserto(request: Request, page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=5000),
+    q:Optional[str]=None,uf:Optional[str]=None,classificacao:Optional[str]=None,min_bovinos:Optional[int]=None,
+    min_carga:Optional[int]=None,sort:str="municipio",order:str="asc",formato:Literal["lista","mapa"]="lista",
+    user=Depends(require_permission("agro"))):
+    return AgroCanalRepository.deserto(page,page_size,q,uf,classificacao,min_bovinos,min_carga,sort,order,formato)
+
+@router.get("/agro/deserto-veterinario/stats")
+def get_agro_deserto_stats(request: Request,user=Depends(require_permission("agro"))):
+    return AgroCanalRepository.deserto_stats()
 
 @router.get("/agro/veterinaria/classificacao")
 def get_agro_veterinaria_classificacao(request: Request, user=Depends(require_permission("agro"))):

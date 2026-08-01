@@ -2,7 +2,6 @@ import time
 import subprocess
 import urllib.request
 import json
-import socket
 
 def test_api_endpoints():
     print("Iniciando testes da API unificada (FastAPI)...")

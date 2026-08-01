@@ -1,4 +1,3 @@
-import re
 from typing import List, Dict, Any, Optional
 
 ALL_27_UFS = [
@@ -416,4 +415,3 @@ def execute_server_side_suggest(q: str) -> Dict[str, Any]:
         "query": q,
         "suggestions": suggestions[:15]
     }
-

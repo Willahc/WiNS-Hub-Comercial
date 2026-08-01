@@ -33,7 +33,7 @@ def run_benchmark():
     conn = psycopg2.connect(host=db_host, port=db_port, dbname=db_name, user=db_user, password=db_pass)
     cursor = conn.cursor()
     cursor.execute("SELECT id, cnpj, razao_social, situacao_cadastral, confianca_geral FROM canonical_mvp.entidade_empresa LIMIT 20;")
-    rows = cursor.fetchall()
+    cursor.fetchall()
     t_cold = (time.time() - t0) * 1000
     print(f"Cold Connection (primeira consulta + handshake): {t_cold:.2f} ms")
     
@@ -93,7 +93,7 @@ def run_benchmark():
             cur.close()
             c.close()
             return latency
-        except Exception as e:
+        except Exception:
             return -1.0
 
     print("\nExecutando teste de concorrência com 10 conexões simultâneas...")
