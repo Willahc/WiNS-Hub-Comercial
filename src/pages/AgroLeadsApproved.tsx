@@ -1,148 +1,35 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Search, ShieldCheck, Info } from 'lucide-react';
-import AgroPageShell from '../components/AgroPageShell';
-import { BrazilUfSelect } from '../components/territorial/BrazilUfSelect';
-import { httpClient } from '../services/http/client';
-import { AGRO_API } from './agroApiEndpoints';
+import React,{useCallback,useEffect,useMemo,useRef,useState}from'react';
+import{useNavigate,useSearchParams}from'react-router-dom';
+import{ChevronDown,ChevronUp,Filter,Search,SlidersHorizontal}from'lucide-react';
+import AgroPageShell from'../components/AgroPageShell';
+import{BrazilUfSelect}from'../components/territorial/BrazilUfSelect';
+import{httpClient}from'../services/http/client';import{AGRO_API}from'./agroApiEndpoints';
 
-/**
- * Catálogo de Leads & Decisores Rurais
- * Rota: /agro/leads
- * Endpoint: GET /agro/decisores
- */
-export default function AgroLeadsApproved() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState(searchParams.get('search') || '');
-  const [uf, setUf] = useState(searchParams.get('uf') || '');
+type Filters={q:string;uf:string;municipio:string;tipo_vinculo:string;motivo_inclusao:string;evidencia_decisao:string;tipo_contato:string;com_varias_empresas:string;com_car:string;com_contato:string;institucional:string;com_grupo:string;cnae:string};
+const defaults:Filters={q:'',uf:'',municipio:'',tipo_vinculo:'',motivo_inclusao:'',evidencia_decisao:'',tipo_contato:'',com_varias_empresas:'',com_car:'',com_contato:'',institucional:'',com_grupo:'',cnae:''};
+const fmt=(n:any)=>typeof n==='number'?n.toLocaleString('pt-BR'):'Não disponível';
+const linkLabels:Record<string,string>={SOCIO_QSA:'Sócio — QSA',ADMINISTRADOR_QSA:'Administrador — QSA',SOCIO_ADMINISTRADOR_QSA:'Sócio-administrador — QSA'};
+const evidence=(v:string)=><span className={`people-evidence ${v?.replaceAll(' ','_')}`}>{v||'INDISPONÍVEL'}</span>;
+function fromUrl(p:URLSearchParams){const f={...defaults};Object.keys(f).forEach(k=>(f as any)[k]=p.get(k)||'');return f}
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params: any = { page: 1, page_size: 25 };
-      if (search) params.search = search;
-      if (uf) params.uf = uf;
-      const res = await httpClient.get(AGRO_API.decisores, { params });
-      setItems(res.data?.items || []);
-    } catch (err: any) {
-      setError(err?.userMessage || err?.message || 'Falha ao carregar decisores');
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [search, uf]);
-
-  useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => {
-    const p: Record<string, string> = {};
-    if (uf) p.uf = uf;
-    if (search) p.search = search;
-    setSearchParams(p, { replace: true });
-  }, [uf, search, setSearchParams]);
-
-  const empty = !loading && !error && items.length === 0;
-
-  // Classifica semântica de vínculo (QSA não produz DECISOR_COMPROVADO isoladamente)
-  const getClassification = (item: any) => {
-    if (item.comprovado_presencial) return { label: 'DECISOR_COMPROVADO', color: '#22C55E', bg: 'rgba(34,197,94,0.15)' };
-    if (item.cargo && (item.cargo.includes('Sócio') || item.cargo.includes('Administrador') || item.fonte === 'RFB/QSA')) {
-      return { label: 'SOCIO_ADMINISTRADOR', color: '#3B82F6', bg: 'rgba(59,130,246,0.15)' };
-    }
-    if (item.validado) return { label: 'CONTATO_VALIDADO', color: '#06B6D4', bg: 'rgba(6,182,212,0.15)' };
-    return { label: 'VINCULO_PROVAVEL', color: '#F59E0B', bg: 'rgba(245,158,11,0.15)' };
-  };
-
-  return (
-    <AgroPageShell
-      title="Leads & Decisores Rurais"
-      subtitle="Quadro Societário e Vínculos Agro. O QSA confirma vínculo pessoa–empresa no CNPJ, não poder decisório operacional na fazenda."
-      loading={loading} error={error} onRetry={loadData}
-      empty={empty} emptyMessage="Nenhum registro encontrado com os filtros atuais."
-      statusBadge="Dados RFB / QSA"
-    >
-      {/* Filtros */}
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 12, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 260, background: 'var(--bg-base)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 12px' }}>
-          <Search size={16} color="#94A3B8" />
-          <input type="text" placeholder="Buscar por nome, cargo, empresa ou município..." value={search}
-            onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') loadData(); }}
-            style={{ background: 'none', border: 'none', color: '#F8FAFC', fontSize: 13, width: '100%', outline: 'none' }} />
-        </div>
-        <BrazilUfSelect value={uf} onChange={v => setUf(v)} showAllLabel="Todas as UFs" />
-        <button onClick={loadData} style={{ background: '#22C55E', color: '#FFF', border: 'none', padding: '7px 16px', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>Buscar</button>
-      </div>
-
-      {/* Ressalva Técnica */}
-      <div style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 8, padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Info size={16} color="#3B82F6" style={{ flexShrink: 0 }} />
-        <div style={{ fontSize: 11, color: '#CBD5E1' }}>
-          <strong>Regra Semântica de Classificação:</strong> Registros originados exclusivamente do Quadro de Sócios e Administradores (QSA/RFB) são rotulados como <code>SOCIO_ADMINISTRADOR</code>. Contatos de e-mail corporativo são identificados como contatos institucionais.
-        </div>
-      </div>
-
-      {/* Tabela com Colunas Reconciliadas */}
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: '#0B132B', color: '#94A3B8', borderBottom: '1px solid #1E293B' }}>
-              <th style={{ padding: 10 }}>Pessoa / Nome</th>
-              <th style={{ padding: 10 }}>Cargo / Papel</th>
-              <th style={{ padding: 10 }}>Empresa / Holding</th>
-              <th style={{ padding: 10 }}>Município / UF</th>
-              <th style={{ padding: 10 }}>Classificação do Vínculo</th>
-              <th style={{ padding: 10 }}>Contato</th>
-              <th style={{ padding: 10 }}>Fonte / Evidência</th>
-              <th style={{ padding: 10 }}>Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((d: any, i: number) => {
-              const cls = getClassification(d);
-              const scoreVal = d.score !== undefined ? Math.round(d.score) : null;
-              return (
-                <tr key={i} style={{ borderBottom: '1px solid #1E293B' }}>
-                  <td style={{ padding: 10 }}>
-                    <strong style={{ color: '#F8FAFC', display: 'block' }}>{d.nome || 'Nome não autorizado'}</strong>
-                    <span style={{ fontSize: 10, color: '#64748B' }}>{d.cpf_mascarado || 'CPF sob sigilo'}</span>
-                  </td>
-                  <td style={{ padding: 10, color: '#3B82F6', fontWeight: 600 }}>{d.cargo || 'Sócio-Administrador'}</td>
-                  <td style={{ padding: 10, color: '#CBD5E1' }}>{d.empresa_vinculada || d.razao_social || 'Empresa Agro'}</td>
-                  <td style={{ padding: 10, color: '#94A3B8' }}>{d.municipio || '—'} / {d.uf || '—'}</td>
-                  <td style={{ padding: 10 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: cls.bg, color: cls.color }}>
-                      {cls.label}
-                    </span>
-                  </td>
-                  <td style={{ padding: 10, fontSize: 11 }}>
-                    {d.email || d.whatsapp ? (
-                      <span style={{ color: '#22C55E' }}>{d.email || d.whatsapp} (Corporativo)</span>
-                    ) : (
-                      <span style={{ color: '#64748B' }}>Contato corporativo sob consulta</span>
-                    )}
-                  </td>
-                  <td style={{ padding: 10, fontSize: 11, color: '#94A3B8' }}>
-                    <span style={{ display: 'block', color: '#F8FAFC' }}>{d.fonte || 'RFB / QSA'}</span>
-                    <span style={{ fontSize: 9, color: '#64748B' }}>Vínculo via CNPJ cadastral</span>
-                  </td>
-                  <td style={{ padding: 10 }}>
-                    {scoreVal !== null ? (
-                      <span style={{ fontSize: 11, fontWeight: 700, color: scoreVal >= 80 ? '#22C55E' : '#F59E0B' }} title="Score de priorização disponível na fonte; composição detalhada ainda não auditada.">
-                        {scoreVal}/100
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 11, color: '#64748B' }}>—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </AgroPageShell>
-  );
+export default function AgroLeadsApproved(){
+ const nav=useNavigate(),[sp,setSp]=useSearchParams(),initial=useMemo(()=>fromUrl(sp),[]);
+ const[form,setForm]=useState<Filters>(initial),[filters,setFilters]=useState<Filters>(initial),[items,setItems]=useState<any[]>([]),[stats,setStats]=useState<any>({}),[total,setTotal]=useState(0),[links,setLinks]=useState(0),[pages,setPages]=useState(0),[page,setPage]=useState(Number(sp.get('page'))||1),[pageSize,setPageSize]=useState(Number(sp.get('page_size'))||25),[sort,setSort]=useState(sp.get('sort')||'total_empresas'),[order,setOrder]=useState(sp.get('order')||'desc'),[loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null),[partial,setPartial]=useState(false),[more,setMore]=useState(false),[expanded,setExpanded]=useState<string|null>(null),[details,setDetails]=useState<Record<string,any>>({}),[expanding,setExpanding]=useState<string|null>(null);const abort=useRef<AbortController|null>(null);
+ const load=useCallback(async()=>{abort.current?.abort();const c=new AbortController();abort.current=c;setLoading(true);setError(null);try{const params:any={page,page_size:pageSize,sort,order};Object.entries(filters).forEach(([k,v])=>{if(!v)return;if(k==='institucional'){params.tipo_contato='COMPANY_INSTITUTIONAL';return}if(k==='com_contato'){params.tipo_contato='PERSON_VALIDATED';return}params[k]=v});const r=await httpClient.get(AGRO_API.people,{params,signal:c.signal});setItems(r.data.items||[]);setTotal(r.data.total_people||0);setLinks(r.data.total_links||0);setPages(r.data.total_pages||0);setPartial(r.data.status==='partial')}catch(e:any){if(e?.name==='CanceledError'||e?.name==='AbortError')return;setError('Não foi possível carregar pessoas e vínculos societários.');setItems([])}finally{if(!c.signal.aborted)setLoading(false)}},[filters,page,pageSize,sort,order]);
+ useEffect(()=>{load();return()=>abort.current?.abort()},[load]);useEffect(()=>{httpClient.get(AGRO_API.peopleStats).then(r=>setStats(r.data)).catch(()=>setStats({}))},[]);
+ useEffect(()=>{const p:any={};Object.entries(filters).forEach(([k,v])=>v&&(p[k]=v));page>1&&(p.page=String(page));pageSize!==25&&(p.page_size=String(pageSize));sort!=='total_empresas'&&(p.sort=sort);order!=='desc'&&(p.order=order);setSp(p,{replace:true})},[filters,page,pageSize,sort,order,setSp]);
+ const set=(k:keyof Filters,v:string)=>setForm(x=>({...x,[k]:v})),apply=()=>{setFilters(form);setPage(1)},clear=()=>{setForm(defaults);setFilters(defaults);setPage(1);setSort('total_empresas');setOrder('desc')},active=Object.values(filters).filter(Boolean).length;
+ const expand=async(id:string)=>{if(expanded===id){setExpanded(null);return}setExpanded(id);if(details[id])return;setExpanding(id);try{const r=await httpClient.get(AGRO_API.person(id));setDetails(x=>({...x,[id]:r.data}))}finally{setExpanding(null)}};
+ const sorting=(s:string)=>{setPage(1);if(sort===s)setOrder(x=>x==='asc'?'desc':'asc');else{setSort(s);setOrder(s==='nome'?'asc':'desc')}};
+ const contact=(p:any)=>p.contato_classificacao==='COMPANY_INSTITUTIONAL'?<><strong>Contato institucional da empresa</strong><small>Não atribuído à pessoa</small></>:p.contato_classificacao==='PERSON_VALIDATED'?<><strong>Contato pessoal validado</strong><small>{p.contato_valor}</small></>:<span>Contato indisponível</span>;
+ const companySummary=(p:any)=><>{(p.empresas_resumo||[]).map((x:any)=><span key={x.cnpj}>{x.razao_social||'Empresa sem razão disponível'}</span>)}{p.total_empresas>3&&<strong>+ {p.total_empresas-3} outros vínculos</strong>}</>;
+ return <AgroPageShell title="Pessoas e Vínculos Societários Agro" subtitle="Pessoas relacionadas a empresas do universo Agro por dados cadastrais, societários ou evidências complementares. Vínculo societário não comprova atuação operacional ou poder de decisão na fazenda." loading={loading} error={error} onRetry={load} empty={!loading&&!error&&!items.length} emptyMessage="Nenhuma pessoa encontrada com os filtros atuais." statusBadge="RFB / QSA">
+  <section className="people-kpis">{[['Pessoas únicas',stats.pessoas_unicas],['Vínculos',stats.vinculos_societarios],['Empresas',stats.empresas_distintas],['Múltiplas empresas',stats.pessoas_multiplas_empresas],['Contatos pessoais validados',stats.contatos_pessoais_validados],['Contatos institucionais',stats.contatos_institucionais],['Decisores comprovados',stats.decisores_comprovados]].map(([l,v])=><div key={l}><small>{l}</small><strong>{fmt(v)}</strong></div>)}</section>
+  <section className="people-filters"><div className="people-filter-grid"><label><Search size={15}/><input aria-label="Busca" placeholder="Nome, empresa ou município" value={form.q} onChange={e=>set('q',e.target.value)}/></label><BrazilUfSelect value={form.uf} onChange={v=>set('uf',v)} showAllLabel="Todas as UFs"/><input aria-label="Município" placeholder="Município" value={form.municipio} onChange={e=>set('municipio',e.target.value)}/><select aria-label="Tipo de vínculo" value={form.tipo_vinculo} onChange={e=>set('tipo_vinculo',e.target.value)}><option value="">Todos os vínculos</option>{Object.entries(linkLabels).map(([v,l])=><option value={v} key={v}>{l}</option>)}</select><select aria-label="Motivo Agro" value={form.motivo_inclusao} onChange={e=>set('motivo_inclusao',e.target.value)}><option value="">Todos os motivos Agro</option><option value="EMPRESA_COM_CNAE_AGRO">Empresa com CNAE Agro</option><option value="SOMENTE_VINCULO_SOCIETARIO">Somente vínculo societário</option></select><select aria-label="Evidência de decisão" value={form.evidencia_decisao} onChange={e=>set('evidencia_decisao',e.target.value)}><option value="">Toda evidência decisória</option><option value="NÃO COMPROVADA">Não comprovada</option><option value="COMPROVADA">Comprovada</option></select><select aria-label="Tipo de contato" value={form.tipo_contato} onChange={e=>set('tipo_contato',e.target.value)}><option value="">Todo tipo de contato</option><option value="PERSON_VALIDATED">Pessoal validado</option><option value="COMPANY_INSTITUTIONAL">Institucional</option><option value="UNKNOWN">Indisponível</option></select></div><div className="people-filter-actions"><button onClick={()=>setMore(x=>!x)}><SlidersHorizontal size={14}/>Mais filtros</button><button onClick={clear}>Limpar</button><button className="primary" onClick={apply}><Filter size={14}/>Aplicar filtros</button><span>{active} filtros ativos</span></div>{more&&<div className="people-more"><label><input type="checkbox" checked={form.com_varias_empresas==='true'} onChange={e=>set('com_varias_empresas',e.target.checked?'true':'')}/>Com várias empresas</label><label><input type="checkbox" checked={form.com_car==='true'} onChange={e=>set('com_car',e.target.checked?'true':'')}/>Com CAR comprovado</label><label><input type="checkbox" checked={form.com_contato==='true'} onChange={e=>set('com_contato',e.target.checked?'true':'')}/>Com contato pessoal</label><label><input type="checkbox" checked={form.institucional==='true'} onChange={e=>set('institucional',e.target.checked?'true':'')}/>Somente contato institucional</label><label><input type="checkbox" checked={form.com_grupo==='true'} onChange={e=>set('com_grupo',e.target.checked?'true':'')}/>Com grupo econômico</label><input aria-label="CNAE" placeholder="CNAE" value={form.cnae} onChange={e=>set('cnae',e.target.value)}/></div>}</section>
+  {partial&&<div className="people-partial">Alguns contatos ou evidências complementares não estão disponíveis.</div>}
+  <div className="people-table-wrap"><table className="people-table"><thead><tr><th onClick={()=>sorting('nome')}>Pessoa</th><th onClick={()=>sorting('total_empresas')}>Empresas vinculadas</th><th>Tipos de vínculo</th><th>Motivo da inclusão Agro</th><th>Evidência</th><th>Contato</th><th>Fontes</th><th>Ação</th></tr></thead><tbody>{items.map(p=><React.Fragment key={p.person_id}><tr><td><strong>{p.nome||'Nome não disponível'}</strong><small>CPF sob sigilo</small></td><td><div className="company-summary">{companySummary(p)}</div></td><td>{(p.tipos_vinculo||[]).map((x:string)=><span className="people-badge" key={x}>{linkLabels[x]||x}</span>)}</td><td><strong>{p.motivo_inclusao}</strong><small>{p.motivo_inclusao_descricao}</small></td><td><small>Vínculo cadastral</small>{evidence(p.evidencia_vinculo)}<small>Evidência Agro</small>{evidence(p.evidencia_agro)}<small>Evidência decisória</small>{evidence(p.evidencia_decisao)}</td><td>{contact(p)}</td><td>{(p.fontes||[]).join(' · ')}</td><td><button onClick={()=>expand(p.person_id)}>{expanded===p.person_id?<ChevronUp size={14}/>:<ChevronDown size={14}/>}Vínculos</button><button onClick={()=>nav(`/agro/leads/${p.person_id}`)}>Ver ficha</button></td></tr>{expanded===p.person_id&&<tr className="people-expanded"><td colSpan={8}>{expanding===p.person_id?'Carregando vínculos…':<div>{(details[p.person_id]?.companies||[]).map((x:any)=><article key={x.cnpj}><strong>{x.razao_social}</strong><span>CNPJ {x.cnpj}</span><span>{x.municipio||'Município não disponível'} / {x.uf||'UF não disponível'}</span><span>{linkLabels[x.tipo_vinculo]||x.tipo_vinculo}</span><span>CNAE {x.cnae||'não disponível'}</span><span>{x.motivo_agro}</span><span>Contato institucional — não atribuído à pessoa</span><small>{x.fonte}</small></article>)}</div>}</td></tr>}</React.Fragment>)}</tbody></table></div>
+  <div className="people-mobile">{items.map(p=><article key={p.person_id}><strong>{p.nome}</strong><span>{p.total_empresas} empresas vinculadas</span><span>{linkLabels[p.classificacao_principal]||p.classificacao_principal}</span>{evidence(p.evidencia_decisao)}{contact(p)}<button onClick={()=>nav(`/agro/leads/${p.person_id}`)}>Ver ficha</button></article>)}</div>
+  <div className="people-pagination"><span>Exibindo {total?(page-1)*pageSize+1:0}–{Math.min(page*pageSize,total)} de {fmt(total)} pessoas únicas</span><span>{fmt(links)} vínculos societários no recorte</span><div><button disabled={page<=1} onClick={()=>setPage(x=>x-1)}>Anterior</button><b>Página {page} de {fmt(pages)}</b><button disabled={page>=pages} onClick={()=>setPage(x=>x+1)}>Próxima</button><select aria-label="Pessoas por página" value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1)}}>{[25,50,100].map(n=><option key={n}>{n}</option>)}</select></div></div>
+  <section className="people-method"><p>Registros do Quadro de Sócios e Administradores confirmam vínculo cadastral entre pessoa e empresa, mas não comprovam atuação operacional, poder de compra ou decisão na fazenda.</p><p>Contatos institucionais pertencem à empresa ou ao cadastro empresarial e não devem ser interpretados automaticamente como contato pessoal da pessoa exibida.</p></section>
+ </AgroPageShell>
 }
