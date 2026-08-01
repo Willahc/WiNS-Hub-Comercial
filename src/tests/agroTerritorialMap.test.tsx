@@ -34,9 +34,9 @@ describe('AgroTerritorialMap Component & AgroApproved Clean Integration', () => 
     expect(screen.queryByText(/Não foi possível carregar o mapa territorial/i)).not.toBeInTheDocument();
   });
 
-  it('4. deve exibir "Fonte não informada pelo endpoint" quando prop sources for omissa', () => {
+  it('4. deve exibir fallback integrado SICAR/CAR e IBGE quando sources for omissa', () => {
     render(<AgroTerritorialMap rawClusters={[{ lat: -15.78, lng: -47.92, quantidade: 100 }]} loading={false} />);
-    expect(screen.getByText(/Fonte não informada pelo endpoint/i)).toBeInTheDocument();
+    expect(screen.getByText(/SICAR\/CAR, com referência municipal IBGE/i)).toBeInTheDocument();
   });
 
   it('5. deve exibir a fonte fornecida via props quando disponível', () => {
@@ -60,7 +60,7 @@ describe('AgroTerritorialMap Component & AgroApproved Clean Integration', () => 
         loading={false}
       />
     );
-    expect(screen.getByText(/Descartados fora da janela geográfica configurada/i)).toBeInTheDocument();
+    expect(screen.getByText(/Descartados fora da janela configurada/i)).toBeInTheDocument();
   });
 
   it('7. deve comprovar ausência literal de "98,6%" no componente e no fonte do AgroApproved', () => {
@@ -80,5 +80,14 @@ describe('AgroTerritorialMap Component & AgroApproved Clean Integration', () => 
     expect(source).not.toContain('CircleMarker');
     expect(source).not.toContain('FitBoundsControl');
     expect(source).not.toContain("import L from 'leaflet'");
+  });
+
+  it('9. separa mapa e legenda e renomeia cobertura como registros representados', () => {
+    render(<AgroTerritorialMap rawClusters={[{ lat: -15.78, lng: -47.92, quantidade: 100 }]} totalNoRecorte={100} />);
+    expect(document.querySelector('.agro-map-layout')).toBeInTheDocument();
+    expect(document.querySelector('.agro-map-container')).toBeInTheDocument();
+    expect(document.querySelector('.agro-map-sidebar')).toBeInTheDocument();
+    expect(screen.getByText(/Registros representados no mapa/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Cobertura territorial/i)).not.toBeInTheDocument();
   });
 });
