@@ -2295,18 +2295,20 @@ class Wave1Repository:
             pasto = sum(r["area_pasto_ha"] for r in filtered)
             lavoura = sum(r["area_lavoura_ha"] for r in filtered)
             veg = sum(r["area_vegetacao_nativa_ha"] for r in filtered)
-            total = float(pasto + lavoura + veg)
-            def pct(val): return round(float(val) * 100 / total, 1) if total > 0 else 0
+            classified_total = float(pasto + lavoura + veg)
+            declared_total = float(sum(r["area_total_declarada_ha"] for r in filtered))
+            unclassified = float(max(0, declared_total - classified_total))
+            def pct(val): return round(float(val) * 100 / declared_total, 1) if declared_total > 0 else 0
             return {
                 "tipo": "uso_do_solo",
                 "categorias": [
                     {"classe": "Pastagem", "area_ha": float(pasto), "percentual": pct(pasto), "fonte": "SICAR/CAR (area_pasto_ha)"},
                     {"classe": "Agricultura", "area_ha": float(lavoura), "percentual": pct(lavoura), "fonte": "SICAR/CAR (area_lavoura_ha)"},
                     {"classe": "Vegetação Nativa", "area_ha": float(veg), "percentual": pct(veg), "fonte": "SICAR/CAR (area_vegetacao_nativa_ha)"},
-                    {"classe": "Não Classificado", "area_ha": float(max(0, sum(r["area_total_declarada_ha"] for r in filtered) - total)), "percentual": 0, "fonte": "Diferença entre área total declarada e soma das classes"}
+                    {"classe": "Não Classificado", "area_ha": unclassified, "percentual": pct(unclassified), "fonte": "Diferença entre área total declarada e soma das classes"}
                 ],
-                "area_total_analisada_ha": total,
-                "nota": f"Uso do solo declarado no CAR pelo proprietário. Denominador de {total:,.0f} ha.",
+                "area_total_analisada_ha": declared_total,
+                "nota": f"Uso do solo declarado no CAR pelo proprietário. Denominador de {declared_total:,.0f} ha.",
                 "filtros": {"uf": uf, "municipio": municipio}
             }
 
@@ -2416,6 +2418,9 @@ class Wave1Repository:
             "strategy": "server_grid_cluster",
             "nota": f"{len(clusters)} clusters de {total_no_recorte} cadastros CAR agregados por grade de {grid}° sobre coordenadas municipais (referencia.municipio.latitude/longitude).",
             "sem_geometria": True,
+            "fontes": ["SICAR/CAR via prospeccao.imovel_rural", "IBGE via referencia.municipio"],
+            "ultima_atualizacao": max((r.get("ultima_atualizacao") for r in summary if r.get("ultima_atualizacao")), default=None),
+            "referencia_geografica": "Coordenadas municipais de referência IBGE; não representam a geometria dos imóveis.",
             "filtros": {"uf": uf}
         }
 
@@ -2750,4 +2755,3 @@ class Wave1Repository:
             "simulador_exemplo": None,
             "nota": "Seleção e simulação exigem DEP real (mercado.avaliacao), raça, RGD e pedigree mínimo (pai e mãe). Nenhum resultado fictício é gerado."
         }
-

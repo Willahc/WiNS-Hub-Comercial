@@ -10,6 +10,7 @@ os.environ.setdefault("DB_SAUDE_USER", "test-only")
 os.environ.setdefault("DB_SAUDE_PASS", "test-only")
 os.environ.setdefault("DB_WRITE_PASS", "test-only")
 import agro_canal_repository as repo
+from wave1_repository import Wave1Repository
 
 
 def nominal(**extra):
@@ -90,3 +91,20 @@ def test_deserto_stats_deserto_baixa_normal_calculados():
     with patch.object(repo,"_query",return_value=rows): result=repo.AgroCanalRepository.deserto_stats()
     assert result["deserto_vet_municipios"]==539 and result["baixa_cobertura_municipios"]==829
     assert result["normal_municipios"]==4168 and result["total_municipios"]==5536
+
+
+def test_uso_solo_nao_classificado_tem_percentual_real(monkeypatch):
+    monkeypatch.setattr(Wave1Repository,"_get_agro_mun_summary",staticmethod(lambda:[{
+      "uf":"SP","municipio":"A","area_pasto_ha":20,"area_lavoura_ha":20,
+      "area_vegetacao_nativa_ha":10,"area_total_declarada_ha":100}]))
+    result=Wave1Repository.agro_distribuicao(tipo="uso_solo")
+    item=next(x for x in result["categorias"] if x["classe"]=="Não Classificado")
+    assert item["area_ha"]==50 and item["percentual"]==50
+    assert result["area_total_analisada_ha"]==100
+
+
+def test_mapa_declara_fontes_proprias(monkeypatch):
+    monkeypatch.setattr(Wave1Repository,"_get_agro_mun_summary",staticmethod(lambda:[]))
+    monkeypatch.setattr(Wave1Repository,"_get_agro_ref_municipios",staticmethod(lambda:{}))
+    result=Wave1Repository.agro_mapa()
+    assert result["fontes"]==["SICAR/CAR via prospeccao.imovel_rural","IBGE via referencia.municipio"]
