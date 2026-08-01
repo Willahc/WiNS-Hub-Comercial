@@ -1,133 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { Search, Building2, Info } from 'lucide-react';
-import AgroPageShell from '../components/AgroPageShell';
-import { BrazilUfSelect } from '../components/territorial/BrazilUfSelect';
-import { httpClient } from '../services/http/client';
-import { AGRO_API } from './agroApiEndpoints';
-
-/**
- * Catálogo de Empresas e Vínculos Societários Agro
- * Rota: /agro/holdings
- * Endpoint: GET /agro/holdings
- */
-export default function AgroHoldingsApproved() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState(searchParams.get('search') || '');
-  const [uf, setUf] = useState(searchParams.get('uf') || '');
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params: any = { page: 1, page_size: 25 };
-      if (search) params.search = search;
-      if (uf) params.uf = uf;
-      const res = await httpClient.get(AGRO_API.holdings, { params });
-      setItems(res.data?.items || []);
-    } catch (err: any) {
-      setError(err?.userMessage || err?.message || 'Falha ao carregar empresas e vínculos societários');
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [search, uf]);
-
-  useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => {
-    const p: Record<string, string> = {};
-    if (uf) p.uf = uf;
-    if (search) p.search = search;
-    setSearchParams(p, { replace: true });
-  }, [uf, search, setSearchParams]);
-
-  const empty = !loading && !error && items.length === 0;
-
-  return (
-    <AgroPageShell
-      title="Empresas e Vínculos Societários Agro"
-      subtitle="Mapeamento de empresas agropecuárias, holdings patrimoniais e vínculos QSA com imóveis rurais. Registros baseados exclusivamente em dados oficiais da Receita Federal do Brasil (RFB)."
-      loading={loading} error={error} onRetry={loadData}
-      empty={empty} emptyMessage="Nenhuma empresa ou grupo encontrado com os filtros atuais."
-      statusBadge="Vínculos Societários RFB"
-    >
-      {/* Filtros */}
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 12, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 260, background: 'var(--bg-base)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 12px' }}>
-          <Search size={16} color="#94A3B8" />
-          <input type="text" placeholder="Buscar por Razão Social, CNPJ ou município..." value={search}
-            onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') loadData(); }}
-            style={{ background: 'none', border: 'none', color: '#F8FAFC', fontSize: 13, width: '100%', outline: 'none' }} />
-        </div>
-        <BrazilUfSelect value={uf} onChange={v => setUf(v)} showAllLabel="Todas as UFs" />
-        <button onClick={loadData} style={{ background: '#22C55E', color: '#FFF', border: 'none', padding: '7px 16px', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>Buscar</button>
-      </div>
-
-      {/* Nota de Governança e Transparência */}
-      <div style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 8, padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Info size={16} color="#3B82F6" style={{ flexShrink: 0 }} />
-        <div style={{ fontSize: 11, color: '#CBD5E1' }}>
-          <strong>Critério de Grupo Econômico:</strong> Agrupamentos requerem vínculo documental no Quadro de Sócios e Administradores (QSA/RFB) ou participação acionária declarada. Empresas individuais são classificadas de forma autônoma até haver evidência de grupo.
-        </div>
-      </div>
-
-      {/* Tabela de Empresas e Grupos */}
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: '#0B132B', color: '#94A3B8', borderBottom: '1px solid #1E293B' }}>
-              <th style={{ padding: 10 }}>Razão Social / CNPJ</th>
-              <th style={{ padding: 10 }}>CNAE Principal</th>
-              <th style={{ padding: 10 }}>Município / UF</th>
-              <th style={{ padding: 10 }}>Grupo / Vínculo Agro</th>
-              <th style={{ padding: 10 }}>Sócio em Comum / Elo</th>
-              <th style={{ padding: 10 }}>Força da Relação</th>
-              <th style={{ padding: 10 }}>Fonte</th>
-              <th style={{ padding: 10 }}>Ficha</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((h: any, i: number) => (
-              <tr key={i} style={{ borderBottom: '1px solid #1E293B' }}>
-                <td style={{ padding: 10 }}>
-                  <strong style={{ color: '#F8FAFC', display: 'block' }}>{h.razao || h.razao_social || 'Razão social não informada'}</strong>
-                  <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748B' }}>{h.cnpj14 || h.cnpj || '—'}</span>
-                </td>
-                <td style={{ padding: 10, color: '#3B82F6', fontSize: 11 }}>{h.cnae_principal || h.cnae || 'CNAE Agropecuário'}</td>
-                <td style={{ padding: 10, color: '#CBD5E1' }}>{h.municipio || '—'} / {h.uf || '—'}</td>
-                <td style={{ padding: 10, color: '#22C55E', fontSize: 11 }}>
-                  {h.nome_grupo
-                    ? <span style={{ color: '#22C55E', fontWeight: 700 }}>{h.nome_grupo}</span>
-                    : (h.nome_socio_comum
-                        ? 'Vínculo via QSA Cadastral'
-                        : <span style={{ color: '#64748B' }}>Sem vínculo documentado</span>)}
-                </td>
-                <td style={{ padding: 10, color: '#94A3B8', fontSize: 11 }}>
-                  {h.nome_socio_comum || '—'}
-                </td>
-                <td style={{ padding: 10 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-                    background: (h.score || 0) >= 80 ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)',
-                    color: (h.score || 0) >= 80 ? '#22C55E' : '#F59E0B' }}>
-                    {h.score !== undefined ? `${Math.round(h.score)}/100` : '—'}
-                  </span>
-                </td>
-                <td style={{ padding: 10, fontSize: 11, color: '#94A3B8' }}>{h.fonte || 'RFB / QSA'}</td>
-                <td style={{ padding: 10 }}>
-                  {h.cnpj14 || h.cnpj ? (
-                    <Link to={`/empresas/${h.cnpj14 || h.cnpj}`} style={{ color: '#3B82F6', fontSize: 11, fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <Building2 size={12} /> Empresa 360°
-                    </Link>
-                  ) : <span style={{ color: '#64748B', fontSize: 11 }}>—</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </AgroPageShell>
-  );
-}
+import React,{useCallback,useEffect,useMemo,useRef,useState}from'react';import{Link,useSearchParams}from'react-router-dom';import{Building2,Filter,Search,SlidersHorizontal}from'lucide-react';import AgroPageShell from'../components/AgroPageShell';import{BrazilUfSelect}from'../components/territorial/BrazilUfSelect';import{httpClient}from'../services/http/client';import{AGRO_API}from'./agroApiEndpoints';
+type Tab='empresas'|'candidatos'|'grupos';type Filters={q:string;uf:string;municipio:string;tipo_entidade:string;motivo_inclusao:string;evidencia_grupo:string;com_multiplas_empresas:string;com_propriedade:string;com_empresa_360:string;pessoa_id:string;cnae:string};const defaults:Filters={q:'',uf:'',municipio:'',tipo_entidade:'',motivo_inclusao:'',evidencia_grupo:'',com_multiplas_empresas:'',com_propriedade:'',com_empresa_360:'',pessoa_id:'',cnae:''};const fmt=(v:any)=>typeof v==='number'?v.toLocaleString('pt-BR'):'Não disponível';const labels:any={EMPRESA_INDIVIDUAL:'Empresa individual',VINCULO_SOCIETARIO_ISOLADO:'Vínculo societário isolado',HOLDING_DECLARADA:'Holding declarada',CANDIDATA_A_HOLDING:'Candidata a holding',EMPRESA_LIGADA_A_GRUPO:'Empresa ligada a grupo',GRUPO_DOCUMENTAL:'Grupo documental'};function fromUrl(p:URLSearchParams){const f={...defaults};Object.keys(f).forEach(k=>(f as any)[k]=p.get(k)||'');return f}
+export default function AgroHoldingsApproved(){const[sp,setSp]=useSearchParams(),initial=useMemo(()=>fromUrl(sp),[]),[tab,setTab]=useState<Tab>((sp.get('tab')as Tab)||'empresas'),[form,setForm]=useState(initial),[filters,setFilters]=useState(initial),[items,setItems]=useState<any[]>([]),[stats,setStats]=useState<any>({}),[total,setTotal]=useState(0),[pages,setPages]=useState(0),[page,setPage]=useState(Number(sp.get('page'))||1),[pageSize,setPageSize]=useState(Number(sp.get('page_size'))||25),[sort,setSort]=useState(sp.get('sort')||'razao_social'),[order,setOrder]=useState(sp.get('order')||'asc'),[loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null),[partial,setPartial]=useState(false),[more,setMore]=useState(false);const abort=useRef<AbortController|null>(null);
+const load=useCallback(async()=>{abort.current?.abort();const c=new AbortController();abort.current=c;setLoading(true);setError(null);try{const params:any={tab,page,page_size:pageSize,sort,order};Object.entries(filters).forEach(([k,v])=>v&&(params[k]=v));const r=await httpClient.get(AGRO_API.holdings,{params,signal:c.signal});setItems(r.data.items||[]);setTotal(r.data.total_entities||0);setPages(r.data.total_pages||0);setPartial(r.data.status==='partial')}catch(e:any){if(e?.name==='CanceledError'||e?.name==='AbortError')return;setError('Não foi possível carregar empresas e agrupamentos.');setItems([])}finally{if(!c.signal.aborted)setLoading(false)}},[tab,page,pageSize,sort,order,filters]);useEffect(()=>{load();return()=>abort.current?.abort()},[load]);useEffect(()=>{httpClient.get(AGRO_API.holdingsStats).then(r=>setStats(r.data)).catch(()=>setStats({}))},[]);useEffect(()=>{const p:any={tab};Object.entries(filters).forEach(([k,v])=>v&&(p[k]=v));page>1&&(p.page=String(page));pageSize!==25&&(p.page_size=String(pageSize));sort!=='razao_social'&&(p.sort=sort);order!=='asc'&&(p.order=order);setSp(p,{replace:true})},[tab,filters,page,pageSize,sort,order,setSp]);
+const set=(k:keyof Filters,v:string)=>setForm(x=>({...x,[k]:v})),apply=()=>{setFilters(form);setPage(1)},clear=()=>{setForm(defaults);setFilters(defaults);setPage(1)},changeTab=(x:Tab)=>{setTab(x);setPage(1);setSort(x==='candidatos'?'total_empresas':'razao_social');setOrder(x==='candidatos'?'desc':'asc')};const active=Object.values(filters).filter(Boolean).length,unit=tab==='empresas'?'empresas':tab==='candidatos'?'candidatos':'grupos documentais',empty=tab==='empresas'?'Nenhuma empresa encontrada com os filtros atuais.':tab==='candidatos'?'Nenhum candidato a grupo encontrado.':'Nenhum grupo documental identificado.';
+const evidence=(v:string)=><span className={`holding-evidence ${v?.replaceAll(' ','_')}`}>{v||'INDISPONÍVEL'}</span>;
+return <AgroPageShell title="Empresas, Holdings e Grupos Agro" subtitle="Empresas do universo Agro classificadas individualmente, candidatas a agrupamento ou pertencentes a grupos documentais. Vínculo societário isolado não comprova grupo econômico, controle ou ativo rural." loading={loading} error={error} onRetry={load} empty={!loading&&!error&&!items.length} emptyMessage={empty} statusBadge="RFB / relações documentais">
+<section className="holding-kpis">{[['Empresas representadas',stats.empresas_representadas],['Pessoas únicas',stats.pessoas_unicas],['Pessoas com múltiplas empresas',stats.pessoas_multiplas_empresas],['Holdings declaradas',stats.holdings_declaradas],['Candidatas a holding',stats.candidatas_holding],['Grupos documentais',stats.grupos_documentais]].map(([l,v])=><div key={l}><small>{l}</small><strong>{fmt(v)}</strong></div>)}</section>
+<nav className="holding-tabs">{([['empresas','Empresas representadas'],['candidatos','Candidatos a grupo'],['grupos','Grupos documentais']]as[Tab,string][]).map(([v,l])=><button className={tab===v?'active':''} onClick={()=>changeTab(v)} key={v}>{l}</button>)}</nav>
+<section className="holding-filters"><div className="holding-filter-grid"><label><Search size={15}/><input aria-label="Busca" placeholder="Empresa, CNPJ, pessoa ou grupo" value={form.q} onChange={e=>set('q',e.target.value)}/></label><BrazilUfSelect value={form.uf} onChange={v=>set('uf',v)} showAllLabel="Todas as UFs"/><input aria-label="Município" placeholder="Município" value={form.municipio} onChange={e=>set('municipio',e.target.value)}/><select aria-label="Tipo de entidade" value={form.tipo_entidade} onChange={e=>set('tipo_entidade',e.target.value)}><option value="">Todos os tipos</option>{Object.entries(labels).map(([v,l]:any)=><option value={v} key={v}>{l}</option>)}</select><select aria-label="Motivo Agro" value={form.motivo_inclusao} onChange={e=>set('motivo_inclusao',e.target.value)}><option value="">Todos os motivos Agro</option><option value="PESSOA_LIGADA_A_EMPRESA_AGRO">Pessoa ligada a empresa Agro</option><option value="OUTRA_EVIDENCIA_DOCUMENTAL">Outra evidência documental</option></select><select aria-label="Evidência de grupo" value={form.evidencia_grupo} onChange={e=>set('evidencia_grupo',e.target.value)}><option value="">Toda evidência de grupo</option>{['COMPROVADA','FORTE','PARCIAL','CANDIDATA','NÃO COMPROVADA','INDISPONÍVEL'].map(v=><option key={v}>{v}</option>)}</select></div><div className="holding-actions"><button onClick={()=>setMore(x=>!x)}><SlidersHorizontal size={14}/>Mais filtros</button><button onClick={clear}>Limpar</button><button className="primary" onClick={apply}><Filter size={14}/>Aplicar filtros</button><span>{active} filtros ativos</span></div>{more&&<div className="holding-more"><label><input type="checkbox" checked={form.com_multiplas_empresas==='true'} onChange={e=>set('com_multiplas_empresas',e.target.checked?'true':'')}/>Pessoa com múltiplas empresas</label><label><input type="checkbox" checked={form.com_propriedade==='true'} onChange={e=>set('com_propriedade',e.target.checked?'true':'')}/>Com propriedade comprovada</label><label><input type="checkbox" checked={form.com_empresa_360==='true'} onChange={e=>set('com_empresa_360',e.target.checked?'true':'')}/>Com Empresa 360°</label><input aria-label="CNAE" placeholder="CNAE" value={form.cnae} onChange={e=>set('cnae',e.target.value)}/><input aria-label="Pessoa vinculada" placeholder="ID da pessoa vinculada" value={form.pessoa_id} onChange={e=>set('pessoa_id',e.target.value)}/></div>}</section>{partial&&<div className="holding-partial">Algumas evidências ou relações documentais não estão disponíveis.</div>}
+{tab==='empresas'&&<><div className="holding-table-wrap"><table className="holding-table"><thead><tr><th>Empresa / CNPJ</th><th>Tipo de entidade</th><th>CNAE</th><th>Município / UF</th><th>Pessoa vinculada selecionada</th><th>Motivo Agro</th><th>Evidência de grupo</th><th>Fonte</th><th>Ação</th></tr></thead><tbody>{items.map(x=><tr key={x.entity_id}><td><strong>{x.razao_social}</strong><small>{x.cnpj}</small></td><td><span className="holding-type">{labels[x.tipo_entidade]||x.tipo_entidade}</span></td><td>{x.cnae_principal||'Não disponível'}</td><td>{x.municipio||'Não disponível'} / {x.uf||'—'}</td><td>{x.pessoa_selecionada_id?<Link to={`/agro/leads/${x.pessoa_selecionada_id}`}>{x.pessoa_selecionada_nome}</Link>:<span>Não disponível</span>}<small>{x.pessoa_selecionada_tipo_vinculo}</small></td><td><strong>{x.motivo_inclusao}</strong><small>{x.motivo_descricao}</small></td><td>{evidence(x.evidencia_grupo)}</td><td>{(x.sources||[]).join(' · ')}</td><td><Link to={`/agro/holdings/empresa/${x.entity_id}`}>Ver detalhe</Link>{x.empresa_360_available&&<Link to={`/empresas/${x.cnpj}`}><Building2 size={12}/>Empresa 360°</Link>}</td></tr>)}</tbody></table></div></>}
+{tab==='candidatos'&&<div className="holding-table-wrap"><table className="holding-table candidate"><thead><tr><th>Pessoa conectora</th><th>Empresas relacionadas</th><th>Municípios / UFs</th><th>Evidência</th><th>Limitação</th><th>Ação</th></tr></thead><tbody>{items.map(x=><tr key={x.candidate_id}><td><Link to={`/agro/leads/${x.connecting_person_id}`}>{x.connecting_person_name}</Link></td><td><strong>{x.total_companies}</strong>{(x.companies_preview||[]).map((c:any)=><small key={c.cnpj}>{c.razao_social||c.cnpj}</small>)}</td><td>{x.total_municipalities} municípios / {x.total_states} UFs</td><td>{evidence(x.evidence)}</td><td>{x.limitations?.[0]}</td><td><Link to={`/agro/leads/${x.connecting_person_id}`}>Ver pessoa e vínculos</Link></td></tr>)}</tbody></table></div>}
+{tab==='grupos'&&<div className="holding-table-wrap"><table className="holding-table groups"><thead><tr><th>Grupo</th><th>Empresas</th><th>Pessoas conectoras</th><th>Abrangência</th><th>Critério documental</th><th>Evidência</th><th>Ação</th></tr></thead><tbody>{items.map(x=><tr key={x.group_id}><td>{x.group_name}</td><td>{x.total_companies}</td><td>{x.total_people}</td><td>{x.total_states} UFs</td><td>{x.formation_criterion}</td><td>{evidence(x.evidence_level)}</td><td><Link to={`/agro/holdings/grupo/${x.group_id}`}>Ver grupo</Link></td></tr>)}</tbody></table></div>}
+<div className="holding-mobile">{items.map((x,i)=><article key={x.entity_id||x.candidate_id||x.group_id||i}><strong>{x.razao_social||x.connecting_person_name||x.group_name}</strong><span>{labels[x.tipo_entidade||x.classification]||x.tipo_entidade||x.classification}</span><span>{x.motivo_inclusao||'Critério documental'}</span>{evidence(x.evidencia_grupo||x.evidence||x.evidence_level)}{x.pessoa_selecionada_nome&&<span>Pessoa selecionada: {x.pessoa_selecionada_nome}</span>}{tab==='empresas'?<Link to={`/agro/holdings/empresa/${x.entity_id}`}>Ver detalhe</Link>:tab==='candidatos'?<Link to={`/agro/leads/${x.connecting_person_id}`}>Ver pessoa</Link>:<Link to={`/agro/holdings/grupo/${x.group_id}`}>Ver detalhe</Link>}</article>)}</div>
+<div className="holding-pagination"><span>Exibindo {total?(page-1)*pageSize+1:0}–{Math.min(page*pageSize,total)} de {fmt(total)} {unit}</span><div><button disabled={page<=1} onClick={()=>setPage(x=>x-1)}>Anterior</button><b>Página {page} de {fmt(pages)}</b><button disabled={page>=pages} onClick={()=>setPage(x=>x+1)}>Próxima</button><select aria-label="Itens por página" value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1)}}>{[25,50,100].map(n=><option key={n}>{n}</option>)}</select></div></div>
+<section className="holding-notes"><p>A fonte holding_blind_spot mantém um vínculo societário representativo por empresa e não corresponde ao QSA completo.</p><p>Pessoa em comum entre empresas não comprova grupo econômico, controle, beneficiário final ou atuação operacional conjunta.</p><p>Grupos documentais são exibidos somente quando existe relação persistida e fonte identificável.</p></section></AgroPageShell>}

@@ -257,7 +257,7 @@ export default function AgroApproved() {
   const navCards = [
     { label: "🏡 Propriedades Rurais", desc: "Catálogo server-side com CAR, área, bioma, proprietário e CNPJ — acesse a Ficha 360° a partir da tabela", route: "/agro/propriedades", color: "#22C55E" },
     { label: "👨‍💼 Pessoas & Vínculos", desc: "Pessoas agrupadas e seus vínculos societários cadastrais", route: "/agro/leads", color: "#8B5CF6" },
-    { label: "🏢 Holdings & Grupos", desc: "Razão social, CNPJ, propriedades, empresas do grupo e força da relação", route: "/agro/holdings", color: "#F59E0B" },
+    { label: "🏢 Holdings", desc: "Empresas representadas, candidatas e grupos documentais comprovados", route: "/agro/holdings", color: "#F59E0B" },
     { label: "🎯 Oportunidades", desc: "Fila comercial com score, categoria, evidência e próximo passo", route: "/agro/oportunidades", color: "#EC4899", badge: "Em validação" },
     { label: "🚚 Agro–Logística", desc: "Transportadores RNTRC, armazéns, distâncias e correlações", route: "/agro/logistica", color: "#06B6D4" },
     { label: "🩺 Canal Técnico", desc: "Profissionais, estabelecimentos e origens técnicas com confiança explícita", route: "/agro/tecnica", color: "#14B8A6" },

@@ -15,6 +15,8 @@ import AgroPropriedadeDetalheApproved from './pages/AgroPropriedadeDetalheApprov
 import AgroLeadsApproved from './pages/AgroLeadsApproved';
 import AgroPersonDetailApproved from './pages/AgroPersonDetailApproved';
 import AgroHoldingsApproved from './pages/AgroHoldingsApproved';
+import AgroHoldingEntityDetailApproved from './pages/AgroHoldingEntityDetailApproved';
+import AgroHoldingGroupDetailApproved from './pages/AgroHoldingGroupDetailApproved';
 import AgroOportunidadesApproved from './pages/AgroOportunidadesApproved';
 import AgroLogisticaApproved from './pages/AgroLogisticaApproved';
 import AgroGeneticaApproved from './pages/AgroGeneticaApproved';
@@ -700,8 +702,11 @@ function App() {
         <Route path="/agro/holdings" element={
           <ProtectedWrapper><AgroHoldingsApproved /></ProtectedWrapper>
         } />
-        <Route path="/agro/holdings/:id" element={
-          <ProtectedWrapper><AgroHoldingsApproved /></ProtectedWrapper>
+        <Route path="/agro/holdings/empresa/:id" element={
+          <ProtectedWrapper><AgroHoldingEntityDetailApproved /></ProtectedWrapper>
+        } />
+        <Route path="/agro/holdings/grupo/:id" element={
+          <ProtectedWrapper><AgroHoldingGroupDetailApproved /></ProtectedWrapper>
         } />
         <Route path="/agro/oportunidades" element={
           <ProtectedWrapper><AgroOportunidadesApproved /></ProtectedWrapper>
