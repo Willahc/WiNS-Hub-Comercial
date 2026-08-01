@@ -12,6 +12,7 @@ from repositories import (
 from wave1_repository import Wave1Repository
 from agro_canal_repository import AgroCanalRepository
 from agro_people_repository import AgroPeopleRepository
+from agro_holdings_repository import AgroHoldingsRepository
 
 
 class ReviewRequest(BaseModel):
@@ -735,11 +736,62 @@ def get_agro_decisores(request: Request, page: int = Query(1, ge=1), page_size: 
     response["canonical_endpoint"] = "/api/v1/agro/pessoas-vinculos"
     return response
 
+@router.get("/agro/holdings/stats")
+def get_agro_holdings_stats(request: Request, user=Depends(require_permission("agro"))):
+    try:
+        return AgroHoldingsRepository.stats()
+    except Exception as exc:
+        req_id=getattr(request.state,"request_id","unknown")
+        logger.error("Erro nas estatísticas de holdings Agro: %s reqId=%s",exc,req_id)
+        return standard_error("AGRO_HOLDINGS_STATS_UNAVAILABLE","Não foi possível carregar as estatísticas.",req_id,500,True)
+
+
+@router.get("/agro/holdings/entities/{entity_id}")
+def get_agro_holding_entity(entity_id: str, request: Request, user=Depends(require_permission("agro"))):
+    try:
+        item=AgroHoldingsRepository.entity_detail(entity_id)
+    except Exception as exc:
+        req_id=getattr(request.state,"request_id","unknown")
+        logger.error("Erro no detalhe de empresa Holdings: %s reqId=%s",exc,req_id)
+        return standard_error("AGRO_HOLDING_ENTITY_UNAVAILABLE","Não foi possível carregar a empresa.",req_id,500,True)
+    if not item: raise HTTPException(404,"Empresa não encontrada")
+    return item
+
+
+@router.get("/agro/holdings/groups/{group_id}")
+def get_agro_holding_group(group_id: str, request: Request, user=Depends(require_permission("agro"))):
+    try:
+        item=AgroHoldingsRepository.group_detail(group_id)
+    except Exception as exc:
+        req_id=getattr(request.state,"request_id","unknown")
+        logger.error("Erro no detalhe de grupo Holdings: %s reqId=%s",exc,req_id)
+        return standard_error("AGRO_HOLDING_GROUP_UNAVAILABLE","Não foi possível carregar o grupo.",req_id,500,True)
+    if not item: raise HTTPException(404,"Grupo documental não encontrado")
+    return item
+
+
 @router.get("/agro/holdings")
-def get_agro_holdings(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
-                      search: Optional[str] = None, uf: Optional[str] = None,
-                      user=Depends(require_permission("agro"))):
-    return Wave1Repository.agro_holdings(page=page, page_size=page_size, search=search, uf=uf)
+def get_agro_holdings(request: Request, page: int = Query(1, ge=1), page_size: int = Query(25),
+                      q: Optional[str] = None, search: Optional[str] = None, uf: Optional[str] = None,
+                      municipio: Optional[str] = None, tipo_entidade: Optional[str] = None,
+                      motivo_inclusao: Optional[str] = None, evidencia_grupo: Optional[str] = None,
+                      com_multiplas_empresas: Optional[bool] = None, com_propriedade: Optional[bool] = None,
+                      com_empresa_360: Optional[bool] = None, pessoa_id: Optional[str] = None,
+                      cnae: Optional[str] = None, tab: Literal["empresas","candidatos","grupos"] = "empresas",
+                      sort: Literal["razao_social","municipio","uf","total_empresas","evidencia_grupo","atualizacao"] = "razao_social",
+                      order: Literal["asc","desc"] = "asc", user=Depends(require_permission("agro"))):
+    if page_size not in (25,50,100): raise HTTPException(422,"page_size deve ser 25, 50 ou 100")
+    try:
+        return AgroHoldingsRepository.list(tab=tab,page=page,page_size=page_size,q=q or search,uf=uf,
+          municipio=municipio,tipo_entidade=tipo_entidade,motivo_inclusao=motivo_inclusao,
+          evidencia_grupo=evidencia_grupo,com_multiplas_empresas=com_multiplas_empresas,
+          com_propriedade=com_propriedade,com_empresa_360=com_empresa_360,pessoa_id=pessoa_id,
+          cnae=cnae,sort=sort,order=order)
+    except HTTPException: raise
+    except Exception as exc:
+        req_id=getattr(request.state,"request_id","unknown")
+        logger.error("Erro no catálogo Holdings Agro: %s reqId=%s",exc,req_id)
+        return standard_error("AGRO_HOLDINGS_UNAVAILABLE","Não foi possível carregar empresas e agrupamentos.",req_id,500,True)
 
 @router.get("/agro/oportunidades/calculadas")
 def get_agro_oportunidades_calculadas(request: Request, categoria: Optional[str] = None, min_score: int = Query(70, ge=0, le=100),
