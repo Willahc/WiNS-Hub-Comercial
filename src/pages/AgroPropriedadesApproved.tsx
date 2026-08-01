@@ -1,152 +1,37 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, Filter } from 'lucide-react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {useNavigate,useSearchParams} from 'react-router-dom';
+import {Filter,Search,SlidersHorizontal} from 'lucide-react';
 import AgroPageShell from '../components/AgroPageShell';
-import { BrazilUfSelect } from '../components/territorial/BrazilUfSelect';
-import { httpClient } from '../services/http/client';
-import { AGRO_API } from './agroApiEndpoints';
+import {BrazilUfSelect} from '../components/territorial/BrazilUfSelect';
+import {httpClient} from '../services/http/client';import {AGRO_API} from './agroApiEndpoints';
 
-function fmt(n: number): string {
-  return new Intl.NumberFormat('pt-BR').format(n);
-}
+type Filters={q:string;uf:string;municipio:string;area_min:string;area_max:string;completude_min:string;cobertura_veterinaria:string;com_titular:string;com_cnpj:string;com_bioma:string;com_uso_solo:string;fonte:string;somente_ficha:string};
+const defaults:Filters={q:'',uf:'',municipio:'',area_min:'',area_max:'',completude_min:'',cobertura_veterinaria:'',com_titular:'',com_cnpj:'',com_bioma:'',com_uso_solo:'',fonte:'',somente_ficha:''};
+const num=(v:any)=>typeof v==='number'&&Number.isFinite(v)?v.toLocaleString('pt-BR'):'Não disponível';
+const coverage:Record<string,string>={DESERTO_VET:'Deserto Vet',BAIXA_COBERTURA:'Baixa Cobertura',NORMAL:'Normal',INDISPONIVEL:'Indisponível'};
+const complete=(n:number)=>n>=80?'Alta completude':n>=50?'Parcial':'Territorial básico';
+function fromUrl(p:URLSearchParams):Filters{const f={...defaults};Object.keys(f).forEach(k=>{(f as any)[k]=p.get(k)||''});return f}
 
-/**
- * Catálogo de Propriedades Rurais — tabela server-side
- * Rota: /agro/propriedades
- * Endpoint: GET /agro/imoveis (httpClient adiciona /api/v1)
- */
-export default function AgroPropriedadesApproved() {
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  const [items, setItems] = useState<any[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
-  const [search, setSearch] = useState(searchParams.get('search') || '');
-  const [uf, setUf] = useState(searchParams.get('uf') || '');
-  const [minArea, setMinArea] = useState(searchParams.get('min_area') || '');
-  const [sort, setSort] = useState(searchParams.get('sort') || '');
-  const pageSize = 20;
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params: any = { page, page_size: pageSize };
-      if (search) params.search = search;
-      if (uf) params.uf = uf;
-      if (minArea) params.min_area = minArea;
-      if (sort) params.sort = sort;
-      const res = await httpClient.get(AGRO_API.imoveis, { params });
-      setItems(res.data?.items || []);
-      setTotal(res.data?.meta?.total || 0);
-      if ((res.data?.items || []).length === 0) setError(null); // vazio legítimo
-    } catch (err: any) {
-      setError(err?.userMessage || err?.message || 'Falha ao carregar catálogo de propriedades');
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, search, uf, minArea, sort]);
-
-  useEffect(() => { loadData(); }, [loadData]);
-
-  // Persiste filtros na URL
-  useEffect(() => {
-    const p: Record<string, string> = {};
-    if (uf) p.uf = uf;
-    if (search) p.search = search;
-    if (minArea) p.min_area = minArea;
-    if (sort) p.sort = sort;
-    if (page > 1) p.page = String(page);
-    setSearchParams(p, { replace: true });
-  }, [uf, search, minArea, sort, page, setSearchParams]);
-
-  const handleSearch = () => { setPage(1); loadData(); };
-  const empty = !loading && !error && items.length === 0;
-  const totalPages = Math.ceil(total / pageSize);
-
-  return (
-    <AgroPageShell
-      title="Catálogo de Propriedades Rurais"
-      subtitle={`${total.toLocaleString('pt-BR')} imóveis cadastrados no SICAR/CAR — dados declaratórios`}
-      loading={loading}
-      error={error}
-      onRetry={loadData}
-      empty={empty}
-      emptyMessage="Nenhum imóvel encontrado com os filtros atuais. Tente ajustar a busca ou UF."
-    >
-      {/* Filtros */}
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 12, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 260, background: 'var(--bg-base)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '6px 12px' }}>
-          <Search size={16} color="#94A3B8" />
-          <input type="text" placeholder="Buscar por código CAR, imóvel, proprietário ou CNPJ..." value={search}
-            onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
-            style={{ background: 'none', border: 'none', color: '#F8FAFC', fontSize: 13, width: '100%', outline: 'none' }} />
-        </div>
-        <BrazilUfSelect value={uf} onChange={v => { setUf(v); setPage(1); }} showAllLabel="Todas as UFs" />
-        <select value={minArea} onChange={e => { setMinArea(e.target.value); setPage(1); }}
-          style={{ background: 'var(--bg-base)', border: '1px solid var(--border-subtle)', color: '#F8FAFC', padding: '7px 12px', borderRadius: 6, fontSize: 12 }}>
-          <option value="">Todas as áreas</option>
-          <option value="100">&gt; 100 ha</option>
-          <option value="500">&gt; 500 ha</option>
-          <option value="1000">&gt; 1.000 ha</option>
-          <option value="5000">&gt; 5.000 ha</option>
-        </select>
-        <button onClick={handleSearch} style={{ background: '#22C55E', color: '#FFF', border: 'none', padding: '7px 16px', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>Filtrar</button>
-      </div>
-
-      {/* Tabela */}
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: '#0B132B', color: '#94A3B8', borderBottom: '1px solid #1E293B' }}>
-              <th style={{ padding: 12 }}>Código CAR / Imóvel</th>
-              <th style={{ padding: 12 }}>Proprietário / CNPJ</th>
-              <th style={{ padding: 12 }}>Município / UF</th>
-              <th style={{ padding: 12 }}>Área (ha)</th>
-              <th style={{ padding: 12 }}>Bioma / Uso</th>
-              <th style={{ padding: 12 }}>Ação</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item: any, idx: number) => (
-              <tr key={idx} style={{ borderBottom: '1px solid #1E293B' }}>
-                <td style={{ padding: 12 }}>
-                  <strong style={{ color: '#F8FAFC', display: 'block' }}>{item.nome_imovel || `CAR ${(item.codigo_car || item.source_id || '').slice(0, 18)}`}</strong>
-                  <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748B' }}>{item.codigo_car || item.source_id}</span>
-                </td>
-                <td style={{ padding: 12 }}>
-                  <span style={{ color: '#CBD5E1', display: 'block' }}>{item.nome_proprietario || 'Titular não identificado na fonte disponível'}</span>
-                  <span style={{ fontSize: 11, color: '#64748B' }}>{item.cpf_cnpj || 'CPF/CNPJ sob sigilo legal no SICAR'}</span>
-                </td>
-                <td style={{ padding: 12, color: '#CBD5E1' }}>{item.municipio} / {item.uf}</td>
-                <td style={{ padding: 12, fontWeight: 700, color: '#22C55E' }}>{item.area_total_ha ? fmt(Number(item.area_total_ha)) : '—'}</td>
-                <td style={{ padding: 12, color: '#94A3B8', fontSize: 11 }}>{item.bioma || '—'} / {item.uso_solo || '—'}</td>
-                <td style={{ padding: 12 }}>
-                  <button onClick={() => navigate(`/agro/propriedades/${encodeURIComponent(item.source_id || item.codigo_car)}`)}
-                    style={{ background: '#3B82F6', color: '#FFF', border: 'none', padding: '5px 12px', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                    Ficha 360°
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Paginação */}
-      {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, fontSize: 12 }}>
-          <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))}
-            style={{ padding: '6px 12px', background: page <= 1 ? 'var(--border-subtle)' : '#22C55E', color: '#FFF', border: 'none', borderRadius: 4, cursor: page <= 1 ? 'default' : 'pointer', opacity: page <= 1 ? 0.5 : 1 }}>Anterior</button>
-          <span style={{ color: '#94A3B8' }}>Página {page} de {totalPages}</span>
-          <button disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            style={{ padding: '6px 12px', background: page >= totalPages ? 'var(--border-subtle)' : '#22C55E', color: '#FFF', border: 'none', borderRadius: 4, cursor: page >= totalPages ? 'default' : 'pointer', opacity: page >= totalPages ? 0.5 : 1 }}>Próxima</button>
-        </div>
-      )}
-    </AgroPageShell>
-  );
+export default function AgroPropriedadesApproved(){
+ const nav=useNavigate(),[sp,setSp]=useSearchParams();const initial=useMemo(()=>fromUrl(sp),[]);
+ const[form,setForm]=useState<Filters>(initial),[filters,setFilters]=useState<Filters>(initial),[items,setItems]=useState<any[]>([]),[total,setTotal]=useState(0),[pages,setPages]=useState(0),[status,setStatus]=useState('ok'),[limitations,setLimitations]=useState<string[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState<string|null>(null),[more,setMore]=useState(false),[page,setPage]=useState(Number(sp.get('page'))||1),[pageSize,setPageSize]=useState(Number(sp.get('page_size'))||25),[sort,setSort]=useState(sp.get('sort')||'relevancia'),[order,setOrder]=useState(sp.get('order')||'desc');const abort=useRef<AbortController|null>(null);
+ const load=useCallback(async()=>{abort.current?.abort();const c=new AbortController();abort.current=c;setLoading(true);setError(null);try{const params:any={page,page_size:pageSize,sort,order};Object.entries(filters).forEach(([k,v])=>{if(v&&k!=='fonte'&&k!=='somente_ficha')params[k]=v});const r=await httpClient.get(AGRO_API.imoveis,{params,signal:c.signal});setItems((r.data.items||[]).filter((x:any)=>filters.somente_ficha?x.detail_available:true));setTotal(r.data.total||0);setPages(r.data.total_pages||0);setStatus(r.data.status||'ok');setLimitations(r.data.limitations||[])}catch(e:any){if(e?.name==='CanceledError'||e?.name==='AbortError')return;setError(e?.message||'Não foi possível carregar o catálogo de propriedades.');setItems([])}finally{if(!c.signal.aborted)setLoading(false)}},[filters,page,pageSize,sort,order]);
+ useEffect(()=>{load();return()=>abort.current?.abort()},[load]);
+ useEffect(()=>{const t=setTimeout(()=>{if(form.q!==filters.q){setFilters(x=>({...x,q:form.q}));setPage(1)}},450);return()=>clearTimeout(t)},[form.q,filters.q]);
+ useEffect(()=>{const p:any={};Object.entries(filters).forEach(([k,v])=>{if(v)p[k]=v});if(page>1)p.page=String(page);if(pageSize!==25)p.page_size=String(pageSize);if(sort!=='relevancia')p.sort=sort;if(order!=='desc')p.order=order;setSp(p,{replace:true})},[filters,page,pageSize,sort,order,setSp]);
+ const apply=()=>{setFilters(form);setPage(1)},clear=()=>{setForm(defaults);setFilters(defaults);setPage(1);setSort('relevancia');setOrder('desc')};const active=Object.values(filters).filter(Boolean).length;
+ const summary=useMemo(()=>({shown:items.length,owners:items.filter(x=>x.titular_nome).length,cnpj:items.filter(x=>x.cnpj_vinculado).length,desert:items.filter(x=>x.cobertura_veterinaria==='DESERTO_VET').length,low:items.filter(x=>x.cobertura_veterinaria==='BAIXA_COBERTURA').length,area:items.reduce((s,x)=>s+(typeof x.area_ha==='number'?x.area_ha:0),0),avg:items.length?Math.round(items.reduce((s,x)=>s+(x.completude_score||0),0)/items.length):0}),[items]);
+ const sortBy=(s:string)=>{setPage(1);if(sort===s)setOrder(o=>o==='asc'?'desc':'asc');else{setSort(s);setOrder(s==='municipio'||s==='uf'||s==='codigo_car'?'asc':'desc')}};const start=total?(page-1)*pageSize+1:0,end=Math.min(page*pageSize,total);
+ const filter=(k:keyof Filters,v:string)=>setForm(x=>({...x,[k]:v}));
+ const owner=(i:any)=><><strong>{i.titular_nome||'Titular não disponibilizado na fonte'}</strong><small>{i.cnpj_vinculado?`CNPJ ${i.cnpj_vinculado} — ${i.cnpj_evidencia}`:'Sem vínculo empresarial comprovado'}</small></>;
+ const action=(i:any)=><button disabled={!i.detail_available} title={i.detail_available?'Abrir Ficha 360°':'Ficha indisponível para este cadastro'} onClick={()=>i.detail_available&&nav(`/agro/propriedades/${encodeURIComponent(i.detail_id)}`)}>Ficha 360°</button>;
+ return <AgroPageShell title="Catálogo de Propriedades Rurais" subtitle="Cadastros declaratórios do SICAR/CAR" loading={loading} error={error} onRetry={load} empty={!loading&&!error&&!items.length} emptyMessage="Nenhuma propriedade encontrada com os filtros atuais.">
+  <section className="agro-property-filters"><div className="property-filter-main"><label><Search size={15}/><input aria-label="Busca" placeholder="Código CAR, cadastro, titular ou município" value={form.q} onChange={e=>filter('q',e.target.value)}/></label><BrazilUfSelect value={form.uf} onChange={v=>filter('uf',v)} showAllLabel="Todas as UFs"/><input aria-label="Município" placeholder="Município" value={form.municipio} onChange={e=>filter('municipio',e.target.value)}/><input aria-label="Área mínima" type="number" placeholder="Área mínima" value={form.area_min} onChange={e=>filter('area_min',e.target.value)}/><input aria-label="Área máxima" type="number" placeholder="Área máxima" value={form.area_max} onChange={e=>filter('area_max',e.target.value)}/><input aria-label="Completude mínima" type="number" min="0" max="100" placeholder="Completude mín." value={form.completude_min} onChange={e=>filter('completude_min',e.target.value)}/><select aria-label="Cobertura veterinária" value={form.cobertura_veterinaria} onChange={e=>filter('cobertura_veterinaria',e.target.value)}><option value="">Toda cobertura</option>{Object.entries(coverage).map(([v,l])=><option value={v} key={v}>{l}</option>)}</select><select aria-label="Com titular" value={form.com_titular} onChange={e=>filter('com_titular',e.target.value)}><option value="">Titular: todos</option><option value="true">Com titular</option><option value="false">Sem titular</option></select><select aria-label="Com CNPJ" value={form.com_cnpj} onChange={e=>filter('com_cnpj',e.target.value)}><option value="">CNPJ: todos</option><option value="true">Com CNPJ</option><option value="false">Sem CNPJ</option></select></div><div className="property-filter-actions"><button onClick={()=>setMore(x=>!x)}><SlidersHorizontal size={14}/>Mais filtros</button><button onClick={clear}>Limpar</button><button className="primary" onClick={apply}><Filter size={14}/>Aplicar filtros</button><span>{active} filtros ativos</span></div>{more&&<div className="property-more-filters"><select aria-label="Com bioma" value={form.com_bioma} onChange={e=>filter('com_bioma',e.target.value)}><option value="">Bioma: todos</option><option value="true">Com bioma</option><option value="false">Sem bioma</option></select><select aria-label="Com uso do solo" value={form.com_uso_solo} onChange={e=>filter('com_uso_solo',e.target.value)}><option value="">Uso: todos</option><option value="true">Com uso do solo</option><option value="false">Sem uso do solo</option></select><select aria-label="Fonte" value={form.fonte} onChange={e=>filter('fonte',e.target.value)}><option value="">Todas as fontes</option><option value="SICAR">SICAR/CAR</option></select><label><input type="checkbox" checked={form.somente_ficha==='true'} onChange={e=>filter('somente_ficha',e.target.checked?'true':'')}/>Somente ficha disponível</label></div>}</section>
+  {status==='partial'&&<div className="property-partial">Alguns enriquecimentos não estão disponíveis para este recorte.</div>}
+  <section className="property-page-summary"><h3>Resumo da página atual</h3>{[['Registros exibidos',summary.shown],['Com titular',summary.owners],['Com CNPJ',summary.cnpj],['Deserto Vet',summary.desert],['Baixa Cobertura',summary.low],['Área total exibida',`${num(summary.area)} ha`],['Completude média',`${summary.avg}%`]].map(([l,v])=><div key={l}><small>{l}</small><strong>{v}</strong></div>)}</section>
+  <div className="property-table-wrap"><table className="property-table"><thead><tr><th onClick={()=>sortBy('codigo_car')}>CAR / Cadastro</th><th>Titular / vínculo empresarial</th><th onClick={()=>sortBy('municipio')}>Município / UF</th><th onClick={()=>sortBy('area')}>Área</th><th onClick={()=>sortBy('completude')}>Completude</th><th>Cobertura veterinária</th><th>Bioma / Uso</th><th>Ação</th></tr></thead><tbody>{items.map(i=><tr key={i.detail_id}><td><strong>{i.codigo_car_exibicao||'Código CAR não disponível'}</strong><small>Cadastro declaratório</small></td><td>{owner(i)}</td><td>{i.municipio||'Município não disponível'} / {i.uf||'UF não disponível'}</td><td>{typeof i.area_ha==='number'?`${num(i.area_ha)} ha`:'Área não disponível'}</td><td><span className={`complete c${Math.floor((i.completude_score||0)/10)}`}>{i.completude_score}% · {complete(i.completude_score)}</span></td><td><span className={`coverage ${i.cobertura_veterinaria}`}>{coverage[i.cobertura_veterinaria]||'Indisponível'}</span><small>Classificação municipal</small></td><td><strong>{i.bioma||'Bioma não disponível'}</strong><small>{i.bioma?i.bioma_origem:'Uso do solo não disponível'}{i.uso_solo?' · Uso declarado no CAR':''}</small></td><td>{action(i)}</td></tr>)}</tbody></table></div>
+  <div className="property-mobile-list">{items.map(i=><article key={i.detail_id}><strong>{i.codigo_car_exibicao||'Código CAR não disponível'}</strong><span>{i.municipio||'Município não disponível'} / {i.uf||'UF não disponível'}</span><span>{typeof i.area_ha==='number'?`${num(i.area_ha)} ha`:'Área não disponível'}</span><span>{i.completude_score}% · {complete(i.completude_score)}</span><span>{coverage[i.cobertura_veterinaria]||'Indisponível'}</span>{action(i)}</article>)}</div>
+  <div className="property-pagination"><span>Exibindo {num(start)}–{num(end)} de {num(total)} registros</span><div><button disabled={page<=1} onClick={()=>setPage(1)}>Primeira</button><button disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Anterior</button><b>Página {page} de {num(pages)}</b><button disabled={page>=pages||page>=1000} onClick={()=>setPage(p=>p+1)}>Próxima</button><select aria-label="Registros por página" value={pageSize} onChange={e=>{setPageSize(Number(e.target.value));setPage(1)}}>{[25,50,100].map(n=><option key={n}>{n}</option>)}</select></div></div>
+  {limitations.length>0&&<small>{limitations.join(' ')}</small>}<p className="property-legal-note">Os registros são cadastros declaratórios do SICAR/CAR e não comprovam titularidade, domínio ou limites fundiários.</p>
+ </AgroPageShell>
 }

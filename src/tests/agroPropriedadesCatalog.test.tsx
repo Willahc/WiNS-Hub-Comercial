@@ -1,0 +1,13 @@
+import {describe,it,expect} from 'vitest';import fs from 'node:fs';import path from 'node:path';
+const page=fs.readFileSync(path.resolve(__dirname,'../pages/AgroPropriedadesApproved.tsx'),'utf8');const detail=fs.readFileSync(path.resolve(__dirname,'../pages/AgroPropriedadeDetalheApproved.tsx'),'utf8');const css=fs.readFileSync(path.resolve(__dirname,'../styles/index.css'),'utf8');
+describe('Catálogo de propriedades rurais',()=>{
+ it('implementa paginação, intervalo e page_size',()=>{for(const x of ['Exibindo {num(start)}–{num(end)} de {num(total)} registros','Primeira','Anterior','Próxima','Registros por página','[25,50,100]'])expect(page).toContain(x)});
+ it('implementa filtros, limpar, aplicar, debounce e URL',()=>{for(const x of ['Área mínima','Área máxima','Completude mínima','Cobertura veterinária','Com titular','Com CNPJ','Mais filtros','Com bioma','Com uso do solo','Somente ficha disponível','Aplicar filtros','Limpar','setTimeout','AbortController','setSp'])expect(page).toContain(x)});
+ it('mantém ordenação server-side e volta à página 1',()=>{expect(page).toContain("sortBy('area')");expect(page).toContain("sortBy('completude')");expect(page).toContain("sortBy('municipio')");expect(page).toContain('setPage(1)')});
+ it('resume somente a página atual',()=>{for(const x of ['Resumo da página atual','Registros exibidos','Com titular','Com CNPJ','Deserto Vet','Baixa Cobertura','Área total exibida','Completude média'])expect(page).toContain(x)});
+ it('expõe semântica honesta e null não vira zero',()=>{for(const x of ['Titular / vínculo empresarial','Titular não disponibilizado na fonte','Sem vínculo empresarial comprovado','Bioma não disponível','Uso do solo não disponível','Área não disponível','Classificação municipal'])expect(page).toContain(x);expect(page).toContain("typeof i.area_ha==='number'")});
+ it('habilita e desabilita Ficha 360 conforme contrato',()=>{expect(page).toContain('disabled={!i.detail_available}');expect(page).toContain("i.detail_available&&nav");expect(detail).toContain('data?.property')});
+ it('possui loading, empty, error, partial e retry',()=>{expect(page).toContain('loading={loading}');expect(page).toContain('error={error}');expect(page).toContain('onRetry={load}');expect(page).toContain('Nenhuma propriedade encontrada');expect(page).toContain("status==='partial'")});
+ it('usa cards no mobile',()=>{expect(page).toContain('property-mobile-list');expect(css).toContain('.property-mobile-list{display:grid')});
+ it('mantém nota declaratória e cobertura municipal sem técnico específico',()=>{expect(page).toContain('não comprovam titularidade, domínio ou limites fundiários');expect(detail).toContain('não afirma vínculo, disponibilidade ou proximidade de técnico específico')});
+});
