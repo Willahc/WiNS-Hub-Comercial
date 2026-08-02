@@ -10,6 +10,7 @@ COMPOSE_PROJECT="wins_agro_v1"
 PRODUCTION_CONTAINER="wins_agro_v1-hub-api-1"
 PRODUCTION_ENV_FILE="/root/wins_agro_v1/.env"
 PRODUCTION_NETWORK="wins_agro_v1_default"
+PERSISTENT_OVERRIDE="/root/wins_agro_v1/docker-compose.release.yml"
 
 usage() {
   echo "Uso: $0 [--dry-run|--apply]"
@@ -26,6 +27,69 @@ esac
 log() { printf '[%s] %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*"; }
 fail() { printf '[ERRO] %s\n' "$*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1 || fail "Comando obrigatório ausente: $1"; }
+
+validate_functional_api() {
+  local container_name="$1"
+  docker exec -i "$container_name" python - <<'PY'
+import json, os, time, urllib.request
+
+base = "http://127.0.0.1:8000/api/v1"
+secret = os.environ.get("WINS_INTERNAL_SECRET", "")
+if not secret:
+    raise SystemExit("WINS_INTERNAL_SECRET ausente no container")
+headers = {
+    "X-WiNS-Authenticated-User": "agro-release-validator",
+    "X-WiNS-Display-Name": "Agro Release Validator",
+    "X-WiNS-Roles": "agro",
+    "X-WiNS-Auth-Mode": "maintenance",
+    "X-WiNS-Internal-Secret": secret,
+}
+timings = {}
+def get(path, authenticated=True):
+    request = urllib.request.Request(base + path, headers=headers if authenticated else {})
+    started = time.monotonic()
+    with urllib.request.urlopen(request, timeout=15) as response:
+        if response.status != 200:
+            raise AssertionError(f"{path}: HTTP {response.status}")
+        payload = json.load(response)
+    timings[path] = round((time.monotonic() - started) * 1000, 2)
+    return payload
+
+assert get("/health", False)["status"] == "ok"
+status = get("/agro/oportunidades/status")
+assert status["engine_status"] == "VALIDATION"
+signals = get("/agro/oportunidades?stage=SIGNAL&page=1&page_size=25")
+assert isinstance(signals.get("items"), list) and signals["items"]
+for item in signals["items"]:
+    for forbidden in ("score", "min_score", "composicao_score", "decisor", "contato", "telefone", "email"):
+        assert forbidden not in item or item[forbidden] in (None, "")
+funnel = get("/agro/oportunidades/funil")
+assert funnel["municipalities_evaluated"] == 5536
+assert funnel["signals_total"] == 1368
+assert funnel["deserto_vet_signals"] == 539
+assert funnel["low_coverage_signals"] == 829
+assert funnel["validated_total"] == 0
+rules = get("/agro/oportunidades/regras")
+by_rule = {rule["rule_id"]: rule for rule in rules["rules"]}
+assert by_rule["TECHNICAL_COVERAGE_GAP_MUNICIPAL_V1"]["status"] == "ACTIVE"
+property_rule = by_rule["PROPERTY_IN_TECHNICAL_GAP_V1"]
+assert property_rule["status"] in ("ACTIVE", "UNAVAILABLE")
+if property_rule["status"] == "UNAVAILABLE":
+    assert property_rule.get("blockers")
+for rule in rules["rules"]:
+    if rule["status"] == "PLANNED":
+        assert rule.get("produced_count") == 0
+stages = get("/agro/oportunidades/estagios")
+by_stage = {stage["stage"]: stage for stage in stages["stages"]}
+assert by_stage["SIGNAL"]["status"] == "ACTIVE" and by_stage["SIGNAL"]["available"] is True
+assert by_stage["CANDIDATE"]["status"] in ("ACTIVE", "UNAVAILABLE")
+assert by_stage["VALIDATION"]["status"] == "UNAVAILABLE"
+assert by_stage["VALIDATED"]["status"] == "UNAVAILABLE"
+assert timings["/agro/oportunidades/estagios"] < 1000
+assert timings["/agro/oportunidades/regras"] < 1000
+print(json.dumps({"status": "pass", "timings_ms": timings}, ensure_ascii=False))
+PY
+}
 
 for command_name in git python3 npm npx ruff pytest docker curl sha256sum; do need "$command_name"; done
 [[ -f "$MANIFEST" ]] || fail "Manifesto ausente: $MANIFEST"
@@ -138,7 +202,7 @@ log "Gates backend em $BACKEND_SHA"
   routes_file="apps/api/routes.py"
   for endpoint in \
     '/agro/oportunidades/status' '/agro/oportunidades' '/agro/oportunidades/funil' \
-    '/agro/oportunidades/regras' '/agro/oportunidades/calculadas' '/agro/imoveis' \
+    '/agro/oportunidades/regras' '/agro/oportunidades/estagios' '/agro/oportunidades/calculadas' '/agro/imoveis' \
     '/agro/pessoas-vinculos' '/agro/holdings' '/agro/tecnicos' '/agro/deserto-veterinario'; do
     grep -Fq "$endpoint" "$routes_file" || fail "Endpoint backend ausente: /api/v1$endpoint"
   done
@@ -165,6 +229,8 @@ for attempt in $(seq 1 30); do
   sleep 2
 done
 [[ "$CANARY_GATE" == "pass" ]] || { docker logs "$CANARY_NAME" >&2 || true; fail "Imagem não respondeu ao health no canário"; }
+CANARY_RESULT="$(validate_functional_api "$CANARY_NAME")" || { docker logs "$CANARY_NAME" >&2 || true; fail "Canário funcional reprovado"; }
+printf '%s\n' "$CANARY_RESULT" > "$ARTIFACT_DIR/canary-functional.json"
 docker rm -f "$CANARY_NAME" >/dev/null
 
 log "Gates frontend em $FRONTEND_SHA"
@@ -216,10 +282,21 @@ ASSET_HASH_FILE="$ARTIFACT_DIR/assets.sha256"
 find "$ARTIFACT_DIR/dist/assets" -type f -print0 | sort -z | xargs -0 sha256sum > "$ASSET_HASH_FILE"
 cp "$MANIFEST" "$ARTIFACT_DIR/agro-release.json"
 IMAGE_ID="$(docker image inspect "$IMAGE_TAG" --format '{{.Id}}')"
+PERSISTED_IMAGE_BEFORE="none"
+if [[ -f "$PERSISTENT_OVERRIDE" ]]; then
+  PERSISTED_IMAGE_BEFORE="$(python3 - "$PERSISTENT_OVERRIDE" <<'PY'
+import sys
+for line in open(sys.argv[1], encoding="utf-8"):
+    if line.strip().startswith("image:"):
+        print(line.split(":", 1)[1].strip())
+        break
+PY
+)"
+fi
 
-python3 - "$ARTIFACT_DIR/report.json" "$RELEASE_ID" "$BACKEND_SHA" "$FRONTEND_SHA" "$IMAGE_TAG" "$IMAGE_ID" "$BACKEND_GATE" "$FRONTEND_GATE" "$CANARY_GATE" "$ASSET_HASH_FILE" <<'PY'
+python3 - "$ARTIFACT_DIR/report.json" "$RELEASE_ID" "$BACKEND_SHA" "$FRONTEND_SHA" "$IMAGE_TAG" "$IMAGE_ID" "$BACKEND_GATE" "$FRONTEND_GATE" "$CANARY_GATE" "$ASSET_HASH_FILE" "$PERSISTED_IMAGE_BEFORE" "$PERSISTENT_OVERRIDE" <<'PY'
 import json, pathlib, sys
-report, release_id, backend, frontend, tag, image_id, bg, fg, canary, hashes = sys.argv[1:]
+report, release_id, backend, frontend, tag, image_id, bg, fg, canary, hashes, persisted_before, override_path = sys.argv[1:]
 assets = []
 for line in pathlib.Path(hashes).read_text().splitlines():
     digest, name = line.split(maxsplit=1)
@@ -230,6 +307,9 @@ payload = {
     "frontend_sha": frontend,
     "proposed_image_tag": tag,
     "image_id": image_id,
+    "persistent_override": override_path,
+    "official_image_before_apply": persisted_before,
+    "official_image_after_apply": None,
     "assets": assets,
     "gates": {"backend": bg, "frontend": fg, "canary": canary},
 }
@@ -255,28 +335,47 @@ docker image inspect "$OLD_IMAGE" > "$BACKUP_ROOT/image.json"
 printf '%s\n' "$OLD_IMAGE" > "$BACKUP_ROOT/previous-image.txt"
 cp -a "$FRONTEND_DESTINATION/." "$BACKUP_ROOT/frontend/"
 find "$BACKUP_ROOT/frontend" -type f -print0 | sort -z | xargs -0 sha256sum > "$BACKUP_ROOT/frontend.sha256"
-[[ -s "$BACKUP_ROOT/container.json" && -s "$BACKUP_ROOT/image.json" && -s "$BACKUP_ROOT/frontend.sha256" ]] || fail "Backup incompleto; apply abortado"
+if [[ -f "$PERSISTENT_OVERRIDE" ]]; then
+  cp "$PERSISTENT_OVERRIDE" "$BACKUP_ROOT/docker-compose.release.yml"
+  printf 'present\n' > "$BACKUP_ROOT/override-state.txt"
+else
+  printf 'absent\n' > "$BACKUP_ROOT/override-state.txt"
+fi
+[[ -s "$BACKUP_ROOT/container.json" && -s "$BACKUP_ROOT/image.json" && -s "$BACKUP_ROOT/frontend.sha256" && -s "$BACKUP_ROOT/override-state.txt" ]] || fail "Backup incompleto; apply abortado"
 
-OVERRIDE_FILE="$TEMP_ROOT/release-compose.override.yml"
-cat > "$OVERRIDE_FILE" <<YAML
+OVERRIDE_CANDIDATE="$(mktemp /root/wins_agro_v1/.docker-compose.release.yml.XXXXXX)"
+cat > "$OVERRIDE_CANDIDATE" <<YAML
 services:
   hub-api:
     image: $IMAGE_TAG
 YAML
+docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$OVERRIDE_CANDIDATE" config >/dev/null || fail "Override persistente proposto é inválido"
+mv "$OVERRIDE_CANDIDATE" "$PERSISTENT_OVERRIDE"
+[[ -f "$PERSISTENT_OVERRIDE" ]] || fail "Publicação atômica do override falhou"
 
 rollback() {
-  log "Rollback: restaurando backend e frontend anteriores"
-  cat > "$OVERRIDE_FILE" <<YAML
+  log "Rollback: restaurando backend, frontend e override persistente anteriores"
+  local rollback_override
+  rollback_override="$(mktemp /root/wins_agro_v1/.docker-compose.release.rollback.yml.XXXXXX)"
+  if [[ "$(cat "$BACKUP_ROOT/override-state.txt")" == "present" ]]; then
+    cp "$BACKUP_ROOT/docker-compose.release.yml" "$rollback_override"
+  else
+    cat > "$rollback_override" <<YAML
 services:
   hub-api:
     image: $OLD_IMAGE
 YAML
-  docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$OVERRIDE_FILE" up -d --no-build hub-api
+  fi
+  docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$rollback_override" config >/dev/null
+  mv "$rollback_override" "$PERSISTENT_OVERRIDE"
+  docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$PERSISTENT_OVERRIDE" up -d --no-build hub-api
   rsync -a --delete "$BACKUP_ROOT/frontend/" "$FRONTEND_DESTINATION/"
+  validate_functional_api "$PRODUCTION_CONTAINER" > "$BACKUP_ROOT/rollback-functional.json"
   nginx -t && nginx -s reload
+  printf 'rollback-complete\n' > "$BACKUP_ROOT/rollback-status.txt"
 }
 
-if ! docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$OVERRIDE_FILE" up -d --no-build hub-api; then
+if ! docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$PERSISTENT_OVERRIDE" up -d --no-build hub-api; then
   rollback
   fail "Troca do backend falhou; rollback executado"
 fi
@@ -284,9 +383,24 @@ if ! rsync -a --delete "$ARTIFACT_DIR/dist/" "$FRONTEND_DESTINATION/"; then
   rollback
   fail "Publicação frontend falhou; rollback executado"
 fi
-if ! curl -fsS "http://127.0.0.1:18085/api/v1/health" >/dev/null || ! nginx -t; then
+if ! validate_functional_api "$PRODUCTION_CONTAINER" > "$ARTIFACT_DIR/production-functional.json" || ! nginx -t; then
   rollback
   fail "Validação pós-troca falhou; rollback executado"
 fi
+for asset in "${referenced_assets[@]}"; do
+  [[ -f "$FRONTEND_DESTINATION/$asset" ]] || { rollback; fail "Asset publicado ausente: $asset"; }
+done
 nginx -s reload
+python3 - "$ARTIFACT_DIR/report.json" "$IMAGE_TAG" "$BACKUP_ROOT" "$(cat "$BACKUP_ROOT/override-state.txt")" <<'PY'
+import json, pathlib, sys
+path, image, backup, override_state = sys.argv[1:]
+payload = json.loads(pathlib.Path(path).read_text())
+payload["official_image_after_apply"] = image
+payload["persistent_override_previous_state"] = override_state
+payload["persistent_override_backup"] = (
+    backup + "/docker-compose.release.yml" if override_state == "present" else None
+)
+payload["apply"] = "pass"
+pathlib.Path(path).write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+PY
 log "Apply concluído para $PRODUCTION_DOMAIN; backup em $BACKUP_ROOT"

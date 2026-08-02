@@ -1,12 +1,12 @@
 {
-  "release_id": "agro-radar-territorial-v1",
+  "release_id": "agro-radar-stages-v2",
   "repository": "Willahc/WiNS-Hub-Comercial",
   "backend": {
-    "commit": "6ee8f0e5bea8cf738b466b73766dd88f350128bf",
+    "commit": "a20c968203ce0b70dfdb76db9a34e9aa5a313d89",
     "source_path": "apps/api"
   },
   "frontend": {
-    "commit": "c48411b96d1d283c3aa2f6c21d615f13cfafbf48",
+    "commit": "bc59ef97382d0871d61f6dbd7caf2d0d0dccdbc0",
     "source_path": "."
   },
   "production": {
