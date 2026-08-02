@@ -88,13 +88,13 @@ assert by_stage["VALIDATED"]["status"] == "UNAVAILABLE"
 assert timings["/agro/oportunidades/estagios"] < 1000
 assert timings["/agro/oportunidades/regras"] < 1000
 for regression_path in (
-    "/agro/imoveis?page=1&page_size=1",
-    "/agro/pessoas-vinculos?page=1&page_size=1",
-    "/agro/holdings?page=1&page_size=1",
-    "/agro/tecnicos?page=1&page_size=1",
-    "/agro/deserto-veterinario?page=1&page_size=1",
-    "/diretorios/logistica/transportadores?page=1&page_size=1",
-    "/diretorios/saude/estabelecimentos?page=1&page_size=1",
+    "/agro/imoveis?page=1&page_size=25",
+    "/agro/pessoas-vinculos?page=1&page_size=25",
+    "/agro/holdings?page=1&page_size=25",
+    "/agro/tecnicos?page=1&page_size=25",
+    "/agro/deserto-veterinario?page=1&page_size=25",
+    "/diretorios/logistica/transportadores?page=1&page_size=25",
+    "/diretorios/saude/estabelecimentos?page=1&page_size=25",
     "/visao-geral/mapa",
 ):
     get(regression_path)
