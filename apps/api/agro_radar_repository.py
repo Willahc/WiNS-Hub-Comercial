@@ -142,7 +142,10 @@ VALIDATION_CHECKLIST = [
 
 
 def _query(sql: str, params: list | None = None) -> list[dict]:
-    conn = get_connection("agro")
+    # A view territorial pertence ao contrato read-only canônico servido por
+    # wins_hub_api_ro. O papel de domínio Agro é legado e não possui SELECT
+    # nesta view; usar o pool canônico evita grants ou mutações de banco.
+    conn = get_connection()
     try:
         conn.set_session(readonly=True, autocommit=False)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -152,7 +155,7 @@ def _query(sql: str, params: list | None = None) -> list[dict]:
         conn.rollback()
         return rows
     finally:
-        release_connection(conn, "agro")
+        release_connection(conn)
 
 
 def _now_iso() -> str:
