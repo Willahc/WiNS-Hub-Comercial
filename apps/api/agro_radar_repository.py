@@ -18,7 +18,7 @@ ENGINE_STATUS = "VALIDATION"
 ENGINE_NAME = "Radar de Sinais Agro"
 ENGINE_VERSION = "territorial-v1"
 ACTIVE_RULES = 1
-AVAILABLE_STAGES = ["SIGNAL", "CANDIDATE", "VALIDATED"]
+AVAILABLE_STAGES = ["SIGNAL"]
 
 RULE_ID = "TECHNICAL_COVERAGE_GAP_MUNICIPAL_V1"
 RULE_VERSION = "1.0"
@@ -107,12 +107,38 @@ PLANNED_RULES = [
 ]
 
 PROPERTY_RULE_UNAVAILABLE_REASON = (
-    "Query de contagem sobre o catálogo de propriedades rurais (prospeccao.imovel_rural, "
-    "~8,3M cadastros) em municípios classificados excede a meta de desempenho de 5s "
-    "(medido ~6,2s em contagem simples, sem ordenação). Sem materialização ou índice "
-    "dedicado, a geração de candidatas não atende ao critério documental de desempenho. "
+    "Consulta auditada sobre o catálogo de propriedades rurais (prospeccao.imovel_rural, "
+    "8.291.331 cadastros) em municípios classificados excedeu a meta de desempenho de 5s "
+    "(13,47s para a primeira página). Sem índice dedicado para o join nacional, a geração "
+    "de candidatas não atende ao critério documental de desempenho. "
     "Fail-closed: nenhuma candidata é gerada."
 )
+
+PROPERTY_SOURCES = [
+    "prospeccao.fazenda_deserto",
+    "prospeccao.fazenda_ibge",
+    "prospeccao.imovel_rural",
+    "prospeccao.v_white_space_pecuaria",
+    "/api/v1/agro/imoveis",
+]
+
+PROPERTY_BLOCKERS = [
+    {
+        "code": "PROPERTY_QUERY_NOT_PERFORMANT",
+        "description": "A consulta nacional paginada excedeu cinco segundos; nenhuma candidata será produzida sob demanda.",
+    }
+]
+
+VALIDATION_CHECKLIST = [
+    {"item": "Persistência da fila", "status": "UNAVAILABLE"},
+    {"item": "Identidade do validador", "status": "UNAVAILABLE"},
+    {"item": "Aceite ou rejeição", "status": "PLANNED"},
+    {"item": "Motivo da decisão", "status": "PLANNED"},
+    {"item": "Data e hora", "status": "PLANNED"},
+    {"item": "Histórico", "status": "UNAVAILABLE"},
+    {"item": "Auditoria", "status": "UNAVAILABLE"},
+    {"item": "Controle de concorrência", "status": "UNAVAILABLE"},
+]
 
 
 def _query(sql: str, params: list | None = None) -> list[dict]:
@@ -176,6 +202,64 @@ class AgroRadarRepository:
     def universe() -> int:
         rows = _query("SELECT count(*)::int AS total FROM prospeccao.v_white_space_pecuaria")
         return int(rows[0]["total"]) if rows else 0
+
+    @staticmethod
+    def stages() -> dict:
+        funnel = AgroRadarRepository.funnel()
+        signal_count = funnel.get("signals_total")
+        stages = [
+            {
+                "stage": "SIGNAL", "label": "Sinais", "status": "ACTIVE", "available": True,
+                "record_count": signal_count,
+                "description": "Sinais territoriais reais de lacuna de cobertura técnica veterinária.",
+                "entry_criteria": ["Município presente na fonte territorial aprovada."],
+                "exit_criteria": ["Regra de promoção comprovada e executável."],
+                "required_fields": ["codigo_ibge", "municipio", "uf", "classificacao_vet"],
+                "blockers": [], "next_action": None,
+            },
+            {
+                "stage": "CANDIDATE", "label": "Candidatas", "status": "UNAVAILABLE", "available": False,
+                "record_count": 0,
+                "description": "Propriedades reais elegíveis somente após vínculo territorial exato e consulta performática.",
+                "entry_criteria": ["Propriedade persistida", "CAR real", "código IBGE exato", "detalhe disponível", "fonte SICAR/CAR"],
+                "exit_criteria": ["Necessidade produtiva confirmada por validação humana."],
+                "required_fields": ["property_id", "detail_id", "codigo_car", "codigo_ibge", "municipio", "uf", "fonte_principal"],
+                "blockers": PROPERTY_BLOCKERS,
+                "next_action": "Disponibilizar consulta paginada indexada abaixo de cinco segundos e repetir a auditoria.",
+            },
+            {
+                "stage": "VALIDATION", "label": "Em validação", "status": "UNAVAILABLE", "available": False,
+                "record_count": 0,
+                "description": "Prontidão do futuro fluxo humano; nenhuma fila persistida existe nesta versão.",
+                "entry_criteria": ["Candidata persistida", "entidade identificável", "evidência territorial", "fonte e data", "responsável humano"],
+                "exit_criteria": ["Decisão humana registrada com motivo, data e auditoria."],
+                "required_fields": ["candidate_id", "validator_id", "decision", "reason", "decided_at"],
+                "blockers": [{"code": "HUMAN_WORKFLOW_NOT_PERSISTED", "description": "Fila, identidade e histórico de decisão ainda não estão persistidos."}],
+                "next_action": "Projetar persistência e auditoria em entrega futura, sem ativar controles agora.",
+                "readiness": VALIDATION_CHECKLIST,
+            },
+            {
+                "stage": "VALIDATED", "label": "Validadas", "status": "UNAVAILABLE", "available": False,
+                "record_count": 0,
+                "description": "Oportunidades comerciais somente após evidência e validação humana comprovadas.",
+                "entry_criteria": ["Oportunidade persistida", "entidade acionável", "necessidade confirmada", "contato classificado", "validação humana"],
+                "exit_criteria": ["Próximo passo, responsável e limitações registrados."],
+                "required_fields": ["opportunity_id", "entity_id", "confirmed_need", "responsible", "validated_at", "rule_version"],
+                "blockers": [
+                    {"code": "CANDIDATES_UNAVAILABLE", "description": "Candidatas estão indisponíveis ou em total zero."},
+                    {"code": "HUMAN_WORKFLOW_UNAVAILABLE", "description": "Workflow humano indisponível."},
+                    {"code": "NO_VALIDATED_CONTACTS", "description": "Contatos pessoais validados: zero."},
+                    {"code": "COMMERCIAL_DECISION_NOT_PROVEN", "description": "Decisão comercial não comprovada."},
+                ],
+                "next_action": "Manter a política fail-closed até existir validação humana auditável.",
+            },
+        ]
+        return {
+            "engine_status": ENGINE_STATUS,
+            "stages": stages,
+            "sources": SOURCES + PROPERTY_SOURCES,
+            "limitations": ["Nenhum estágio promove registros automaticamente.", "Nenhuma fila comercial está disponível."],
+        }
 
     @staticmethod
     def signals(page=1, page_size=25, stage="SIGNAL", q=None, uf=None, municipio=None,
@@ -388,12 +472,12 @@ class AgroRadarRepository:
                     "missing_entity": None,
                     "missing_contact": None,
                     "missing_decision_evidence": None,
-                    "rule_unavailable": signals,
+                    "promotion_unavailable": signals,
                 },
                 "sources": SOURCES,
                 "limitations": [
                     "As razões missing_entity, missing_contact e missing_decision_evidence não podem ser calculadas sem execução de resolução de entidades e contatos.",
-                    "A regra de candidatas (PROPERTY_IN_TECHNICAL_GAP_V1) está UNAVAILABLE nesta versão; todos os sinais ficam retidos na promoção para candidatas.",
+                    "A regra de candidatas (PROPERTY_IN_TECHNICAL_GAP_V1) está UNAVAILABLE; os sinais permanecem sem regra de promoção nesta versão.",
                 ],
             }
         except Exception as exc:
@@ -413,7 +497,7 @@ class AgroRadarRepository:
                     "missing_entity": None,
                     "missing_contact": None,
                     "missing_decision_evidence": None,
-                    "rule_unavailable": None,
+                    "promotion_unavailable": None,
                 },
                 "sources": SOURCES,
                 "limitations": ["Não foi possível calcular o funil de sinais neste momento."],
@@ -421,6 +505,8 @@ class AgroRadarRepository:
 
     @staticmethod
     def rules() -> dict:
+        funnel = AgroRadarRepository.funnel()
+        evaluated_at = _now_iso()
         active_rule = {
             "rule_id": RULE_ID,
             "name": RULE_NAME,
@@ -433,6 +519,14 @@ class AgroRadarRepository:
             "sources": RULE_SOURCES,
             "limitations": SIGNAL_LIMITATIONS,
             "unavailable_reason": None,
+            "blockers": [],
+            "produced_count": funnel.get("signals_total"),
+            "last_evaluated_at": evaluated_at,
+            "last_duration_ms": None,
+            "required_fields": ["codigo_ibge", "municipio", "uf", "classificacao_vet"],
+            "exclusion_criteria": ["classificação NORMAL"],
+            "output_contract": "TerritorialSignal",
+            "metrics": ["bovinos", "tecnicos_75km", "carga_regional"],
         }
         property_rule = {
             "rule_id": "PROPERTY_IN_TECHNICAL_GAP_V1",
@@ -455,13 +549,34 @@ class AgroRadarRepository:
                 "nenhuma propriedade inferida por aproximação",
                 "nenhuma pessoa ou contato atribuído sem evidência",
             ],
-            "sources": ["prospeccao.imovel_rural", "SICAR/CAR"],
+            "sources": PROPERTY_SOURCES,
             "limitations": ["Nenhuma candidata gerada enquanto a regra estiver indisponível."],
             "unavailable_reason": PROPERTY_RULE_UNAVAILABLE_REASON,
+            "blockers": PROPERTY_BLOCKERS,
+            "produced_count": 0,
+            "last_evaluated_at": evaluated_at,
+            "last_duration_ms": 13470,
+            "required_fields": ["property_id", "detail_id", "codigo_car", "codigo_ibge", "municipio", "uf", "fonte_principal"],
+            "exclusion_criteria": ["join municipal não exato", "detalhe ausente", "consulta acima de cinco segundos"],
+            "output_contract": "PropertyCandidate",
+            "metrics": [],
         }
+        planned_rules = [
+            {
+                **rule,
+                "blockers": [], "produced_count": 0, "last_evaluated_at": None,
+                "last_duration_ms": None, "required_fields": [], "exclusion_criteria": [],
+                "output_contract": None, "metrics": [],
+            }
+            for rule in PLANNED_RULES
+        ]
         return {
             "engine_status": ENGINE_STATUS,
-            "rules": [active_rule, property_rule] + PLANNED_RULES,
+            "rules": [active_rule, property_rule] + planned_rules,
+            "summary": {
+                "total": 6, "active": 1, "unavailable": 1, "planned": 4,
+                "signals_generated": funnel.get("signals_total"), "candidates_generated": 0,
+            },
             "sources": SOURCES,
             "limitations": [
                 "Regras PLANNED ou UNAVAILABLE não geram registros nesta versão.",
@@ -486,7 +601,16 @@ class AgroRadarRepository:
             "source_object": None,
             "universe": {"description": "Nenhum universo de candidatas calculado nesta versão.", "total_evaluated": 0},
             "status": "ok",
-            "sources": SOURCES,
+            "rule_status": "UNAVAILABLE",
+            "blockers": PROPERTY_BLOCKERS,
+            "criteria": AgroRadarRepository.stages()["stages"][1]["entry_criteria"],
+            "available_evidence": [
+                "8.291.331 propriedades possuem CAR e código IBGE persistidos.",
+                "CAR é único no catálogo auditado.",
+                "O detalhe canônico usa o identificador persistido da propriedade.",
+            ],
+            "missing_requirements": ["Consulta paginada indexada abaixo de cinco segundos."],
+            "sources": PROPERTY_SOURCES,
             "limitations": [
                 "A regra PROPERTY_IN_TECHNICAL_GAP_V1 está UNAVAILABLE; nenhuma candidata é gerada.",
                 PROPERTY_RULE_UNAVAILABLE_REASON,

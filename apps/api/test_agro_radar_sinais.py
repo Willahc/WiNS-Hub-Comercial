@@ -49,7 +49,7 @@ def test_status_explicito_validacao_sem_fila_comercial():
     assert status["commercial_queue_available"] is False
     assert status["human_validation_available"] is False
     assert status["active_rules"] == 1
-    assert status["available_stages"] == ["SIGNAL", "CANDIDATE", "VALIDATED"]
+    assert status["available_stages"] == ["SIGNAL"]
 
 
 def test_array_vazio_nao_implica_motor_ativo():
@@ -173,7 +173,7 @@ def test_funil_real_com_contagens_e_motivos_null():
     assert result["validated_total"] == 0
     assert result["discarded_or_not_promoted"]["normal_coverage"] == 4168
     assert result["discarded_or_not_promoted"]["missing_entity"] is None
-    assert result["discarded_or_not_promoted"]["rule_unavailable"] == 1368
+    assert result["discarded_or_not_promoted"]["promotion_unavailable"] == 1368
 
 
 def test_funil_erro_retorna_nulls_nao_zeros_falsos():
@@ -193,7 +193,7 @@ def test_regras_ativas_planejadas_e_indisponiveis():
     assert rules["TECHNICAL_COVERAGE_GAP_MUNICIPAL_V1"]["produces_stage"] == "SIGNAL"
     assert rules["PROPERTY_IN_TECHNICAL_GAP_V1"]["status"] == "UNAVAILABLE"
     assert rules["PROPERTY_IN_TECHNICAL_GAP_V1"]["produces_stage"] == "CANDIDATE"
-    assert "8,3M" in rules["PROPERTY_IN_TECHNICAL_GAP_V1"]["unavailable_reason"]
+    assert "8.291.331" in rules["PROPERTY_IN_TECHNICAL_GAP_V1"]["unavailable_reason"]
     assert rules["AGRO_COMPANY_IN_PRIORITY_TERRITORY_V1"]["status"] == "PLANNED"
     assert rules["TECHNICAL_CHANNEL_GAP_V1"]["status"] == "PLANNED"
     assert rules["GENETIC_DEMAND_MATCH_V1"]["status"] == "PLANNED"
@@ -206,6 +206,58 @@ def test_candidata_fail_closed_mesmo_com_dados_mockados():
     assert result["items"] == [] and result["filtered_total"] == 0
     assert result["source_object"] is None
     assert result["engine_status"] == "VALIDATION"
+    assert result["rule_status"] == "UNAVAILABLE"
+    assert result["blockers"][0]["code"] == "PROPERTY_QUERY_NOT_PERFORMANT"
+    assert "prospeccao.imovel_rural" in result["sources"]
+
+
+def test_metadados_dos_quatro_estagios_sem_promocao_automatica():
+    rows = [
+        {"classification": "DESERTO_VET", "total": 539},
+        {"classification": "BAIXA_COBERTURA", "total": 829},
+        {"classification": "NORMAL", "total": 4168},
+    ]
+    with patch.object(repo, "_query", return_value=rows):
+        result = repo.AgroRadarRepository.stages()
+    stages = {stage["stage"]: stage for stage in result["stages"]}
+    assert result["engine_status"] == "VALIDATION"
+    assert set(stages) == {"SIGNAL", "CANDIDATE", "VALIDATION", "VALIDATED"}
+    assert stages["SIGNAL"]["status"] == "ACTIVE"
+    assert stages["SIGNAL"]["available"] is True
+    assert stages["SIGNAL"]["record_count"] == 1368
+    assert stages["CANDIDATE"]["status"] == "UNAVAILABLE"
+    assert stages["CANDIDATE"]["record_count"] == 0
+    assert stages["CANDIDATE"]["blockers"][0]["code"] == "PROPERTY_QUERY_NOT_PERFORMANT"
+    assert stages["VALIDATION"]["status"] == "UNAVAILABLE"
+    assert stages["VALIDATION"]["record_count"] == 0
+    assert stages["VALIDATED"]["status"] == "UNAVAILABLE"
+    assert stages["VALIDATED"]["record_count"] == 0
+
+
+def test_readiness_da_validacao_nao_oferece_acoes_ficticias():
+    with patch.object(repo, "_query", return_value=[]):
+        stage = repo.AgroRadarRepository.stages()["stages"][2]
+    assert {item["status"] for item in stage["readiness"]} <= {"ACTIVE", "DEGRADED", "UNAVAILABLE", "PLANNED"}
+    assert all(item["item"] not in {"Aprovar", "Rejeitar", "Atribuir", "Editar"} for item in stage["readiness"])
+
+
+def test_catalogo_operacional_expoe_contagens_e_blockers():
+    rows = [
+        {"classification": "DESERTO_VET", "total": 539},
+        {"classification": "BAIXA_COBERTURA", "total": 829},
+        {"classification": "NORMAL", "total": 4168},
+    ]
+    with patch.object(repo, "_query", return_value=rows):
+        result = repo.AgroRadarRepository.rules()
+    assert result["summary"] == {
+        "total": 6, "active": 1, "unavailable": 1, "planned": 4,
+        "signals_generated": 1368, "candidates_generated": 0,
+    }
+    rules = {rule["rule_id"]: rule for rule in result["rules"]}
+    assert rules[repo.RULE_ID]["produced_count"] == 1368
+    assert rules["PROPERTY_IN_TECHNICAL_GAP_V1"]["produced_count"] == 0
+    assert rules["PROPERTY_IN_TECHNICAL_GAP_V1"]["blockers"]
+    assert all(rule["produced_count"] == 0 for rule in result["rules"] if rule["status"] == "PLANNED")
 
 
 def test_erro_banco_retorna_status_partial_sem_dados_fabricados():

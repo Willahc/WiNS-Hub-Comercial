@@ -678,6 +678,16 @@ def get_agro_oportunidades_regras(request: Request, user=Depends(require_permiss
         return standard_error("AGRO_RADAR_RULES_UNAVAILABLE", "Não foi possível carregar as regras do motor.", req_id, 500, True)
 
 
+@router.get("/agro/oportunidades/estagios")
+def get_agro_oportunidades_estagios(request: Request, user=Depends(require_permission("agro"))):
+    req_id = getattr(request.state, "request_id", "unknown")
+    try:
+        return AgroRadarRepository.stages()
+    except Exception as exc:
+        logger.error("Erro nos estágios do Radar de Sinais Agro: %s reqId=%s", exc, req_id)
+        return standard_error("AGRO_RADAR_STAGES_UNAVAILABLE", "Não foi possível carregar os estágios do motor.", req_id, 500, True)
+
+
 @router.get("/agro/oportunidades")
 def get_agro_oportunidades_radar(
         request: Request,
