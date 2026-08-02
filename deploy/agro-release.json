@@ -1,0 +1,16 @@
+{
+  "release_id": "agro-radar-territorial-v1",
+  "repository": "Willahc/WiNS-Hub-Comercial",
+  "backend": {
+    "commit": "6ee8f0e5bea8cf738b466b73766dd88f350128bf",
+    "source_path": "apps/api"
+  },
+  "frontend": {
+    "commit": "c48411b96d1d283c3aa2f6c21d615f13cfafbf48",
+    "source_path": "."
+  },
+  "production": {
+    "domain": "https://winshubcomercial.com.br",
+    "frontend_destination": "/opt/winshub/spa"
+  }
+}
