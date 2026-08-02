@@ -25,7 +25,7 @@ Apply explícito, somente após aprovação do artifact do dry-run:
 deploy/deploy-agro-release.sh --apply
 ```
 
-Rollback automático: qualquer falha durante o apply restaura a imagem, o frontend e o override persistente preservados no diretório informado ao final do backup. Para recuperação operacional manual, use o backup específico da release e nunca o checkout principal:
+Rollback automático: qualquer falha durante o apply restaura o container anterior preservado, o frontend e o override persistente registrados no diretório de backup. O container anterior é parado e renomeado, não apagado. Para recuperação operacional manual, use o backup específico da release e nunca o checkout principal:
 
 ```bash
 BACKUP=/srv/winshub/backups/releases/<release_id>-<data_utc>

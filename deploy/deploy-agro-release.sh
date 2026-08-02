@@ -328,6 +328,7 @@ fi
 [[ -f "$COMPOSE_FILE" ]] || fail "Compose de produção ausente: $COMPOSE_FILE"
 docker inspect "$PRODUCTION_CONTAINER" >/dev/null 2>&1 || fail "Container atual ausente: $PRODUCTION_CONTAINER"
 BACKUP_ROOT="/srv/winshub/backups/releases/${RELEASE_ID}-${UTC_STAMP}"
+PRESERVED_CONTAINER="${PRODUCTION_CONTAINER}-release-backup-${UTC_STAMP}"
 mkdir -p "$BACKUP_ROOT/frontend"
 docker inspect "$PRODUCTION_CONTAINER" > "$BACKUP_ROOT/container.json"
 OLD_IMAGE="$(docker inspect "$PRODUCTION_CONTAINER" --format '{{.Config.Image}}')"
@@ -368,16 +369,41 @@ YAML
   fi
   docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$rollback_override" config >/dev/null
   mv "$rollback_override" "$PERSISTENT_OVERRIDE"
-  docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$PERSISTENT_OVERRIDE" up -d --no-build hub-api
+  if docker inspect "$PRESERVED_CONTAINER" >/dev/null 2>&1; then
+    docker rm -f "$PRODUCTION_CONTAINER" >/dev/null 2>&1 || true
+    docker rename "$PRESERVED_CONTAINER" "$PRODUCTION_CONTAINER"
+    docker start "$PRODUCTION_CONTAINER" >/dev/null
+  else
+    docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$PERSISTENT_OVERRIDE" up -d --no-build hub-api
+  fi
   rsync -a --delete "$BACKUP_ROOT/frontend/" "$FRONTEND_DESTINATION/"
   validate_functional_api "$PRODUCTION_CONTAINER" > "$BACKUP_ROOT/rollback-functional.json"
   nginx -t && nginx -s reload
   printf 'rollback-complete\n' > "$BACKUP_ROOT/rollback-status.txt"
 }
 
+docker stop "$PRODUCTION_CONTAINER" >/dev/null || fail "Não foi possível parar o container anterior"
+docker rename "$PRODUCTION_CONTAINER" "$PRESERVED_CONTAINER" || {
+  docker start "$PRODUCTION_CONTAINER" >/dev/null 2>&1 || true
+  fail "Não foi possível preservar o container anterior"
+}
+printf '%s\n' "$PRESERVED_CONTAINER" > "$BACKUP_ROOT/preserved-container.txt"
+
 if ! docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$PERSISTENT_OVERRIDE" up -d --no-build hub-api; then
   rollback
   fail "Troca do backend falhou; rollback executado"
+fi
+PRODUCTION_READY="fail"
+for attempt in $(seq 1 30); do
+  if docker exec "$PRODUCTION_CONTAINER" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)" >/dev/null 2>&1; then
+    PRODUCTION_READY="pass"
+    break
+  fi
+  sleep 2
+done
+if [[ "$PRODUCTION_READY" != "pass" ]]; then
+  rollback
+  fail "Novo backend não respondeu ao health; rollback executado"
 fi
 if ! rsync -a --delete "$ARTIFACT_DIR/dist/" "$FRONTEND_DESTINATION/"; then
   rollback
@@ -390,16 +416,20 @@ fi
 for asset in "${referenced_assets[@]}"; do
   [[ -f "$FRONTEND_DESTINATION/$asset" ]] || { rollback; fail "Asset publicado ausente: $asset"; }
 done
-nginx -s reload
-python3 - "$ARTIFACT_DIR/report.json" "$IMAGE_TAG" "$BACKUP_ROOT" "$(cat "$BACKUP_ROOT/override-state.txt")" <<'PY'
+if ! nginx -s reload; then
+  rollback
+  fail "Reload do Nginx falhou; rollback executado"
+fi
+python3 - "$ARTIFACT_DIR/report.json" "$IMAGE_TAG" "$BACKUP_ROOT" "$(cat "$BACKUP_ROOT/override-state.txt")" "$PRESERVED_CONTAINER" <<'PY'
 import json, pathlib, sys
-path, image, backup, override_state = sys.argv[1:]
+path, image, backup, override_state, preserved_container = sys.argv[1:]
 payload = json.loads(pathlib.Path(path).read_text())
 payload["official_image_after_apply"] = image
 payload["persistent_override_previous_state"] = override_state
 payload["persistent_override_backup"] = (
     backup + "/docker-compose.release.yml" if override_state == "present" else None
 )
+payload["preserved_container"] = preserved_container
 payload["apply"] = "pass"
 pathlib.Path(path).write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
 PY
