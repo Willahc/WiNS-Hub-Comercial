@@ -6,6 +6,7 @@ export const AGRO_API = {
   oportunidadesStatus: '/agro/oportunidades/status',
   oportunidadesFunil: '/agro/oportunidades/funil',
   oportunidadesRegras: '/agro/oportunidades/regras',
+  oportunidadesEstagios: '/agro/oportunidades/estagios',
   relacoes: '/agro/relacoes',
   oportunidadesCalculadas: '/agro/oportunidades/calculadas',
   logisticaCorrelacao: '/agro/logistica/correlacao',
