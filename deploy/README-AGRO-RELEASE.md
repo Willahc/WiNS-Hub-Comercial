@@ -10,6 +10,7 @@ O backend e o frontend do Radar têm fontes canônicas independentes. O deploy o
 - Não execute `docker compose up` usando apenas `/root/wins_agro_v1/docker-compose.yml`.
 - Toda operação do serviço `hub-api` deve incluir o override persistente `/root/wins_agro_v1/docker-compose.release.yml`.
 - O override persistente contém somente a tag imutável da imagem oficial e é publicado por rename atômico após `docker compose config`.
+- O canário deve aprovar o contrato do Radar e smoke tests das rotas canônicas preservadas; health isolado não autoriza apply.
 
 ## Comandos oficiais
 

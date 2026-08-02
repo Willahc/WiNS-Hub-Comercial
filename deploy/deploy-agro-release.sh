@@ -87,6 +87,17 @@ assert by_stage["VALIDATION"]["status"] == "UNAVAILABLE"
 assert by_stage["VALIDATED"]["status"] == "UNAVAILABLE"
 assert timings["/agro/oportunidades/estagios"] < 1000
 assert timings["/agro/oportunidades/regras"] < 1000
+for regression_path in (
+    "/agro/imoveis?page=1&page_size=1",
+    "/agro/pessoas-vinculos?page=1&page_size=1",
+    "/agro/holdings?page=1&page_size=1",
+    "/agro/tecnicos?page=1&page_size=1",
+    "/agro/deserto-veterinario?page=1&page_size=1",
+    "/diretorios/logistica/transportadores?page=1&page_size=1",
+    "/diretorios/saude/estabelecimentos?page=1&page_size=1",
+    "/visao-geral/mapa",
+):
+    get(regression_path)
 print(json.dumps({"status": "pass", "timings_ms": timings}, ensure_ascii=False))
 PY
 }
