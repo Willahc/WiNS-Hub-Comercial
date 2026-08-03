@@ -1,12 +1,12 @@
 {
-  "release_id": "agro-radar-stages-v2-revalidated",
+  "release_id": "agro-radar-stages-v2-candidate-contract-fix",
   "repository": "Willahc/WiNS-Hub-Comercial",
   "backend": {
     "commit": "a20c968203ce0b70dfdb76db9a34e9aa5a313d89",
     "source_path": "apps/api"
   },
   "frontend": {
-    "commit": "bc59ef97382d0871d61f6dbd7caf2d0d0dccdbc0",
+    "commit": "5d184599219333fa25ba308260395f529ef208e4",
     "source_path": "."
   },
   "production": {

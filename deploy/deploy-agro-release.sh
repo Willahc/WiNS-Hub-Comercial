@@ -276,7 +276,6 @@ if ! python3 "$SCRIPT_DIR/agro-differential-gate.py" \
   fail "Gate diferencial reprovado; produção não foi alterada"
 fi
 cp "$ARTIFACT_DIR/differential-report.json" "$ARTIFACT_DIR/baseline-and-candidate.json"
-docker rm -f "$CANARY_NAME" >/dev/null
 
 log "Gates frontend em $FRONTEND_SHA"
 (
@@ -323,6 +322,12 @@ radar_source="$frontend_root/src/pages/AgroOportunidadesApproved.tsx"
 for forbidden in 'Fila Comercial' 'Score:' 'Insumos Agrícolas & Fertilizantes' 'Armazenagem & Silos Rurais' 'Frete & Logística de Escoamento' 'Máquinas, Tratores & Irrigação'; do
   ! grep -Fq "$forbidden" "$radar_source" || fail "Conteúdo proibido no Radar: $forbidden"
 done
+
+log "Smoke Chromium das cinco abas contra o canário"
+python3 "$SCRIPT_DIR/agro-radar-browser-smoke.py" --container "$CANARY_NAME" \
+  --dist "$DIST_DIR" --output "$ARTIFACT_DIR/radar-browser-smoke.json" \
+  | tee "$ARTIFACT_DIR/radar-browser-smoke-table.txt" || fail "Smoke das cinco abas reprovado"
+docker rm -f "$CANARY_NAME" >/dev/null
 
 cp -a "$DIST_DIR" "$ARTIFACT_DIR/dist"
 ASSET_HASH_FILE="$ARTIFACT_DIR/assets.sha256"
