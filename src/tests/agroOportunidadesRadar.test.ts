@@ -1,12 +1,127 @@
-import { describe, it, expect } from 'vitest';
+import React from 'react';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import fs from 'node:fs';
 import path from 'node:path';
+import AgroOportunidadesApproved from '../pages/AgroOportunidadesApproved';
+import { AGRO_API } from '../pages/agroApiEndpoints';
+import { httpClient } from '../services/http/client';
+import { AuthProvider } from '../services/auth';
 
 const page = fs.readFileSync(path.resolve(__dirname, '../pages/AgroOportunidadesApproved.tsx'), 'utf8');
 const contract = fs.readFileSync(path.resolve(__dirname, '../pages/agroOportunidadesContract.ts'), 'utf8');
 const endpoints = fs.readFileSync(path.resolve(__dirname, '../pages/agroApiEndpoints.ts'), 'utf8');
 
+const RADAR_LIST_STAGE_CONTRACT = [
+  ['sinais', 'SIGNAL'],
+  ['candidatas', 'CANDIDATE'],
+] as const;
+
+const stagesResponse = {
+  engine_status: 'VALIDATION',
+  stages: [
+    { stage: 'CANDIDATE', status: 'UNAVAILABLE', record_count: 0, description: 'Consulta de propriedades indisponível.', entry_criteria: ['CAR real'], blockers: [{ code: 'PROPERTY_QUERY_NOT_PERFORMANT', description: 'Consulta acima da meta.' }] },
+    { stage: 'VALIDATION', status: 'UNAVAILABLE', record_count: 0, readiness: [] },
+    { stage: 'VALIDATED', status: 'UNAVAILABLE', record_count: 0, entry_criteria: [], blockers: [] },
+  ],
+};
+
+function requestStage(config: { params?: unknown } | undefined): unknown {
+  const params = config?.params;
+  return params && typeof params === 'object' ? (params as Record<string, unknown>).stage : undefined;
+}
+
+function installRadarApiMock() {
+  return vi.spyOn(httpClient, 'get').mockImplementation(async (url, config) => {
+    if (url === AGRO_API.oportunidades) {
+      const stage = requestStage(config);
+      const signalItems = stage === 'SIGNAL' ? [{ signal_id: 'signal-test', municipio: 'Teste', uf: 'MT', classification: 'DESERTO_VET', priority: 'ALTA', metrics: {}, rule: {}, sources: [], limitations: [] }] : [];
+      return { data: { engine_status: 'VALIDATION', stage, filtered_total: signalItems.length, total_pages: signalItems.length, items: signalItems, universe: {}, status: 'ok', sources: [], limitations: [] } } as never;
+    }
+    if (url === AGRO_API.oportunidadesStatus) return { data: { engine_status: 'VALIDATION' } } as never;
+    if (url === AGRO_API.oportunidadesFunil) return { data: { municipalities_evaluated: 5536, signals_total: 1368, candidates_total: 0, validation_total: 0, validated_total: 0 } } as never;
+    if (url === AGRO_API.oportunidadesEstagios) return { data: stagesResponse } as never;
+    if (url === AGRO_API.oportunidadesRegras) return { data: { rules: [], summary: {} } } as never;
+    throw new Error(`Endpoint inesperado no teste: ${url}`);
+  });
+}
+
+function renderRadar(entry: string) {
+  return render(React.createElement(
+    AuthProvider,
+    null,
+    React.createElement(MemoryRouter, { initialEntries: [entry] }, React.createElement(AgroOportunidadesApproved)),
+  ));
+}
+
+function opportunityCalls(spy: ReturnType<typeof installRadarApiMock>) {
+  return spy.mock.calls.filter(([url]) => url === AGRO_API.oportunidades);
+}
+
 describe('Radar de Sinais e Oportunidades Agro', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+  });
+  afterEach(() => cleanup());
+
+  it.each(RADAR_LIST_STAGE_CONTRACT)('declara o contrato da aba %s como %s sem derivação textual', (tab, stage) => {
+    expect(page).toContain(`${tab}: '${stage}'`);
+  });
+
+  it('abre diretamente Candidatas com CANDIDATE, total zero e diagnóstico fail-closed', async () => {
+    const get = installRadarApiMock();
+    renderRadar('/agro/oportunidades?tab=candidatas');
+
+    await screen.findByText('PROPERTY_QUERY_NOT_PERFORMANT');
+    await waitFor(() => expect(opportunityCalls(get)).toHaveLength(1));
+    const config = opportunityCalls(get)[0][1];
+    expect(config?.params).toMatchObject({ stage: 'CANDIDATE', page: 1, page_size: 25 });
+    expect(get.mock.calls.every(([, request]) => requestStage(request) !== 'CANDIDATAS')).toBe(true);
+    expect(screen.getByText('Candidatas: diagnóstico fail-closed')).toBeTruthy();
+    expect(screen.getByText('Nenhum registro foi fabricado. A promoção permanece bloqueada até a consulta cumprir a meta de desempenho.')).toBeTruthy();
+    expect(screen.getByText('Total atual').nextElementSibling?.textContent).toBe('0');
+  });
+
+  it('troca de Sinais para Candidatas e envia uma nova chamada com CANDIDATE', async () => {
+    const get = installRadarApiMock();
+    renderRadar('/agro/oportunidades?tab=sinais');
+    await waitFor(() => expect(opportunityCalls(get).some(([, config]) => requestStage(config) === 'SIGNAL')).toBe(true));
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Candidatas' }));
+    await waitFor(() => expect(opportunityCalls(get).some(([, config]) => requestStage(config) === 'CANDIDATE')).toBe(true));
+    expect(opportunityCalls(get).every(([, config]) => requestStage(config) !== 'CANDIDATAS')).toBe(true);
+  });
+
+  it.each([
+    ['validacao', 'Em validação'],
+    ['validadas', 'Validadas'],
+    ['regras', 'Regras do motor'],
+  ])('a aba %s não chama a lista de oportunidades', async (tab, visibleText) => {
+    const get = installRadarApiMock();
+    renderRadar(`/agro/oportunidades?tab=${tab}`);
+    await screen.findAllByText(visibleText);
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    expect(opportunityCalls(get)).toHaveLength(0);
+  });
+
+  it('não contém o estágio de API inválido nem conversão implícita', () => {
+    expect(page).not.toContain('tab.toUpperCase()');
+    expect(page).not.toMatch(/stage\s*:\s*['"]CANDIDATAS['"]/);
+  });
   it('exibe título, subtítulo e badge de motor em validação', () => {
     expect(page).toContain('Sinais e Oportunidades Agro');
     expect(page).toContain('Radar baseado em evidências territoriais reais');
