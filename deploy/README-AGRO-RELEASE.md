@@ -14,7 +14,22 @@ O backend e o frontend do Radar têm fontes canônicas independentes. O deploy o
 
 ## Comandos oficiais
 
-Dry-run obrigatório:
+O manifesto padrão é sempre `deploy/agro-release.json`. Um manifesto candidato
+pode ser validado explicitamente sem alterar o padrão seguro:
+
+```bash
+deploy/deploy-agro-release.sh \
+  --manifest deploy/agro-release.candidate.json \
+  --dry-run
+```
+
+O gate compara as mesmas chamadas no container oficial e no canário. Rotas 2xx
+devem preservar contrato e semântica; falhas preexistentes só são toleradas na
+allowlist documentada em `KNOWN-BASELINE-DEGRADATIONS.md`, com causa e contrato
+de erro normalizados idênticos. Novo erro, perda de rota saudável, vazamento,
+mudança incompatível ou regressão de desempenho bloqueiam a execução.
+
+Dry-run obrigatório do manifesto ativo:
 
 ```bash
 deploy/deploy-agro-release.sh --dry-run

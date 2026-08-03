@@ -33,3 +33,21 @@ O backend reconstruído introduziu regressões fora do escopo do Radar. A causa 
 O manifesto ativo foi restaurado para backend `6ee8f0e5bea8cf738b466b73766dd88f350128bf` e frontend `c48411b96d1d283c3aa2f6c21d615f13cfafbf48`. Esta release não pode voltar a ser apontada pelo manifesto nem receber apply.
 
 Nenhum segredo é registrado neste documento.
+
+## Retificação após auditoria forense
+
+Esta retificação complementa o registro acima sem reescrever a cronologia da
+ocorrência:
+
+- a imagem funcional é byte a byte equivalente ao commit `6ee8f0e`;
+- nenhum arquivo oculto ou alteração fora do Git foi encontrado;
+- Pessoas & Vínculos retornou HTTP 200 em produção e na candidata;
+- Logística, Saúde e Visão Geral retornam HTTP 500 também na produção;
+- essas respostas são falhas preexistentes de configuração/base;
+- não existe evidência de que a candidata tenha introduzido esses 5xx;
+- a release foi revertida pelo gate absoluto, não por regressão diferencial
+  comprovada.
+
+Assim, ficam sem efeito as atribuições não comprovadas de `permission denied` e
+de regressão causada pelo commit `a20c968`. O relato original permanece acima
+como registro histórico do que foi observado e concluído naquele momento.

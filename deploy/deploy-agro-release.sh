@@ -13,20 +13,32 @@ PRODUCTION_NETWORK="wins_agro_v1_default"
 PERSISTENT_OVERRIDE="/root/wins_agro_v1/docker-compose.release.yml"
 
 usage() {
-  echo "Uso: $0 [--dry-run|--apply]"
+  echo "Uso: $0 [--manifest <arquivo>] [--dry-run|--apply]"
 }
 
-case "${1:---dry-run}" in
-  --dry-run) MODE="dry-run" ;;
-  --apply) MODE="apply" ;;
-  -h|--help) usage; exit 0 ;;
-  *) usage >&2; exit 2 ;;
-esac
-[[ $# -le 1 ]] || { usage >&2; exit 2; }
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run) MODE="dry-run"; shift ;;
+    --apply) MODE="apply"; shift ;;
+    --manifest)
+      [[ $# -ge 2 ]] || { usage >&2; exit 2; }
+      MANIFEST="$2"
+      [[ "$MANIFEST" = /* ]] || MANIFEST="$REPO_ROOT/$MANIFEST"
+      shift 2
+      ;;
+    -h|--help) usage; exit 0 ;;
+    *) usage >&2; exit 2 ;;
+  esac
+done
 
 log() { printf '[%s] %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*"; }
 fail() { printf '[ERRO] %s\n' "$*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1 || fail "Comando obrigatório ausente: $1"; }
+
+validate_health() {
+  docker exec "$1" python -c \
+    "import json,urllib.request; r=urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health',timeout=3); assert r.status == 200 and json.load(r)['status'] == 'ok'"
+}
 
 validate_functional_api() {
   local container_name="$1"
@@ -164,11 +176,13 @@ TEMP_ROOT="$(mktemp -d "/tmp/${RELEASE_ID}.XXXXXX")"
 BACKEND_WORKTREE="$TEMP_ROOT/backend"
 FRONTEND_WORKTREE="$TEMP_ROOT/frontend"
 CANARY_NAME="agro-release-canary-${BACKEND_SHA:0:7}-$$"
+CANARY_ENV_FILE="$TEMP_ROOT/production-container.env"
 
 cleanup() {
   docker rm -f "$CANARY_NAME" >/dev/null 2>&1 || true
   git -C "$REPO_ROOT" worktree remove --force "$BACKEND_WORKTREE" >/dev/null 2>&1 || true
   git -C "$REPO_ROOT" worktree remove --force "$FRONTEND_WORKTREE" >/dev/null 2>&1 || true
+  [[ "$TEMP_ROOT" == /tmp/${RELEASE_ID}.* ]] && rm -rf -- "$TEMP_ROOT"
 }
 trap cleanup EXIT
 
@@ -227,10 +241,21 @@ docker build --label "org.opencontainers.image.revision=$BACKEND_SHA" \
 
 [[ -f "$PRODUCTION_ENV_FILE" ]] || fail "Arquivo de ambiente para canário ausente: $PRODUCTION_ENV_FILE"
 docker network inspect "$PRODUCTION_NETWORK" >/dev/null 2>&1 || fail "Rede do canário ausente: $PRODUCTION_NETWORK"
+# O arquivo .env pode ter divergido desde a criação do container oficial. Para
+# paridade real, o canário recebe a configuração efetiva (somente em arquivo
+# temporário 0600, nunca em artifacts ou logs) do baseline em execução.
+python3 - "$PRODUCTION_CONTAINER" "$CANARY_ENV_FILE" <<'PY'
+import json, pathlib, subprocess, sys
+container, destination = sys.argv[1:]
+data = json.loads(subprocess.check_output(["docker", "inspect", container], text=True))[0]
+path = pathlib.Path(destination)
+path.write_text("\n".join(data["Config"]["Env"]) + "\n")
+path.chmod(0o600)
+PY
 docker run -d --name "$CANARY_NAME" --network "$PRODUCTION_NETWORK" \
-  --env-file "$PRODUCTION_ENV_FILE" -e DB_HOST=db -e DB_PORT=5432 -e DB_USER=wins_hub_api_ro \
+  --env-file "$CANARY_ENV_FILE" \
   --entrypoint /bin/sh "$IMAGE_TAG" -c \
-  'export DB_PASS="$HUB_DB_PASS"; exec uvicorn main:app --host 0.0.0.0 --port 8000' >/dev/null
+  'exec uvicorn main:app --host 0.0.0.0 --port 8000' >/dev/null
 CANARY_GATE="fail"
 for attempt in $(seq 1 30); do
   if docker exec "$CANARY_NAME" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)" >/dev/null 2>&1; then
@@ -240,8 +265,13 @@ for attempt in $(seq 1 30); do
   sleep 2
 done
 [[ "$CANARY_GATE" == "pass" ]] || { docker logs "$CANARY_NAME" >&2 || true; fail "Imagem não respondeu ao health no canário"; }
-CANARY_RESULT="$(validate_functional_api "$CANARY_NAME")" || { docker logs "$CANARY_NAME" >&2 || true; fail "Canário funcional reprovado"; }
-printf '%s\n' "$CANARY_RESULT" > "$ARTIFACT_DIR/canary-functional.json"
+log "Executando gate diferencial produção versus candidata"
+if ! python3 "$SCRIPT_DIR/agro-differential-gate.py" \
+  --baseline-container "$PRODUCTION_CONTAINER" --candidate-container "$CANARY_NAME" \
+  --output "$ARTIFACT_DIR/differential-report.json" | tee "$ARTIFACT_DIR/differential-table.txt"; then
+  fail "Gate diferencial reprovado; produção não foi alterada"
+fi
+cp "$ARTIFACT_DIR/differential-report.json" "$ARTIFACT_DIR/baseline-and-candidate.json"
 docker rm -f "$CANARY_NAME" >/dev/null
 
 log "Gates frontend em $FRONTEND_SHA"
@@ -388,7 +418,7 @@ YAML
     docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$PERSISTENT_OVERRIDE" up -d --no-build hub-api
   fi
   rsync -a --delete "$BACKUP_ROOT/frontend/" "$FRONTEND_DESTINATION/"
-  validate_functional_api "$PRODUCTION_CONTAINER" > "$BACKUP_ROOT/rollback-functional.json"
+  validate_health "$PRODUCTION_CONTAINER" > "$BACKUP_ROOT/rollback-functional.json"
   nginx -t && nginx -s reload
   printf 'rollback-complete\n' > "$BACKUP_ROOT/rollback-status.txt"
 }
@@ -420,7 +450,7 @@ if ! rsync -a --delete "$ARTIFACT_DIR/dist/" "$FRONTEND_DESTINATION/"; then
   rollback
   fail "Publicação frontend falhou; rollback executado"
 fi
-if ! validate_functional_api "$PRODUCTION_CONTAINER" > "$ARTIFACT_DIR/production-functional.json" || ! nginx -t; then
+if ! validate_health "$PRODUCTION_CONTAINER" > "$ARTIFACT_DIR/production-functional.json" || ! nginx -t; then
   rollback
   fail "Validação pós-troca falhou; rollback executado"
 fi
