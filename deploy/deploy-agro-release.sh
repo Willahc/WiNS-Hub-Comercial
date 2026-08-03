@@ -318,6 +318,8 @@ for expected in "${required_dist_strings[@]}"; do
 done
 grep -R -a -Fq '/agro/mapa' "$DIST_DIR" || grep -R -a -Fq 'Mapa Territorial' "$DIST_DIR" || fail "Mapa Agro ausente no dist"
 radar_source="$frontend_root/src/pages/AgroOportunidadesApproved.tsx"
+! grep -Fq "tab === 'sinais' ? 'SIGNAL' : tab.toUpperCase()" "$radar_source" || \
+  fail "Radar envia estágio inválido para Candidatas (CANDIDATAS em vez de CANDIDATE)"
 for forbidden in 'Fila Comercial' 'Score:' 'Insumos Agrícolas & Fertilizantes' 'Armazenagem & Silos Rurais' 'Frete & Logística de Escoamento' 'Máquinas, Tratores & Irrigação'; do
   ! grep -Fq "$forbidden" "$radar_source" || fail "Conteúdo proibido no Radar: $forbidden"
 done
