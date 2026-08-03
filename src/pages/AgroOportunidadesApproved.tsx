@@ -8,6 +8,25 @@ import { AGRO_API } from './agroApiEndpoints';
 import { isRetryableError } from './agroOportunidadesContract';
 
 type Tab = 'sinais' | 'candidatas' | 'validacao' | 'validadas' | 'regras';
+type RadarListStage = 'SIGNAL' | 'CANDIDATE';
+
+const LIST_STAGE_BY_TAB = {
+  sinais: 'SIGNAL',
+  candidatas: 'CANDIDATE',
+} as const satisfies Partial<Record<Tab, RadarListStage>>;
+
+type RadarListRequestParams = {
+  stage: RadarListStage;
+  page: number;
+  page_size: number;
+  sort?: string;
+  order?: string;
+  q?: string;
+  uf?: string;
+  municipio?: string;
+  classification?: string;
+  priority?: string;
+};
 
 const TABS: Array<[Tab, string]> = [
   ['sinais', 'Sinais'],
@@ -80,7 +99,8 @@ export default function AgroOportunidadesApproved() {
     abort.current?.abort();
     const c = new AbortController();
     abort.current = c;
-    if (tab !== 'sinais' && tab !== 'candidatas') {
+    const listStage = LIST_STAGE_BY_TAB[tab as keyof typeof LIST_STAGE_BY_TAB];
+    if (!listStage) {
       setItems([]);
       setTotal(0);
       setPages(0);
@@ -90,11 +110,13 @@ export default function AgroOportunidadesApproved() {
     setLoading(true);
     setError(null);
     try {
-      const params: any = { stage: tab === 'sinais' ? 'SIGNAL' : tab.toUpperCase(), page, page_size: pageSize };
+      const params: RadarListRequestParams = { stage: listStage, page, page_size: pageSize };
       if (tab === 'sinais') {
         params.sort = sort;
         params.order = order;
-        Object.entries(filters).forEach(([k, v]) => v && (params[k] = k === 'priority' ? v : v));
+        (Object.entries(filters) as Array<[keyof Filters, string]>).forEach(([key, value]) => {
+          if (value) params[key] = value;
+        });
       }
       const r = await httpClient.get(AGRO_API.oportunidades, { params, signal: c.signal });
       setItems(r.data?.items || []);
