@@ -249,7 +249,11 @@ import json, pathlib, subprocess, sys
 container, destination = sys.argv[1:]
 data = json.loads(subprocess.check_output(["docker", "inspect", container], text=True))[0]
 path = pathlib.Path(destination)
-path.write_text("\n".join(data["Config"]["Env"]) + "\n")
+environment = data["Config"]["Env"]
+values = dict(item.split("=", 1) for item in environment if "=" in item)
+if "DB_PASS" in values and "HUB_DB_PASS" not in values:
+    environment.append("HUB_DB_PASS=" + values["DB_PASS"])
+path.write_text("\n".join(environment) + "\n")
 path.chmod(0o600)
 PY
 docker run -d --name "$CANARY_NAME" --network "$PRODUCTION_NETWORK" \
@@ -391,7 +395,7 @@ services:
   hub-api:
     image: $IMAGE_TAG
 YAML
-docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$OVERRIDE_CANDIDATE" config >/dev/null || fail "Override persistente proposto é inválido"
+docker compose --env-file "$CANARY_ENV_FILE" -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$OVERRIDE_CANDIDATE" config >/dev/null || fail "Override persistente proposto é inválido"
 mv "$OVERRIDE_CANDIDATE" "$PERSISTENT_OVERRIDE"
 [[ -f "$PERSISTENT_OVERRIDE" ]] || fail "Publicação atômica do override falhou"
 
@@ -408,14 +412,14 @@ services:
     image: $OLD_IMAGE
 YAML
   fi
-  docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$rollback_override" config >/dev/null
+  docker compose --env-file "$CANARY_ENV_FILE" -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$rollback_override" config >/dev/null
   mv "$rollback_override" "$PERSISTENT_OVERRIDE"
   if docker inspect "$PRESERVED_CONTAINER" >/dev/null 2>&1; then
     docker rm -f "$PRODUCTION_CONTAINER" >/dev/null 2>&1 || true
     docker rename "$PRESERVED_CONTAINER" "$PRODUCTION_CONTAINER"
     docker start "$PRODUCTION_CONTAINER" >/dev/null
   else
-    docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$PERSISTENT_OVERRIDE" up -d --no-build hub-api
+    docker compose --env-file "$CANARY_ENV_FILE" -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$PERSISTENT_OVERRIDE" up -d --no-build hub-api
   fi
   rsync -a --delete "$BACKUP_ROOT/frontend/" "$FRONTEND_DESTINATION/"
   validate_health "$PRODUCTION_CONTAINER" > "$BACKUP_ROOT/rollback-functional.json"
@@ -430,7 +434,7 @@ docker rename "$PRODUCTION_CONTAINER" "$PRESERVED_CONTAINER" || {
 }
 printf '%s\n' "$PRESERVED_CONTAINER" > "$BACKUP_ROOT/preserved-container.txt"
 
-if ! docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$PERSISTENT_OVERRIDE" up -d --no-build hub-api; then
+if ! docker compose --env-file "$CANARY_ENV_FILE" -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" -f "$PERSISTENT_OVERRIDE" up -d --no-build hub-api; then
   rollback
   fail "Troca do backend falhou; rollback executado"
 fi
