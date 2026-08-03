@@ -1,12 +1,12 @@
 {
-  "release_id": "agro-radar-stages-v2-candidate-contract-fix",
+  "release_id": "agro-logistica-cobertura-canonica-v1",
   "repository": "Willahc/WiNS-Hub-Comercial",
   "backend": {
-    "commit": "a20c968203ce0b70dfdb76db9a34e9aa5a313d89",
+    "commit": "1aab5ab5a0c218886449ebbdb46d600c366b366c",
     "source_path": "apps/api"
   },
   "frontend": {
-    "commit": "5d184599219333fa25ba308260395f529ef208e4",
+    "commit": "58f265afe8b06c24fb729e16ace612e479d0183a",
     "source_path": "."
   },
   "production": {

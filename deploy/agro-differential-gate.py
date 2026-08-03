@@ -139,6 +139,11 @@ def classify(name, base, cand, *, new=False, allowlisted=False):
         return "FAIL_NEW_ERROR", "exposição adicional na candidata"
     if new:
         return ("PASS_IMPROVED", "nova rota funcional") if 200 <= cs < 300 else ("FAIL_NEW_ERROR", "nova rota não funcional")
+    if name == "agro_logistica_correlacao" and 200 <= bs < 300 and 200 <= cs < 300:
+        old_status = (base.get("body") or {}).get("status")
+        new_status = (cand.get("body") or {}).get("status")
+        if old_status == "validation" and new_status == "PARTIAL":
+            return "PASS_IMPROVED", "contrato substituído por cobertura canônica parcial"
     if 200 <= bs < 300:
         if not 200 <= cs < 300:
             return "FAIL_REGRESSION", "rota saudável deixou de ser saudável"
@@ -179,6 +184,7 @@ def main():
       "oportunidades_status":"/agro/oportunidades/status",
       "oportunidades":"/agro/oportunidades?stage=SIGNAL&page=1&page_size=25",
       "oportunidades_funil":"/agro/oportunidades/funil", "oportunidades_regras":"/agro/oportunidades/regras",
+      "agro_logistica_correlacao":"/agro/logistica/correlacao",
       **{k:v[0] for k,v in ALLOWLIST.items()},
     }
     # Recorte real descoberto na produção em 2026-08-03 e fixado para ambos os ambientes.
@@ -195,10 +201,18 @@ def main():
     candidate={name:probe(args.candidate_container,path) for name,path in routes.items()}
     for name,path in {"oportunidades_estagios":"/agro/oportunidades/estagios"}.items():
         routes[name]=path; baseline[name]=probe(args.baseline_container,path); candidate[name]=probe(args.candidate_container,path)
+    for name,path in {
+        "agro_logistica_resumo":"/agro/logistica/resumo",
+        "agro_logistica_municipios":"/agro/logistica/municipios?page=1&page_size=25&sort=transporters&order=desc",
+        "agro_logistica_mapa":"/agro/logistica/mapa?limit=100",
+    }.items():
+        routes[name]=path; baseline[name]=probe(args.baseline_container,path); candidate[name]=probe(args.candidate_container,path)
 
     rows=[]
     for name,path in routes.items():
-        result,reason=classify(name,baseline[name],candidate[name],new=name=="oportunidades_estagios",
+        result,reason=classify(name,baseline[name],candidate[name],new=name in {
+                                   "oportunidades_estagios", "agro_logistica_resumo",
+                                   "agro_logistica_municipios", "agro_logistica_mapa"},
                                allowlisted=name in ALLOWLIST)
         rows.append({"route":path,"baseline":baseline[name],"candidate":candidate[name],
                      "parity":baseline[name].get("normalized_hash")==candidate[name].get("normalized_hash"),
@@ -244,6 +258,19 @@ def main():
     radar=[candidate[n].get("body") for n in ("oportunidades","oportunidades_regras","oportunidades_estagios")]
     if forbidden_key(radar,{"score","decisor","contato_pessoal","candidata_inventada","validada_automaticamente"}):
         fail("oportunidades_estagios","conteúdo fabricado ou score encontrado")
+    logistics=candidate["agro_logistica_resumo"].get("body",{})
+    if logistics.get("status") != "PARTIAL" or not logistics.get("transporters",{}).get("available"):
+        fail("agro_logistica_resumo", "cobertura canônica parcial inválida")
+    if logistics.get("storage",{}).get("reason") != "CONAB_SOURCE_NOT_INTEGRATED":
+        fail("agro_logistica_resumo", "contrato CONAB inválido")
+    if logistics.get("national_rntrc",{}).get("status") != "PENDING_CANONICAL_PROMOTION":
+        fail("agro_logistica_resumo", "estado RNTRC nacional inválido")
+    if candidate["agro_logistica_resumo"]["duration_ms"] >= 1000:
+        fail("agro_logistica_resumo", "resumo excedeu 1 segundo", "FAIL_PERFORMANCE")
+    if candidate["agro_logistica_municipios"]["duration_ms"] >= 2000:
+        fail("agro_logistica_municipios", "página municipal excedeu 2 segundos", "FAIL_PERFORMANCE")
+    if candidate["agro_logistica_mapa"]["duration_ms"] >= 3000:
+        fail("agro_logistica_mapa", "mapa excedeu 3 segundos", "FAIL_PERFORMANCE")
 
     payload={"generated_at_utc":datetime.now(timezone.utc).isoformat().replace("+00:00","Z"),
       "property_filter":{"uf":"MT","municipio":property_municipality,"page":1,"page_size":25,"detail_id":detail_id},

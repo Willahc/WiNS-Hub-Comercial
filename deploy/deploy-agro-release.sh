@@ -99,6 +99,22 @@ assert by_stage["VALIDATION"]["status"] == "UNAVAILABLE"
 assert by_stage["VALIDATED"]["status"] == "UNAVAILABLE"
 assert timings["/agro/oportunidades/estagios"] < 1000
 assert timings["/agro/oportunidades/regras"] < 1000
+logistics = get("/agro/logistica/resumo")
+assert logistics["status"] == "PARTIAL"
+assert logistics["transporters"]["available"] is True
+assert logistics["transporters"]["total"] > 0
+assert logistics["national_rntrc"]["status"] == "PENDING_CANONICAL_PROMOTION"
+assert logistics["national_rntrc"]["known_source_total"] is None
+assert logistics["storage"]["status"] == "UNAVAILABLE"
+assert logistics["storage"]["reason"] == "CONAB_SOURCE_NOT_INTEGRATED"
+municipal = get("/agro/logistica/municipios?page=1&page_size=25&sort=transporters&order=desc")
+assert municipal["status"] == "PARTIAL" and len(municipal["items"]) == 25
+assert all(item["territorial_link_quality"] in ("IBGE_EXACT", "MUNICIPAL_NAME_NORMALIZED") for item in municipal["items"])
+logistics_map = get("/agro/logistica/mapa?limit=100")
+assert logistics_map["status"] == "PARTIAL" and len(logistics_map["items"]) <= 100
+assert timings["/agro/logistica/resumo"] < 1000
+assert timings["/agro/logistica/municipios?page=1&page_size=25&sort=transporters&order=desc"] < 2000
+assert timings["/agro/logistica/mapa?limit=100"] < 3000
 for regression_path in (
     "/agro/imoveis?page=1&page_size=25",
     "/agro/pessoas-vinculos?page=1&page_size=25",
@@ -228,7 +244,8 @@ log "Gates backend em $BACKEND_SHA"
   for endpoint in \
     '/agro/oportunidades/status' '/agro/oportunidades' '/agro/oportunidades/funil' \
     '/agro/oportunidades/regras' '/agro/oportunidades/estagios' '/agro/oportunidades/calculadas' '/agro/imoveis' \
-    '/agro/pessoas-vinculos' '/agro/holdings' '/agro/tecnicos' '/agro/deserto-veterinario'; do
+    '/agro/pessoas-vinculos' '/agro/holdings' '/agro/tecnicos' '/agro/deserto-veterinario' \
+    '/agro/logistica/correlacao' '/agro/logistica/resumo' '/agro/logistica/municipios' '/agro/logistica/mapa'; do
     grep -Fq "$endpoint" "$routes_file" || fail "Endpoint backend ausente: /api/v1$endpoint"
   done
   grep -Fq 'deprecated' "$routes_file" || fail "Alias depreciado sem marcação"
@@ -311,6 +328,8 @@ required_dist_strings=(
   'Sinais e Oportunidades Agro' 'Motor em validação' 'Sinais' 'Candidatas'
   'Em validação' 'Validadas' 'Regras do motor' 'Propriedades' 'Pessoas & Vínculos'
   'Holdings' 'Técnica' 'Deserto Veterinário' 'Genética'
+  'Agro-Logística & Cobertura Territorial' 'Transportadoras conhecidas' 'Cobertura parcial'
+  'CONAB' 'registros logísticos previamente calculados'
 )
 for expected in "${required_dist_strings[@]}"; do
   grep -R -a -Fq "$expected" "$DIST_DIR" || fail "Conteúdo esperado ausente no dist: $expected"
@@ -327,6 +346,10 @@ log "Smoke Chromium das cinco abas contra o canário"
 python3 "$SCRIPT_DIR/agro-radar-browser-smoke.py" --container "$CANARY_NAME" \
   --dist "$DIST_DIR" --output "$ARTIFACT_DIR/radar-browser-smoke.json" \
   | tee "$ARTIFACT_DIR/radar-browser-smoke-table.txt" || fail "Smoke das cinco abas reprovado"
+log "Smoke Chromium da página Agro-Logística contra o canário"
+python3 "$SCRIPT_DIR/agro-logistica-browser-smoke.py" --container "$CANARY_NAME" \
+  --dist "$DIST_DIR" --output "$ARTIFACT_DIR/agro-logistica-browser-smoke.json" \
+  | tee "$ARTIFACT_DIR/agro-logistica-browser-smoke-table.txt" || fail "Smoke Agro-Logística reprovado"
 docker rm -f "$CANARY_NAME" >/dev/null
 
 cp -a "$DIST_DIR" "$ARTIFACT_DIR/dist"
