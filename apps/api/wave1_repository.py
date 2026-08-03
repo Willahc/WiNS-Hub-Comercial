@@ -140,6 +140,25 @@ def _run_db(dbname: str, sql: str, params: list[Any] = None, domain: Optional[st
     finally:
         release_connection(conn, domain)
 
+def _run_agro_logistics(sql: str, params: Optional[list[Any]] = None):
+    """Executa somente leitura no pool canônico compartilhado.
+
+    A camada logística do Agro lê objetos do schema ``log`` que não são
+    concedidos ao papel isolado ``agro``. Este helper é deliberadamente local:
+    não altera a seleção de pool das demais funcionalidades.
+    """
+    conn = get_connection()
+    try:
+        conn.set_session(readonly=True, autocommit=False)
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SET LOCAL statement_timeout = %s", (QUERY_TIMEOUT_MS,))
+            cur.execute(sql, params or [])
+            rows = [_clean_record(dict(row)) for row in cur.fetchall()]
+        conn.rollback()
+        return rows
+    finally:
+        release_connection(conn)
+
 def _estimate_total(table: str, clause: str, params: list, default: int) -> int:
     """Estimate total rows with fallback. Uses pg_class for full table, count for filtered."""
     if clause in ("1=1", "f.situacao_cadastral = '02'", "f.situacao_cadastral = '02'"):
@@ -2698,41 +2717,169 @@ class Wave1Repository:
 
     @staticmethod
     def agro_logistica_correlacao(uf=None, municipio=None):
-        # Cobertura real da base de transportadoras RNTRC (log.transportadora).
-        # Os antigos totais fixos (4210 / 128) e as listas fabricadas de
-        # corredores e oportunidades de caminhão vazio foram removidos.
-        filters = []
-        params = []
+        return Wave1Repository.agro_logistica_resumo(uf=uf, municipio=municipio)
+
+    @staticmethod
+    def agro_logistica_resumo(uf=None, municipio=None):
+        filters, params = [], []
         if uf:
-            filters.append("uf = %s")
+            filters.append("t.uf = %s")
             params.append(uf.upper())
         if municipio:
-            filters.append("municipio ILIKE %s")
+            filters.append("t.municipio ILIKE %s")
             params.append(f"%{municipio}%")
-        clause = (" WHERE " + " AND ".join(filters)) if filters else ""
+        clause = " AND ".join(filters) or "TRUE"
         try:
-            rows = _run_db("wins_agro", f"SELECT count(*)::int total FROM log.transportadora t{clause}", params, domain="agro")
-            transportadores_total = rows[0]["total"] if rows else 0
-            with_numero = _run_db("wins_agro", f"SELECT count(*)::int total FROM log.transportadora t WHERE t.numero_rntrc IS NOT NULL{(' AND ' + ' AND '.join(filters)) if filters else ''}", params, domain="agro")
-            transportadores_rntrc = with_numero[0]["total"] if with_numero else 0
+            row = _run_agro_logistics(f"""
+                SELECT count(*)::int AS total,
+                       count(DISTINCT t.uf)::int AS represented_ufs,
+                       count(DISTINCT (t.uf, upper(trim(t.municipio))))::int AS represented_municipalities,
+                       count(*) FILTER (WHERE nullif(trim(t.numero_rntrc), '') IS NOT NULL)::int AS with_rntrc,
+                       count(*) FILTER (WHERE t.latitude IS NOT NULL AND t.longitude IS NOT NULL)::int AS geocoded,
+                       count(*) FILTER (WHERE nullif(trim(t.fonte_contato), '') IS NOT NULL)::int AS with_institutional_contact,
+                       max(t.atualizado_em) AS updated_at
+                FROM log.transportadora t WHERE {clause}
+            """, params)[0]
+            operational = _run_agro_logistics("""
+                SELECT count(*)::int AS total,
+                       count(*) FILTER (WHERE distancia_km IS NOT NULL)::int AS with_distance,
+                       max(updated_at) AS updated_at
+                FROM log.match
+            """)[0]
+            latest = max(filter(None, (row["updated_at"], operational["updated_at"])), default=None)
+            return {
+                "status": "PARTIAL",
+                "coverage_scope": {
+                    "status": "PARTIAL",
+                    "description": f"Camada enriquecida com cobertura parcial de {row['represented_ufs']} UFs.",
+                    "represented_ufs": row["represented_ufs"],
+                    "represented_municipalities": row["represented_municipalities"],
+                },
+                "transporters": {
+                    "available": True, "total": row["total"], "with_rntrc": row["with_rntrc"],
+                    "geocoded": row["geocoded"], "with_institutional_contact": row["with_institutional_contact"],
+                },
+                "operational_records": {
+                    "available": True, "total": operational["total"],
+                    "with_distance": operational["with_distance"],
+                    "semantic_label": "registros logísticos previamente calculados",
+                },
+                "national_rntrc": {
+                    "available_in_canonical_contract": False,
+                    "status": "PENDING_CANONICAL_PROMOTION",
+                    "known_source_total": None,
+                },
+                "storage": {"available": False, "status": "UNAVAILABLE", "reason": "CONAB_SOURCE_NOT_INTEGRATED"},
+                "updated_at": latest,
+                "sources": ["log.transportadora", "log.match", "SICAR/CAR", "IBGE", "IBGE PPM"],
+                "limitations": [
+                    "Cobertura conhecida na camada disponível; ausência de registro não comprova ausência de operador.",
+                    "Os registros logísticos são cálculos históricos e não representam cargas, contratos, viagens, veículos ou capacidade disponível.",
+                    "O total nacional RNTRC não é exposto até ser promovido a um contrato canônico consultável.",
+                    "CONAB, armazéns, capacidade estática, terminais e portos não estão integrados.",
+                ],
+            }
         except Exception as ex:
-            logger.warning(f"Cobertura RNTRC indisponível: {ex}")
-            transportadores_total = None
-            transportadores_rntrc = None
+            logger.warning("Cobertura Agro-Logística indisponível: %s", ex)
+            return {
+                "status": "UNAVAILABLE", "coverage_scope": {"status": "UNAVAILABLE"},
+                "transporters": {"available": False}, "operational_records": {"available": False},
+                "national_rntrc": {"available_in_canonical_contract": False, "status": "PENDING_CANONICAL_PROMOTION", "known_source_total": None},
+                "storage": {"available": False, "status": "UNAVAILABLE", "reason": "CONAB_SOURCE_NOT_INTEGRATED"},
+                "sources": [], "limitations": ["A camada canônica não pôde ser consultada nesta tentativa."],
+            }
 
-        # Sem tabela de armazéns CONAB acessível para o recorte -> null honesto.
-        return {
-            "uf": uf or "Brasil",
-            "municipio": municipio or "Geral",
-            "transportadores_rntrc_disponiveis": transportadores_rntrc,
-            "transportadores_base_total": transportadores_total,
-            "armazens_conab_proximos": None,
-            "corredores_exportacao": [],
-            "oportunidades_caminhao_vazio": [],
-            "status": "validation" if transportadores_rntrc is None else "ok",
-            "nota": "Indicadores de cobertura da base (ANTT/RNTRC). Não representam matches, relações comerciais nem capacidade disponível. Armazéns CONAB não disponíveis nesta fonte.",
-            "fonte": "log.transportadora"
+    @staticmethod
+    def agro_logistica_municipios(q=None, uf=None, municipio=None, coverage_status=None,
+                                  page=1, page_size=25, sort="transporters", order="desc"):
+        size, offset = _page(page, page_size)
+        filters, params = [], []
+        if q:
+            filters.append("(a.municipio ILIKE %s OR a.uf ILIKE %s)")
+            params.extend((f"%{q}%", f"%{q}%"))
+        if uf:
+            filters.append("a.uf = %s")
+            params.append(uf.upper())
+        if municipio:
+            filters.append("a.municipio ILIKE %s")
+            params.append(f"%{municipio}%")
+        clause = " AND ".join(filters) or "TRUE"
+        sort_columns = {
+            "municipio": "a.municipio", "uf": "a.uf", "transporters": "a.transporters",
+            "with_rntrc": "a.with_rntrc", "geocoded": "a.geocoded",
         }
+        sort_sql = sort_columns.get(sort, "a.transporters")
+        order_sql = "ASC" if str(order).lower() == "asc" else "DESC"
+        try:
+            rows = _run_agro_logistics(f"""
+                WITH aggregated AS (
+                    SELECT t.uf, trim(t.municipio) AS municipio,
+                           translate(upper(trim(t.municipio)),
+                             'ÁÀÃÂÄÉÈÊËÍÌÎÏÓÒÕÔÖÚÙÛÜÇ', 'AAAAAEEEEIIIIOOOOOUUUUC') AS municipio_key,
+                           count(*)::int AS transporters,
+                           count(*) FILTER (WHERE nullif(trim(t.numero_rntrc), '') IS NOT NULL)::int AS with_rntrc,
+                           count(*) FILTER (WHERE t.latitude IS NOT NULL AND t.longitude IS NOT NULL)::int AS geocoded,
+                           count(*) FILTER (WHERE nullif(trim(t.fonte_contato), '') IS NOT NULL)::int AS institutional_contacts,
+                           avg(t.latitude) FILTER (WHERE t.latitude IS NOT NULL AND t.longitude IS NOT NULL) AS latitude,
+                           avg(t.longitude) FILTER (WHERE t.latitude IS NOT NULL AND t.longitude IS NOT NULL) AS longitude
+                    FROM log.transportadora t
+                    GROUP BY t.uf, trim(t.municipio), translate(upper(trim(t.municipio)),
+                      'ÁÀÃÂÄÉÈÊËÍÌÎÏÓÒÕÔÖÚÙÛÜÇ', 'AAAAAEEEEIIIIOOOOOUUUUC')
+                ), filtered AS (
+                    SELECT a.*, count(*) OVER()::int AS total,
+                           CASE WHEN a.transporters >= 100 THEN 'COBERTURA_CONHECIDA_ALTA'
+                                WHEN a.transporters >= 20 THEN 'COBERTURA_CONHECIDA_MEDIA'
+                                WHEN a.transporters > 0 THEN 'COBERTURA_CONHECIDA_BAIXA'
+                                ELSE 'DADOS_INSUFICIENTES' END AS coverage_status
+                    FROM aggregated a WHERE {clause}
+                ), selected AS (
+                    SELECT a.* FROM filtered a
+                    WHERE (%s IS NULL OR a.coverage_status=%s)
+                    ORDER BY {sort_sql} {order_sql} NULLS LAST, a.uf, a.municipio
+                    LIMIT %s OFFSET %s
+                )
+                SELECT a.*, r.codigo_ibge, coalesce(op.operational_records, 0)::int AS operational_records,
+                       NULL::int AS properties,
+                       ws.bovinos::bigint AS livestock,
+                       ws.classificacao_vet AS territorial_classification,
+                       'MUNICIPAL_NAME_NORMALIZED' AS territorial_link_quality
+                FROM selected a
+                LEFT JOIN referencia.municipio r ON r.uf=a.uf AND upper(r.nome_normalizado)=a.municipio_key
+                LEFT JOIN LATERAL (
+                    SELECT count(*) AS operational_records
+                    FROM log.transportadora t2 JOIN log.match m ON m.transportadora_id=t2.id
+                    WHERE t2.uf=a.uf AND t2.municipio=a.municipio
+                ) op ON true
+                LEFT JOIN prospeccao.v_white_space_pecuaria ws ON ws.codigo_ibge=r.codigo_ibge
+                ORDER BY {sort_sql} {order_sql} NULLS LAST, a.uf, a.municipio
+            """, params + [coverage_status, coverage_status, size, offset])
+            total = rows[0]["total"] if rows else 0
+            for row in rows:
+                row.pop("municipio_key", None); row.pop("total", None)
+                row["sources"] = ["log.transportadora", "log.match", "SICAR/CAR", "IBGE", "IBGE PPM"]
+                row["limitations"] = [
+                    "Cobertura conhecida na camada disponível.",
+                    "A contagem CAR municipal foi omitida porque a consulta canônica excedeu a meta de desempenho."
+                ]
+            return {"status": "PARTIAL", "items": rows, "page": page, "page_size": size,
+                    "total": total, "pages": (total + size - 1) // size if total else 0}
+        except Exception as ex:
+            logger.warning("Municípios Agro-Logística indisponíveis: %s", ex)
+            return {"status": "UNAVAILABLE", "items": [], "page": page, "page_size": size,
+                    "total": 0, "pages": 0, "limitations": ["Consulta municipal temporariamente indisponível."]}
+
+    @staticmethod
+    def agro_logistica_mapa(uf=None, limit=500):
+        response = Wave1Repository.agro_logistica_municipios(
+            uf=uf, page=1, page_size=min(max(limit, 1), MAX_PAGE_SIZE), sort="transporters", order="desc"
+        )
+        items = [{key: row.get(key) for key in (
+            "municipio", "uf", "codigo_ibge", "latitude", "longitude", "transporters",
+            "geocoded", "properties", "livestock", "territorial_classification", "coverage_status",
+            "territorial_link_quality"
+        )} for row in response["items"]]
+        return {"status": response["status"], "items": items, "returned": len(items),
+                "total": response["total"], "aggregation": "MUNICIPAL", "limit": min(max(limit, 1), MAX_PAGE_SIZE)}
 
     @staticmethod
     def agro_genetica_simulador(touro_id=None, raca=None):

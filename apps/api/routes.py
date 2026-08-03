@@ -864,6 +864,25 @@ def get_agro_logistica_correlacao(request: Request, uf: Optional[str] = None, mu
                                   user=Depends(require_permission("agro"))):
     return Wave1Repository.agro_logistica_correlacao(uf=uf, municipio=municipio)
 
+@router.get("/agro/logistica/resumo")
+def get_agro_logistica_resumo(request: Request, uf: Optional[str] = None, municipio: Optional[str] = None,
+                              user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_logistica_resumo(uf=uf, municipio=municipio)
+
+@router.get("/agro/logistica/municipios")
+def get_agro_logistica_municipios(request: Request, q: Optional[str] = None, uf: Optional[str] = None,
+                                  municipio: Optional[str] = None, coverage_status: Optional[str] = None,
+                                  page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=100),
+                                  sort: Literal["municipio","uf","transporters","with_rntrc","geocoded"] = "transporters",
+                                  order: Literal["asc","desc"] = "desc", user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_logistica_municipios(q=q, uf=uf, municipio=municipio,
+        coverage_status=coverage_status, page=page, page_size=page_size, sort=sort, order=order)
+
+@router.get("/agro/logistica/mapa")
+def get_agro_logistica_mapa(request: Request, uf: Optional[str] = None,
+                            limit: int = Query(100, ge=1, le=100), user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_logistica_mapa(uf=uf, limit=limit)
+
 @router.get("/agro/genetica/simulador")
 def get_agro_genetica_simulador(request: Request, touro_id: Optional[str] = None, raca: Optional[str] = None,
                                 user=Depends(require_permission("agro"))):

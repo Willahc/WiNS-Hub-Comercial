@@ -127,26 +127,43 @@ class TestAgroProductionTruthStatic:
         assert "Porto de Santos" not in source
         assert "Porto de Paranaguá" not in source
 
-        # Corredores deve ser lista vazia
-        assert "corredores_exportacao" in source
-        assert "[]" in source.replace(" ", "")
+        assert "agro_logistica_resumo" in source
 
-        # Armazéns CONAB deve ser None
-        assert "armazens_conab_proximos" in source
-        assert "None" in source or "null" in source.lower()
+    def test_agro_logistica_usa_pool_canonico_local(self):
+        helper = read_source("_run_agro_logistics")
+        assert "get_connection()" in helper
+        assert "release_connection(conn)" in helper
+        assert "readonly=True" in helper
+        assert "rollback()" in helper
+        for method in ("agro_logistica_resumo", "agro_logistica_municipios"):
+            source = read_source(method)
+            assert "_run_agro_logistics" in source
+            assert 'domain="agro"' not in source
+            assert "log_staging" not in source
 
-        # Oportunidades caminhão vazio deve ser lista vazia
-        assert "oportunidades_caminhao_vazio" in source
-        assert "[]" in source.replace(" ", "")
-
-        # Deve ter campos de cobertura real
-        assert "transportadores_rntrc_disponiveis" in source
-        assert "transportadores_base_total" in source
+    def test_agro_logistica_contrato_parcial_sem_hardcode_nacional(self):
+        source = read_source("agro_logistica_resumo")
+        assert '"status": "PARTIAL"' in source
+        assert "PENDING_CANONICAL_PROMOTION" in source
+        assert "CONAB_SOURCE_NOT_INTEGRATED" in source
+        assert '"known_source_total": None' in source
+        assert "1124684" not in source
+        assert "count(*)" in source
         assert "log.transportadora" in source
+        assert "log.match" in source
+        assert "registros logísticos previamente calculados" in source
+        assert "cargas disponíveis" not in source.lower()
 
-        # Status e nota
-        assert "status" in source
-        assert "nota" in source
+    def test_agro_logistica_municipios_pagina_filtra_e_declara_fontes(self):
+        source = read_source("agro_logistica_municipios")
+        assert "LIMIT %s OFFSET %s" in source
+        assert "a.uf = %s" in source
+        assert "a.municipio ILIKE %s" in source
+        assert "MUNICIPAL_NAME_NORMALIZED" in source
+        assert "SICAR/CAR" in source
+        assert "IBGE PPM" in source
+        assert "COBERTURA_CONHECIDA_ALTA" in source
+        assert "DADOS_INSUFICIENTES" in source
 
     def test_agro_genetica_simulador_sem_simulador_exemplo(self):
         source = read_source("agro_genetica_simulador")
@@ -301,7 +318,7 @@ class TestAgroProductionTruthStatic:
             assert query_idx > fallback_idx, "Query real deve vir após fallback"
 
     def test_agro_logistica_query_log_transportadora(self):
-        source = read_source("agro_logistica_correlacao")
+        source = read_source("agro_logistica_resumo")
         assert "log.transportadora" in source
         assert "numero_rntrc" in source
         assert "count(*)" in source.lower()
