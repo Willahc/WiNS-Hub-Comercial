@@ -149,11 +149,12 @@ class AgroPropertiesRepository:
 
     @staticmethod
     def detail(item_id: str) -> Optional[dict]:
+        if not str(item_id).isdigit(): return None
         rows = _query("agro", """SELECT i.id::text detail_id, i.codigo_car, i.municipio, i.uf,
           i.codigo_ibge_mun codigo_ibge, i.area_total_ha::float area_ha,
           i.latitude::float latitude, i.longitude::float longitude,
           i.coletado_em::text updated_at FROM prospeccao.imovel_rural i
-          WHERE i.fonte_principal='SICAR' AND i.id::text=%s LIMIT 1""", [str(item_id)])
+          WHERE i.fonte_principal='SICAR' AND i.id=%s LIMIT 1""", [int(item_id)])
         if not rows: return None
         item = _base_item(rows[0]); by_code, enrichment = _territorial_by_codes([str(item["codigo_ibge"])]) if item.get("codigo_ibge") else ({}, {"status":"UNAVAILABLE","reason":"MISSING_IBGE_CODE"})
         context = by_code.get(str(item.get("codigo_ibge")))

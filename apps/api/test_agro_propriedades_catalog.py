@@ -85,6 +85,7 @@ def test_detalhe_real_sem_cpf_e_com_contexto_separado():
     assert query.call_args_list[0].args[0]=="agro" and query.call_args_list[1].args[0]=="agro_legacy"
     assert result["property"]["detail_id"]=="101" and result["municipal_context"]["scope"]=="MUNICIPAL"
     assert result["declared_holder"] is None and "cpf" not in str(result).lower()
+    assert "i.id=%s" in query.call_args_list[0].args[1] and query.call_args_list[0].args[2]==[101]
 
 
 def test_summary_null_nao_vira_zero_e_fonte_explicita():
