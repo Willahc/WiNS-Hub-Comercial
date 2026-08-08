@@ -200,9 +200,11 @@ class TestAgroProductionTruthStatic:
         # Deve ter total_reprodutores
         assert "total_reprodutores" in source
 
-        # Deve ter status=validation
+        # Deve declarar que o endpoint legado é parcial
         assert "status" in source
-        assert "validation" in source
+        assert "PARTIAL" in source
+        assert "a.valor IS NOT NULL" in source
+        assert "r.pai_nome IS NOT NULL AND r.mae_nome IS NOT NULL" in source
 
         # Deve consultar DEPs reais
         assert "mercado.avaliacao" in source
@@ -355,7 +357,10 @@ class TestAgroProductionTruthStatic:
         assert "AVAILABLE" in source
         assert "UNAVAILABLE" in source
         assert "PLANNED" in source
-        assert "SCHEMA_ONLY" in source
+        assert "updated_at" in source
+        assert "source_rows" in source
+        assert "118.793" not in source
+        assert "1,19M" not in source
 
     def test_agro_genetica_reprodutores_paginacao(self):
         source = read_source("agro_genetica_reprodutores")
@@ -378,21 +383,27 @@ class TestAgroProductionTruthStatic:
         assert "catalogo.caracteristica" in source
         assert "total_avaliacoes" in source
         assert "selection_direction" in source
-        assert "Crescimento & Peso" in source
-        assert "Carcaça & Frigorífico" in source
+        assert "objetivo_aumentar" in source
+        assert "c.grupo as categoria" in source
+        assert "max(av.coletado_em)" in source
 
     def test_agro_genetica_pedigree_declarado(self):
         source = read_source("agro_genetica_pedigree")
         assert "mercado.reprodutor" in source
         assert "pai_registro" in source
         assert "mae_registro" in source
-        assert "PEDIGREE_DECLARED_IMMEDIATE" in source
+        assert "PEDIGREE_ID_RESOLVED" in source
+        assert "PEDIGREE_NAME_ONLY" in source
+        assert "nome = %s" not in source
 
     def test_agro_genetica_acasalamento_prontidao_fail_closed(self):
         source = read_source("agro_genetica_acasalamento_prontidao")
         assert "fazenda.animal" in source
         assert "mercado.doadora" in source
-        assert "READY_WITH_CONSTRAINTS" in source
+        assert "NOT_CALCULABLE" in source
+        assert "eligible_matrices_count" in source
+        assert "a.sexo = 'F'" in source
+        assert "a.sexo IS NULL" not in source
         assert "PEDIGREE_DEPTH_INSUFFICIENT_FOR_FORMAL_COEFFICIENT" in source
         assert "REQUIRES_HERD_PRODUCTION_AND_COMMERCIAL_COST_PARAMETERS" in source
 
