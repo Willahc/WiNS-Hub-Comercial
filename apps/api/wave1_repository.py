@@ -3364,10 +3364,10 @@ class Wave1Repository:
         if not payload:
             return {"status": "PREREQUISITE_REQUIRED", "message": "Matriz ou dados da fêmea são obrigatórios para simulação.", "eligible_reproducers": [], "excluded_reproducers": []}
 
-        matrix_id = payload.get("matrix_id")
-        custom_matrix = payload.get("custom_matrix")
-        target_sigla = (payload.get("target_characteristic") or "GPD").upper()
-        min_accuracy = payload.get("min_accuracy")
+        matrix_id = payload.get("matrix_id") or payload.get("matriz_id")
+        custom_matrix = payload.get("custom_matrix") or payload.get("custom_matriz")
+        target_sigla = (payload.get("target_characteristic") or payload.get("caracteristica_alvo") or payload.get("sigla") or "GPD").upper()
+        min_accuracy = payload.get("min_accuracy") or payload.get("min_acuracia")
         limit = min(max(int(payload.get("limit") or 10), 1), 50)
 
         matrix = None
@@ -3538,14 +3538,19 @@ class Wave1Repository:
         return {
             "status": "AVAILABLE",
             "matrix": matrix,
+            "matriz": matrix,
             "target_characteristic": {
                 "sigla": target_sigla,
                 "selection_direction": "LOWER_BETTER" if is_lower_better else "HIGHER_BETTER"
             },
+            "caracteristica_alvo": target_sigla,
             "eligible_reproducers": eligible,
+            "candidatos": eligible,
             "excluded_reproducers": excluded,
+            "descartados_consanguinidade": excluded,
             "total_eligible": len(eligible),
             "total_excluded": len(excluded),
+            "total_avaliados": len(eligible) + len(excluded),
             "genetic_evidence": f"Ranqueamento determinístico por mérito real na DEP {target_sigla} com exclusão de parentesco imediato.",
             "limitations": "Acasalamento baseado em pedigree imediato declarado e DEP real individual. Não gera coeficiente formal de consanguinidade de Wright nem garantia fenotípica de bezerro."
         }
