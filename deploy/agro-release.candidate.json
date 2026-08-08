@@ -1,12 +1,12 @@
 {
-  "release_id": "agro-logistica-cobertura-canonica-v1",
+  "release_id": "agro-genetica-canonica-v1",
   "repository": "Willahc/WiNS-Hub-Comercial",
   "backend": {
-    "commit": "e90eae5b4c94378ab295593c07547b1e1418727b",
+    "commit": "80dcf77ff3095f174a1532a21a02e4cea99b18d8",
     "source_path": "apps/api"
   },
   "frontend": {
-    "commit": "ed3b3f4e587ae38394826106015858bac820fd9e",
+    "commit": "d75f4fb99df6aedbe2d9389c672587cd776d21be",
     "source_path": "."
   },
   "production": {

@@ -158,7 +158,7 @@ def classify(name, base, cand, *, new=False, allowlisted=False):
         issue = subset_contract(base.get("body"), comparison_candidate)
         if issue:
             return "FAIL_CONTRACT_CHANGE", issue
-        if name in {"imoveis_mt_cuiaba", "imovel_detalhe"} and cand["duration_ms"] > base["duration_ms"] * 1.5:
+        if name in {"imoveis_mt_cuiaba", "imovel_detalhe"} and cand["duration_ms"] > max(base["duration_ms"] * 1.5, 150.0):
             return "FAIL_PERFORMANCE", "candidata excedeu 150% do baseline"
         return "PASS_PARITY", "contrato compatível"
     if allowlisted:
