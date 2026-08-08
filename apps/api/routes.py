@@ -11,6 +11,7 @@ from repositories import (
 )
 from wave1_repository import Wave1Repository
 from agro_canal_repository import AgroCanalRepository
+from agro_properties_repository import AgroPropertiesRepository
 from agro_people_repository import AgroPeopleRepository
 from agro_holdings_repository import AgroHoldingsRepository
 from agro_radar_repository import AgroRadarRepository
@@ -532,18 +533,42 @@ def get_agro_imoveis(request: Request, page: int = Query(1, ge=1, le=1000),
                      com_titular: Optional[bool] = None, com_cnpj: Optional[bool] = None,
                      com_bioma: Optional[bool] = None, com_uso_solo: Optional[bool] = None,
                      cobertura_veterinaria: Optional[Literal["DESERTO_VET","BAIXA_COBERTURA","NORMAL","INDISPONIVEL"]] = None,
+                     geographic_quality: Optional[Literal["PROPERTY_COORDINATE","MISSING","INVALID"]] = None,
                      completude_min: Optional[int] = Query(None, ge=0, le=100),
-                     sort: Literal["relevancia","area","municipio","uf","completude","codigo_car"] = "relevancia",
-                     order: Literal["asc","desc"] = "desc", user=Depends(require_permission("agro"))):
+                     sort: Literal["identifier","area","municipio","uf","updated_at","relevancia","completude","codigo_car"] = "identifier",
+                     order: Literal["asc","desc"] = "asc", user=Depends(require_permission("agro"))):
     if page_size not in (25, 50, 100): raise HTTPException(422, "page_size deve ser 25, 50 ou 100")
-    return Wave1Repository.agro_imoveis(page=page,page_size=page_size,q=q,uf=uf,municipio=municipio,
-        area_min=area_min,area_max=area_max,com_titular=com_titular,com_cnpj=com_cnpj,
-        com_bioma=com_bioma,com_uso_solo=com_uso_solo,cobertura_veterinaria=cobertura_veterinaria,
-        completude_min=completude_min,sort=sort,order=order)
+    return AgroPropertiesRepository.list(page=page,page_size=page_size,q=q,uf=uf,municipio=municipio,
+        area_min=area_min,area_max=area_max,cobertura_veterinaria=cobertura_veterinaria,
+        geographic_quality=geographic_quality,sort=sort,order=order)
+
+@router.get("/agro/imoveis/resumo")
+def get_agro_imoveis_resumo(request: Request,user=Depends(require_permission("agro"))):
+    return AgroPropertiesRepository.summary()
+
+@router.get("/agro/imoveis/contexto-territorial")
+def get_agro_imoveis_contexto(request:Request,uf:Optional[str]=Query(None,min_length=2,max_length=2),
+    municipio:Optional[str]=None,limit:int=Query(100,ge=1,le=500),user=Depends(require_permission("agro"))):
+    return AgroPropertiesRepository.municipal_context(uf=uf,municipio=municipio,limit=limit)
+
+@router.get("/agro/imoveis/mapa")
+def get_agro_imoveis_mapa(request:Request,uf:Optional[str]=Query(None,min_length=2,max_length=2),
+    municipio:Optional[str]=None,bbox:Optional[str]=None,limit:int=Query(1000,ge=1,le=2000),
+    user=Depends(require_permission("agro"))):
+    parsed=None
+    if bbox:
+        try:
+            values=tuple(float(x) for x in bbox.split(","))
+            if len(values)!=4: raise ValueError
+            min_lon,min_lat,max_lon,max_lat=values
+            if not(-73.99<=min_lon<max_lon<=-34.79 and -33.75<=min_lat<max_lat<=5.27): raise ValueError
+            parsed=values
+        except ValueError: raise HTTPException(422,"bbox deve estar no formato minLon,minLat,maxLon,maxLat dentro do Brasil")
+    return AgroPropertiesRepository.map(uf=uf,municipio=municipio,bbox=parsed,limit=limit)
 
 @router.get("/agro/imoveis/{id}")
 def get_agro_imovel_detail(id: str, request: Request, user=Depends(require_permission("agro"))):
-    item = Wave1Repository.agro_imovel_360_detail(id)
+    item = AgroPropertiesRepository.detail(id)
     if not item: raise HTTPException(404, "Cadastro CAR não encontrado")
     return item
 
