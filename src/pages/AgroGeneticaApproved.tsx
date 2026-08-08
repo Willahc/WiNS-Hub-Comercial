@@ -43,6 +43,15 @@ export default function AgroGeneticaApproved() {
       subtitle="Catálogo, DEPs, pedigree e prontidão de acasalamento com evidência persistida"
       loading={loading} error={error} onRetry={loadData}
     >
+      <style>{`
+        @media (max-width: 700px) {
+          .genetica-catalogo { min-width: 0 !important; }
+          .genetica-catalogo th:nth-child(n+4), .genetica-catalogo td:nth-child(n+4) { display: none; }
+          .genetica-caracteristicas { min-width: 0 !important; }
+          .genetica-caracteristicas th:nth-child(3), .genetica-caracteristicas td:nth-child(3),
+          .genetica-caracteristicas th:nth-child(5), .genetica-caracteristicas td:nth-child(5) { display: none; }
+        }
+      `}</style>
       <div style={{ ...cardStyle, display: 'flex', gap: 12, alignItems: 'flex-start', borderColor: matingAvailable ? '#22C55E55' : '#F59E0B55' }}>
         {matingAvailable ? <Dna size={22} color="#22C55E" /> : <ShieldAlert size={22} color="#F59E0B" />}
         <div>
@@ -76,7 +85,7 @@ export default function AgroGeneticaApproved() {
 
       <div style={{ ...cardStyle, overflowX: 'auto' }}>
         <h3 style={{ margin: '0 0 12px', color: '#F8FAFC', fontSize: 14 }}><Database size={15} style={{ verticalAlign: 'middle', marginRight: 6 }} />Catálogo real de reprodutores</h3>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 760 }}>
+        <table className="genetica-catalogo" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 760 }}>
           <thead><tr style={{ color: '#94A3B8', borderBottom: '1px solid #334155' }}><th style={{ padding: 9, textAlign: 'left' }}>RGD / Nome</th><th>Raça</th><th>Pedigree</th><th>DEPs</th><th>Origem</th><th>Localidade</th></tr></thead>
           <tbody>{reprodutores.map((item: any) => <tr key={item.id} style={{ borderBottom: '1px solid #1E293B', color: '#CBD5E1' }}>
             <td style={{ padding: 9 }}><strong style={{ color: '#F8FAFC', display: 'block' }}>{item.nome || '—'}</strong><span style={{ color: '#EC4899' }}>{item.registro || '—'}</span></td>
@@ -88,7 +97,7 @@ export default function AgroGeneticaApproved() {
 
       <div style={{ ...cardStyle, overflowX: 'auto' }}>
         <h3 style={{ margin: '0 0 12px', color: '#F8FAFC', fontSize: 14 }}>Características e cobertura das avaliações</h3>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
+        <table className="genetica-caracteristicas" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
           <thead><tr style={{ color: '#94A3B8', borderBottom: '1px solid #334155' }}><th style={{ padding: 9, textAlign: 'left' }}>Característica</th><th>Avaliações</th><th>Reprodutores</th><th>Mediana</th><th>Direção documentada</th></tr></thead>
           <tbody>{caracteristicas.filter((item: any) => item.total_avaliacoes > 0).slice(0, 20).map((item: any) => <tr key={item.id} style={{ borderBottom: '1px solid #1E293B', color: '#CBD5E1' }}>
             <td style={{ padding: 9 }}><strong style={{ color: '#F8FAFC' }}>{item.sigla}</strong> — {item.nome}</td><td style={{ textAlign: 'center' }}>{fmt(item.total_avaliacoes)}</td><td style={{ textAlign: 'center' }}>{fmt(item.total_reprodutores)}</td><td style={{ textAlign: 'center' }}>{item.mediana_valor ?? '—'} {item.unidade || ''}</td><td style={{ textAlign: 'center' }}>{item.selection_direction}</td>
