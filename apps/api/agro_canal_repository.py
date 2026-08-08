@@ -22,6 +22,158 @@ PROFESSIONAL_TYPES = ("PROFISSIONAL_NOMINAL", "AGRONOMO_CREA", "ORIGEM_ABCZ")
 ESTABLISHMENT_TYPES = ("ESTABELECIMENTO_VETERINARIO", "PROVAVEL_POR_CNAE")
 
 
+# ---------------------------------------------------------------------------
+# Deserto Veterinário — regra publicada (READ ONLY, sem alteração de limiares)
+# Fonte canônica: prospeccao.v_white_space_pecuaria + prospeccao.mv_mun_regional
+# ---------------------------------------------------------------------------
+DESERTO_RULE_VERSION = "deserto-regional-v3"
+DESERTO_RULE_SOURCE = "prospeccao.v_white_space_pecuaria"
+DESERTO_THRESHOLDS = {
+    "piso_bovinos_municipio": 1000,
+    "carga_deserto": 40000,
+    "carga_baixa": 15000,
+    "raio_km": 75,
+}
+# Contagem regional em mv_mun_regional: estabelecimentos CNPJ ativos com estes CNAEs
+DESERTO_TECHNICAL_CNAES = ("7500100", "0162801", "0162899", "0162803")
+DESERTO_TECHNICAL_CNAE_LABELS = {
+    "7500100": "Atividades veterinárias (CNAE 75.00-1-00)",
+    "0162801": "Serviço de inseminação artificial em animais (CNAE 01.62-8-01)",
+    "0162803": "Serviço de manejo de animais (CNAE 01.62-8-03)",
+    "0162899": "Atividades de apoio à pecuária não especificadas (CNAE 01.62-8-99)",
+}
+DESERTO_TECHNICAL_SCOPE = "KNOWN_TECHNICAL_PRESENCE"
+DESERTO_GEOGRAPHIC_METHOD = "MUNICIPAL_CENTROID_EARTH_DISTANCE_75KM"
+DESERTO_CATTLE_SOURCE = "IBGE PPM"
+DESERTO_CATTLE_YEAR = 2023
+DESERTO_LIMITATIONS = [
+    "Presença técnica conhecida na base ≠ disponibilidade real de atendimento.",
+    "O denominador conta estabelecimentos CNPJ ativos por CNAE elegível no raio, não veterinários habilitados individualmente.",
+    "CRMV informado no Canal Técnico não entra na regra do Deserto e permanece NOT_VALIDATED.",
+    "Geografia usa centroides municipais (earth_distance / ll_to_earth), não coordenadas individuais de profissionais.",
+    "prospeccao.mv_tecnico_geo está ausente; proximidade técnico→fazenda individual não é calculável.",
+    "Rebanho municipal é IBGE PPM de competência 2023 — não é rebanho em tempo real.",
+    "CREA, ABCZ e profissionais nominais do Canal Técnico não entram no denominador regional.",
+]
+CLASSIFICATION_LABELS = {
+    "DESERTO_VET": "Deserto Veterinário",
+    "BAIXA_COBERTURA": "Baixa cobertura",
+    "NORMAL": "Cobertura normal",
+}
+
+
+def _deserto_reason(bovinos, tecnicos_75km, carga_regional) -> str:
+    """Espelha o CASE publicado em v_white_space_pecuaria — ordem idêntica."""
+    cattle = 0 if bovinos is None else int(bovinos)
+    techs = 0 if tecnicos_75km is None else int(tecnicos_75km)
+    if cattle < DESERTO_THRESHOLDS["piso_bovinos_municipio"]:
+        return "CATTLE_BELOW_MINIMUM"
+    if techs == 0:
+        return "NO_KNOWN_ELIGIBLE_TECHNICAL_PRESENCE"
+    if carga_regional is not None and int(carga_regional) >= DESERTO_THRESHOLDS["carga_deserto"]:
+        return "RATIO_AT_OR_ABOVE_HIGH_THRESHOLD"
+    if carga_regional is not None and int(carga_regional) >= DESERTO_THRESHOLDS["carga_baixa"]:
+        return "RATIO_AT_OR_ABOVE_LOW_THRESHOLD"
+    return "RATIO_BELOW_LOW_THRESHOLD"
+
+
+def _deserto_reason_text(reason: str) -> str:
+    return {
+        "CATTLE_BELOW_MINIMUM": (
+            f"Município com rebanho municipal abaixo do piso de "
+            f"{DESERTO_THRESHOLDS['piso_bovinos_municipio']} bovinos — classificado como NORMAL por exclusão de não-pecuária."
+        ),
+        "NO_KNOWN_ELIGIBLE_TECHNICAL_PRESENCE": (
+            "Nenhuma presença técnica elegível identificada na base no raio regional de 75 km "
+            "(estabelecimentos CNPJ ativos com CNAEs elegíveis)."
+        ),
+        "RATIO_AT_OR_ABOVE_HIGH_THRESHOLD": (
+            f"Razão regional bovinos/técnico ≥ {DESERTO_THRESHOLDS['carga_deserto']} "
+            "(carga elevada — DESERTO_VET)."
+        ),
+        "RATIO_AT_OR_ABOVE_LOW_THRESHOLD": (
+            f"Razão regional bovinos/técnico ≥ {DESERTO_THRESHOLDS['carga_baixa']} "
+            "e abaixo do limiar de deserto — BAIXA_COBERTURA."
+        ),
+        "RATIO_BELOW_LOW_THRESHOLD": (
+            f"Razão regional bovinos/técnico abaixo de {DESERTO_THRESHOLDS['carga_baixa']} — NORMAL."
+        ),
+    }.get(reason, reason)
+
+
+def _enrich_deserto_row(row: dict) -> dict:
+    r = dict(row)
+    classification = (r.get("classificacao") or r.get("classification") or "").replace(" ", "_")
+    bovinos = r.get("bovinos_municipio", r.get("cattle_total", r.get("bovinos")))
+    techs = r.get("tecnicos_75km", r.get("known_technical_count"))
+    carga = r.get("carga_regional", r.get("ratio"))
+    reason = _deserto_reason(bovinos, techs, carga)
+    techs_n = 0 if techs is None else int(techs)
+    if techs_n == 0:
+        ratio = None
+        ratio_status = "NOT_CALCULABLE_ZERO_DENOMINATOR"
+    else:
+        ratio = None if carga is None else int(carga)
+        ratio_status = "CALCULATED"
+    r.update({
+        "classification": classification,
+        "classification_label": CLASSIFICATION_LABELS.get(classification, classification),
+        "classification_reason": reason,
+        "classification_reason_text": _deserto_reason_text(reason),
+        "rule_version": DESERTO_RULE_VERSION,
+        "cattle_total": None if bovinos is None else int(bovinos),
+        "cattle_reference_year": DESERTO_CATTLE_YEAR,
+        "cattle_source": DESERTO_CATTLE_SOURCE,
+        "known_technical_count": techs_n,
+        "known_technical_definition": DESERTO_TECHNICAL_SCOPE,
+        "ratio": ratio,
+        "ratio_status": ratio_status,
+        "thresholds": dict(DESERTO_THRESHOLDS),
+        "technical_scope": DESERTO_TECHNICAL_SCOPE,
+        "geographic_method": DESERTO_GEOGRAPHIC_METHOD,
+        "radius_km": DESERTO_THRESHOLDS["raio_km"],
+        "sources": [DESERTO_RULE_SOURCE, f"{DESERTO_CATTLE_SOURCE} {DESERTO_CATTLE_YEAR}", "cnpj.estabelecimento_vet", "prospeccao.mv_mun_regional"],
+        "limitations": list(DESERTO_LIMITATIONS),
+        # aliases legados
+        "classificacao": classification,
+        "bovinos_municipio": None if bovinos is None else int(bovinos),
+        "tecnicos_75km": techs_n,
+        "carga_regional": ratio,
+        "raio_km": DESERTO_THRESHOLDS["raio_km"],
+        "fonte_rebanho": DESERTO_CATTLE_SOURCE,
+        "competencia_rebanho": str(DESERTO_CATTLE_YEAR),
+        "fonte_tecnicos": "RFB/CNPJ estabelecimentos elegíveis (CNAE)",
+        "observacoes": (
+            "Razão não calculável: denominador zero (nenhuma presença técnica elegível no raio)."
+            if ratio_status == "NOT_CALCULABLE_ZERO_DENOMINATOR"
+            else r.get("observacoes")
+        ),
+    })
+    return r
+
+
+def _deserto_regra_payload() -> dict:
+    return {
+        "rule_version": DESERTO_RULE_VERSION,
+        "raio_km": DESERTO_THRESHOLDS["raio_km"],
+        "piso_bovinos": DESERTO_THRESHOLDS["piso_bovinos_municipio"],
+        "deserto": (
+            "zero presença técnica elegível no raio regional OU "
+            f"carga regional ≥ {DESERTO_THRESHOLDS['carga_deserto']} bovinos/técnico"
+        ),
+        "baixa": f"carga regional ≥ {DESERTO_THRESHOLDS['carga_baixa']} e < {DESERTO_THRESHOLDS['carga_deserto']}",
+        "normal": (
+            f"rebanho municipal < {DESERTO_THRESHOLDS['piso_bovinos_municipio']} "
+            f"OU carga regional < {DESERTO_THRESHOLDS['carga_baixa']}"
+        ),
+        "technical_scope": DESERTO_TECHNICAL_SCOPE,
+        "technical_cnaes": list(DESERTO_TECHNICAL_CNAES),
+        "geographic_method": DESERTO_GEOGRAPHIC_METHOD,
+        "classification_rule_changed": False,
+    }
+
+
+
 def _query(sql: str, params: list[Any] | None = None) -> list[dict]:
     conn = get_connection("agro_legacy")
     try:
@@ -275,37 +427,288 @@ class AgroCanalRepository:
     @staticmethod
     def deserto(page=1, page_size=25, q=None, uf=None, classificacao=None, min_bovinos=None,
                 min_carga=None, sort="municipio", order="asc", formato="lista"):
+        """Lista municipal do Deserto — classes lidas da view publicada (sem recalcular limiares)."""
         where, params = ["1=1"], []
-        if q: where.append("w.nome ILIKE %s"); params.append(f"%{q}%")
-        if uf: where.append("w.uf=%s"); params.append(uf.upper())
-        if classificacao: where.append("replace(w.classificacao_vet,' ','_')=%s"); params.append(classificacao.upper())
-        if min_bovinos is not None: where.append("w.bovinos >= %s"); params.append(min_bovinos)
-        if min_carga is not None: where.append("w.carga_regional >= %s"); params.append(min_carga)
-        clause = " AND ".join(where); size=max(1,min(5000 if formato=="mapa" else 100,page_size)); offset=(max(1,page)-1)*size
-        total=int(_query(f"SELECT count(*) total FROM prospeccao.v_white_space_pecuaria w WHERE {clause}",params)[0]["total"])
-        columns={"municipio":"w.nome","uf":"w.uf","classificacao":"w.classificacao_vet","bovinos":"w.bovinos","carga":"w.carga_regional","tecnicos":"w.tecnicos_75km"}
-        col=columns.get(sort,"w.nome"); direction="DESC" if order.lower()=="desc" else "ASC"
-        rows=_query(f"""SELECT w.codigo_ibge, w.nome municipio, w.uf, w.latitude, w.longitude,
-          replace(w.classificacao_vet,' ','_') classificacao, w.bovinos bovinos_municipio,
-          w.bovinos_75km, w.tecnicos_75km, w.carga_regional, 75 raio_km,
-          'IBGE PPM' fonte_rebanho, '2023' competencia_rebanho,
-          'RFB/CNPJ e base técnica integrada' fonte_tecnicos,
-          CASE WHEN w.carga_regional IS NULL THEN 'Carga indisponível quando não há técnico regional.' END observacoes
-          FROM prospeccao.v_white_space_pecuaria w WHERE {clause}
-          ORDER BY {col} {direction} NULLS LAST, w.codigo_ibge LIMIT %s OFFSET %s""",params+[size,offset])
-        return {"items":rows,"total":total,"page":page,"page_size":size,"total_pages":math.ceil(total/size) if total else 0,
-                "status":"ok","regra":{"raio_km":75,"deserto":"zero técnicos regionais ou carga igual ou superior a 40000 bovinos por técnico","baixa":"carga igual ou superior a 15000 bovinos por técnico","piso_bovinos":1000},
-                "sources":["prospeccao.v_white_space_pecuaria","IBGE PPM 2023"],"competencia":"2023","limitations":[]}
+        if q:
+            where.append("w.nome ILIKE %s"); params.append(f"%{q}%")
+        if uf:
+            where.append("w.uf=%s"); params.append(uf.upper())
+        if classificacao:
+            where.append("replace(w.classificacao_vet,' ','_')=%s"); params.append(classificacao.upper())
+        if min_bovinos is not None:
+            where.append("w.bovinos >= %s"); params.append(min_bovinos)
+        if min_carga is not None:
+            where.append("w.carga_regional >= %s"); params.append(min_carga)
+        clause = " AND ".join(where)
+        size = max(1, min(5000 if formato == "mapa" else 100, page_size))
+        offset = (max(1, page) - 1) * size
+        total = int(_query(
+            f"SELECT count(*) total FROM prospeccao.v_white_space_pecuaria w WHERE {clause}",
+            params,
+        )[0]["total"])
+        columns = {
+            "municipio": "w.nome", "uf": "w.uf", "classificacao": "w.classificacao_vet",
+            "bovinos": "w.bovinos", "carga": "w.carga_regional", "tecnicos": "w.tecnicos_75km",
+            "codigo_ibge": "w.codigo_ibge",
+        }
+        col = columns.get(sort, "w.nome")
+        direction = "DESC" if str(order).lower() == "desc" else "ASC"
+        rows = _query(
+            f"""SELECT w.codigo_ibge, w.nome municipio, w.uf, w.latitude, w.longitude,
+              replace(w.classificacao_vet,' ','_') classificacao, w.bovinos bovinos_municipio,
+              w.bovinos_75km, w.tecnicos_75km, w.carga_regional
+              FROM prospeccao.v_white_space_pecuaria w WHERE {clause}
+              ORDER BY {col} {direction} NULLS LAST, w.codigo_ibge LIMIT %s OFFSET %s""",
+            params + [size, offset],
+        )
+        items = [_enrich_deserto_row(r) for r in rows]
+        payload = {
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": size,
+            "total_pages": math.ceil(total / size) if total else 0,
+            "status": "ok",
+            "regra": _deserto_regra_payload(),
+            "rule_version": DESERTO_RULE_VERSION,
+            "sources": [DESERTO_RULE_SOURCE, f"{DESERTO_CATTLE_SOURCE} {DESERTO_CATTLE_YEAR}"],
+            "competencia": f"{DESERTO_CATTLE_SOURCE} {DESERTO_CATTLE_YEAR}",
+            "limitations": list(DESERTO_LIMITATIONS),
+            "technical_scope": DESERTO_TECHNICAL_SCOPE,
+            "geographic_method": DESERTO_GEOGRAPHIC_METHOD,
+            "aggregation": "MUNICIPAL" if formato == "mapa" else None,
+            "classification_rule_changed": False,
+        }
+        if formato == "mapa":
+            # bounds Brasil + metadata de mapa
+            items = [
+                x for x in items
+                if x.get("latitude") is not None and x.get("longitude") is not None
+                and -33.75 <= float(x["latitude"]) <= 5.27
+                and -73.99 <= float(x["longitude"]) <= -34.79
+            ]
+            payload["items"] = items
+            payload["returned"] = len(items)
+            payload["aggregation"] = "MUNICIPAL"
+            payload["geographic_method"] = DESERTO_GEOGRAPHIC_METHOD
+        return payload
 
     @staticmethod
     def deserto_stats():
-        rows=_query("""SELECT replace(classificacao_vet,' ','_') classificacao, count(*) municipios,
-          COALESCE(sum(bovinos),0) bovinos FROM prospeccao.v_white_space_pecuaria GROUP BY 1""")
-        by={r["classificacao"]:r for r in rows}
-        return {"deserto_vet_municipios":by.get("DESERTO_VET",{}).get("municipios",0),
-                "baixa_cobertura_municipios":by.get("BAIXA_COBERTURA",{}).get("municipios",0),
-                "normal_municipios":by.get("NORMAL",{}).get("municipios",0),
-                "deserto_vet_bovinos":by.get("DESERTO_VET",{}).get("bovinos",0),
-                "baixa_cobertura_bovinos":by.get("BAIXA_COBERTURA",{}).get("bovinos",0),
-                "normal_bovinos":by.get("NORMAL",{}).get("bovinos",0),
-                "total_municipios":sum(int(r["municipios"]) for r in rows), "competencia":"IBGE PPM 2023"}
+        """Resumo legado + campos canônicos de visão geral (classes da view publicada)."""
+        # Uma única query: classes + totais de presença (sem segunda round-trip).
+        rows = _query(
+            """SELECT replace(classificacao_vet,' ','_') classificacao, count(*) municipios,
+              COALESCE(sum(bovinos),0) bovinos,
+              COALESCE(sum(tecnicos_75km),0) tecnicos,
+              count(*) FILTER (WHERE tecnicos_75km = 0) municipios_zero_tec
+              FROM prospeccao.v_white_space_pecuaria GROUP BY 1"""
+        )
+        by = {r["classificacao"]: r for r in rows}
+        deserto_m = int(by.get("DESERTO_VET", {}).get("municipios", 0) or 0)
+        baixa_m = int(by.get("BAIXA_COBERTURA", {}).get("municipios", 0) or 0)
+        normal_m = int(by.get("NORMAL", {}).get("municipios", 0) or 0)
+        total_m = deserto_m + baixa_m + normal_m
+        deserto_b = int(by.get("DESERTO_VET", {}).get("bovinos", 0) or 0)
+        baixa_b = int(by.get("BAIXA_COBERTURA", {}).get("bovinos", 0) or 0)
+        normal_b = int(by.get("NORMAL", {}).get("bovinos", 0) or 0)
+        slots_sum = sum(int(r.get("tecnicos") or 0) for r in rows)
+        zero_tec = sum(int(r.get("municipios_zero_tec") or 0) for r in rows)
+        return {
+            # legado
+            "deserto_vet_municipios": deserto_m,
+            "baixa_cobertura_municipios": baixa_m,
+            "normal_municipios": normal_m,
+            "deserto_vet_bovinos": deserto_b,
+            "baixa_cobertura_bovinos": baixa_b,
+            "normal_bovinos": normal_b,
+            "total_municipios": total_m,
+            "competencia": f"{DESERTO_CATTLE_SOURCE} {DESERTO_CATTLE_YEAR}",
+            # canônico
+            "municipios_avaliados": total_m,
+            "deserto_vet": deserto_m,
+            "baixa_cobertura": baixa_m,
+            "cobertura_normal": normal_m,
+            "rebanho_no_recorte": deserto_b + baixa_b + normal_b,
+            "presenca_tecnica_conhecida": {
+                "definition": DESERTO_TECHNICAL_SCOPE,
+                "municipios_sem_presenca_conhecida": zero_tec,
+                "slots_regionais_somados": slots_sum,
+                "note": (
+                    "slots_regionais_somados soma contagens municipais no raio e NÃO é "
+                    "contagem de profissionais únicos nacionais."
+                ),
+            },
+            "rule_version": DESERTO_RULE_VERSION,
+            "cattle_reference_year": DESERTO_CATTLE_YEAR,
+            "cattle_source": DESERTO_CATTLE_SOURCE,
+            "thresholds": dict(DESERTO_THRESHOLDS),
+            "technical_scope": DESERTO_TECHNICAL_SCOPE,
+            "geographic_method": DESERTO_GEOGRAPHIC_METHOD,
+            "sources": [DESERTO_RULE_SOURCE, f"{DESERTO_CATTLE_SOURCE} {DESERTO_CATTLE_YEAR}"],
+            "limitations": list(DESERTO_LIMITATIONS),
+            "classification_rule_changed": False,
+            "soma_classes_ok": total_m == deserto_m + baixa_m + normal_m,
+        }
+
+    @staticmethod
+    def deserto_resumo():
+        return AgroCanalRepository.deserto_stats()
+
+    @staticmethod
+    def deserto_municipios(page=1, page_size=25, q=None, uf=None, classificacao=None,
+                           min_bovinos=None, min_carga=None, sort="municipio", order="asc"):
+        return AgroCanalRepository.deserto(
+            page=page, page_size=page_size, q=q, uf=uf, classificacao=classificacao,
+            min_bovinos=min_bovinos, min_carga=min_carga, sort=sort, order=order, formato="lista",
+        )
+
+    @staticmethod
+    def deserto_mapa(page=1, page_size=5000, q=None, uf=None, classificacao=None):
+        return AgroCanalRepository.deserto(
+            page=page, page_size=page_size, q=q, uf=uf, classificacao=classificacao,
+            formato="mapa",
+        )
+
+    @staticmethod
+    def deserto_detalhe(codigo_ibge: str | int) -> Optional[dict]:
+        rows = _query(
+            """SELECT w.codigo_ibge, w.nome municipio, w.uf, w.latitude, w.longitude,
+              replace(w.classificacao_vet,' ','_') classificacao, w.bovinos bovinos_municipio,
+              w.bovinos_75km, w.tecnicos_75km, w.carga_regional
+              FROM prospeccao.v_white_space_pecuaria w
+              WHERE w.codigo_ibge::text = %s LIMIT 1""",
+            [str(codigo_ibge)],
+        )
+        if not rows:
+            return None
+        item = _enrich_deserto_row(rows[0])
+        item["technical_types_included"] = [
+            {"cnae": c, "label": DESERTO_TECHNICAL_CNAE_LABELS[c], "enters_rule": True, "weight": 1}
+            for c in DESERTO_TECHNICAL_CNAES
+        ]
+        item["technical_types_excluded"] = [
+            {"tipo": "PROFISSIONAL_NOMINAL", "enters_rule": False, "note": "Canal Técnico — fora do denominador regional"},
+            {"tipo": "AGRONOMO_CREA", "enters_rule": False, "note": "CREA não entra no Deserto"},
+            {"tipo": "ORIGEM_ABCZ", "enters_rule": False, "note": "ABCZ não entra no Deserto"},
+            {"tipo": "CRMV_INFORMADO", "enters_rule": False, "note": "CRMV permanece NOT_VALIDATED e não é denominador"},
+        ]
+        item["crmv_policy"] = "NOT_VALIDATED"
+        item["context_links"] = {
+            "canal_tecnico": "/agro/tecnicos",
+            "propriedades": "/agro/propriedades",
+            "radar": "/agro/oportunidades",
+            "logistica": "/agro/logistica",
+        }
+        item["decision_explanation"] = {
+            "classification": item["classification"],
+            "reason": item["classification_reason"],
+            "reason_text": item["classification_reason_text"],
+            "rule_version": DESERTO_RULE_VERSION,
+            "thresholds": dict(DESERTO_THRESHOLDS),
+            "inputs": {
+                "cattle_total_municipal": item["cattle_total"],
+                "cattle_reference_year": DESERTO_CATTLE_YEAR,
+                "known_technical_count_75km": item["known_technical_count"],
+                "ratio": item["ratio"],
+                "ratio_status": item["ratio_status"],
+                "bovinos_75km": item.get("bovinos_75km"),
+            },
+        }
+        return item
+
+    @staticmethod
+    def deserto_metodologia() -> dict:
+        return {
+            "rule_version": DESERTO_RULE_VERSION,
+            "classification_rule_changed": False,
+            "rule_status": "VALIDATED_WITH_SEMANTIC_FIX",
+            "name": "Deserto Veterinário — carga regional por presença técnica conhecida",
+            "summary": (
+                "Classifica municípios com rebanho IBGE PPM 2023 segundo a carga bovina regional "
+                "por estabelecimento CNPJ elegível no raio de 75 km entre centroides municipais."
+            ),
+            "rule": {
+                "order": [
+                    "SE bovinos_municipais < 1000 ENTÃO NORMAL (CATTLE_BELOW_MINIMUM)",
+                    "SE tecnicos_75km = 0 ENTÃO DESERTO_VET (NO_KNOWN_ELIGIBLE_TECHNICAL_PRESENCE)",
+                    "SE carga_regional >= 40000 ENTÃO DESERTO_VET (RATIO_AT_OR_ABOVE_HIGH_THRESHOLD)",
+                    "SE carga_regional >= 15000 ENTÃO BAIXA_COBERTURA (RATIO_AT_OR_ABOVE_LOW_THRESHOLD)",
+                    "SENÃO NORMAL (RATIO_BELOW_LOW_THRESHOLD)",
+                ],
+                "thresholds": dict(DESERTO_THRESHOLDS),
+                "ratio_definition": "round(bovinos_75km / tecnicos_75km) quando tecnicos_75km > 0; senão null",
+                "zero_denominator": {
+                    "ratio": None,
+                    "ratio_status": "NOT_CALCULABLE_ZERO_DENOMINATOR",
+                    "classification": "DESERTO_VET se bovinos_municipais >= 1000",
+                },
+            },
+            "cattle": {
+                "source": DESERTO_CATTLE_SOURCE,
+                "year": DESERTO_CATTLE_YEAR,
+                "species": "BOV",
+                "object": "prospeccao.ppm_municipio",
+                "not_realtime": True,
+            },
+            "technical_presence": {
+                "definition": DESERTO_TECHNICAL_SCOPE,
+                "not": "KNOWN_VETERINARIAN_PRESENCE",
+                "object_supply": "prospeccao.mv_mun_regional",
+                "object_establishments": "cnpj.estabelecimento_vet",
+                "filter": "situacao_cadastral = '02' (ativo)",
+                "cnaes_included": [
+                    {"cnae": c, "label": DESERTO_TECHNICAL_CNAE_LABELS[c], "weight": 1}
+                    for c in DESERTO_TECHNICAL_CNAES
+                ],
+                "types_excluded": [
+                    "PROFISSIONAL_NOMINAL (Canal Técnico)",
+                    "AGRONOMO_CREA",
+                    "ORIGEM_ABCZ",
+                    "CRMV informado (NOT_VALIDATED)",
+                ],
+                "deduplication": "Contagem de estabelecimentos por município de sede (codigo_tom); cada estabelecimento ativo conta 1 no município sede e soma no raio.",
+                "crmv": "NOT_USED_IN_RULE",
+            },
+            "geography": {
+                "method": DESERTO_GEOGRAPHIC_METHOD,
+                "radius_km": 75,
+                "radius_meters": 75000,
+                "implementation": "earth_distance(ll_to_earth(lat,lng), ...) <= 75000 com pré-filtro bbox ±0.70°",
+                "srid_note": "Coordenadas geográficas WGS84 via extensão earthdistance (sem geography ST_DWithin)",
+                "points": "Centroides de referencia.municipio — não coordenadas individuais de profissionais",
+                "mv_tecnico_geo": "ABSENT",
+                "individual_professional_distance": False,
+            },
+            "objects": {
+                "classification_view": "prospeccao.v_white_space_pecuaria",
+                "regional_matview": "prospeccao.mv_mun_regional",
+                "municipal_supply": "prospeccao.mv_vet_supply_mun",
+                "fazenda_deserto": "prospeccao.fazenda_deserto",
+                "mv_tecnico_geo": "ABSENT",
+            },
+            "semantics": {
+                "page_title_note": (
+                    "O nome comercial 'Deserto Veterinário' é histórico. O denominador mede "
+                    "KNOWN_TECHNICAL_PRESENCE (CNAEs elegíveis), não apenas veterinários habilitados."
+                ),
+                "absence_language": (
+                    "Usar 'nenhuma presença técnica elegível identificada na base' — "
+                    "nunca 'não existem veterinários'."
+                ),
+            },
+            "radar_consumption": {
+                "source": DESERTO_RULE_SOURCE,
+                "signal_classes": ["DESERTO_VET", "BAIXA_COBERTURA"],
+                "parity_required": True,
+                "classification_rule_changed": False,
+            },
+            "limitations": list(DESERTO_LIMITATIONS),
+            "sources": [
+                DESERTO_RULE_SOURCE,
+                "prospeccao.mv_mun_regional",
+                "cnpj.estabelecimento_vet",
+                f"{DESERTO_CATTLE_SOURCE} {DESERTO_CATTLE_YEAR}",
+            ],
+        }
+

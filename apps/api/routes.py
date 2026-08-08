@@ -602,16 +602,83 @@ def get_agro_tecnico(id: str, request: Request, user=Depends(require_permission(
     if not item: raise HTTPException(404,"Cadastro técnico não encontrado")
     return item
 
-@router.get("/agro/deserto-veterinario")
-def get_agro_deserto(request: Request, page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=5000),
-    q:Optional[str]=None,uf:Optional[str]=None,classificacao:Optional[str]=None,min_bovinos:Optional[int]=None,
-    min_carga:Optional[int]=None,sort:str="municipio",order:str="asc",formato:Literal["lista","mapa"]="lista",
-    user=Depends(require_permission("agro"))):
-    return AgroCanalRepository.deserto(page,page_size,q,uf,classificacao,min_bovinos,min_carga,sort,order,formato)
+@router.get("/agro/deserto-veterinario/resumo")
+def get_agro_deserto_resumo(request: Request, user=Depends(require_permission("agro"))):
+    """Resumo canônico do Deserto Veterinário (classes da view publicada)."""
+    return AgroCanalRepository.deserto_resumo()
+
+@router.get("/agro/deserto-veterinario/municipios")
+def get_agro_deserto_municipios(
+    request: Request,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=100),
+    q: Optional[str] = None,
+    uf: Optional[str] = None,
+    classificacao: Optional[str] = None,
+    min_bovinos: Optional[int] = None,
+    min_carga: Optional[int] = None,
+    sort: str = "municipio",
+    order: str = "asc",
+    user=Depends(require_permission("agro")),
+):
+    return AgroCanalRepository.deserto_municipios(
+        page=page, page_size=page_size, q=q, uf=uf, classificacao=classificacao,
+        min_bovinos=min_bovinos, min_carga=min_carga, sort=sort, order=order,
+    )
+
+@router.get("/agro/deserto-veterinario/mapa")
+def get_agro_deserto_mapa(
+    request: Request,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(5000, ge=1, le=5000),
+    q: Optional[str] = None,
+    uf: Optional[str] = None,
+    classificacao: Optional[str] = None,
+    user=Depends(require_permission("agro")),
+):
+    return AgroCanalRepository.deserto_mapa(
+        page=page, page_size=page_size, q=q, uf=uf, classificacao=classificacao,
+    )
+
+@router.get("/agro/deserto-veterinario/metodologia")
+def get_agro_deserto_metodologia(request: Request, user=Depends(require_permission("agro"))):
+    return AgroCanalRepository.deserto_metodologia()
 
 @router.get("/agro/deserto-veterinario/stats")
-def get_agro_deserto_stats(request: Request,user=Depends(require_permission("agro"))):
+def get_agro_deserto_stats(request: Request, user=Depends(require_permission("agro"))):
+    """Endpoint legado — mesmo payload de /resumo."""
     return AgroCanalRepository.deserto_stats()
+
+@router.get("/agro/deserto-veterinario")
+def get_agro_deserto(
+    request: Request,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=5000),
+    q: Optional[str] = None,
+    uf: Optional[str] = None,
+    classificacao: Optional[str] = None,
+    min_bovinos: Optional[int] = None,
+    min_carga: Optional[int] = None,
+    sort: str = "municipio",
+    order: str = "asc",
+    formato: Literal["lista", "mapa"] = "lista",
+    user=Depends(require_permission("agro")),
+):
+    """Endpoint legado de lista/mapa — preservado para consumidores existentes."""
+    return AgroCanalRepository.deserto(
+        page, page_size, q, uf, classificacao, min_bovinos, min_carga, sort, order, formato,
+    )
+
+@router.get("/agro/deserto-veterinario/{codigo_ibge}")
+def get_agro_deserto_detalhe(
+    codigo_ibge: str,
+    request: Request,
+    user=Depends(require_permission("agro")),
+):
+    item = AgroCanalRepository.deserto_detalhe(codigo_ibge)
+    if not item:
+        raise HTTPException(status_code=404, detail="Município não encontrado no recorte do Deserto Veterinário")
+    return item
 
 @router.get("/agro/veterinaria/classificacao")
 def get_agro_veterinaria_classificacao(request: Request, user=Depends(require_permission("agro"))):
