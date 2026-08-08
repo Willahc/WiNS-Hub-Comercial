@@ -21,6 +21,8 @@ export const AGRO_API = {
   geneticaAcasalamentoProntidao: '/agro/genetica/acasalamento/prontidao',
   geneticaAcasalamentoCandidatos: '/agro/genetica/acasalamento/candidatos',
   geneticaSimulador: '/agro/genetica/simulador',
+  geneticaMatrizes: '/agro/genetica/matrizes',
+  geneticaMetodologia: '/agro/genetica/metodologia',
   decisores: '/agro/decisores',
   people: '/agro/pessoas-vinculos',
   peopleStats: '/agro/pessoas-vinculos/stats',
