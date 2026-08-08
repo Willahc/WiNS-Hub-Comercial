@@ -33,6 +33,7 @@ export const AGRO_API = {
   imovel: (id: string) => `/agro/imoveis/${encodeURIComponent(id)}`,
   tecnicos: '/agro/tecnicos',
   tecnicosStats: '/agro/tecnicos/stats',
+  tecnicosMapa: '/agro/tecnicos/mapa',
   tecnico: (id: string) => `/agro/tecnicos/${encodeURIComponent(id)}`,
   desertoVeterinario: '/agro/deserto-veterinario',
   desertoVeterinarioStats: '/agro/deserto-veterinario/stats',
