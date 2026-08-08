@@ -2818,10 +2818,10 @@ class Wave1Repository:
                              'ÁÀÃÂÄÉÈÊËÍÌÎÏÓÒÕÔÖÚÙÛÜÇ', 'AAAAAEEEEIIIIOOOOOUUUUC') AS municipio_key,
                            count(*)::int AS transporters,
                            count(*) FILTER (WHERE nullif(trim(t.numero_rntrc), '') IS NOT NULL)::int AS with_rntrc,
-                           count(*) FILTER (WHERE t.latitude IS NOT NULL AND t.longitude IS NOT NULL)::int AS geocoded,
+                           count(*) FILTER (WHERE t.latitude IS NOT NULL AND t.longitude IS NOT NULL AND t.latitude BETWEEN -33.75 AND 5.27 AND t.longitude BETWEEN -73.99 AND -34.79 AND (t.latitude <> 0 OR t.longitude <> 0))::int AS geocoded,
                            count(*) FILTER (WHERE nullif(trim(t.fonte_contato), '') IS NOT NULL)::int AS institutional_contacts,
-                           avg(t.latitude) FILTER (WHERE t.latitude IS NOT NULL AND t.longitude IS NOT NULL) AS latitude,
-                           avg(t.longitude) FILTER (WHERE t.latitude IS NOT NULL AND t.longitude IS NOT NULL) AS longitude
+                           avg(t.latitude) FILTER (WHERE t.latitude IS NOT NULL AND t.longitude IS NOT NULL AND t.latitude BETWEEN -33.75 AND 5.27 AND t.longitude BETWEEN -73.99 AND -34.79 AND (t.latitude <> 0 OR t.longitude <> 0)) AS latitude,
+                           avg(t.longitude) FILTER (WHERE t.latitude IS NOT NULL AND t.longitude IS NOT NULL AND t.latitude BETWEEN -33.75 AND 5.27 AND t.longitude BETWEEN -73.99 AND -34.79 AND (t.latitude <> 0 OR t.longitude <> 0)) AS longitude
                     FROM log.transportadora t
                     GROUP BY t.uf, trim(t.municipio), translate(upper(trim(t.municipio)),
                       'ÁÀÃÂÄÉÈÊËÍÌÎÏÓÒÕÔÖÚÙÛÜÇ', 'AAAAAEEEEIIIIOOOOOUUUUC')
@@ -2858,7 +2858,7 @@ class Wave1Repository:
                 row.pop("municipio_key", None); row.pop("total", None)
                 row["sources"] = ["log.transportadora", "log.match", "SICAR/CAR", "IBGE", "IBGE PPM"]
                 row["limitations"] = [
-                    "Cobertura conhecida na camada disponível.",
+                    "Concentração conhecida na camada disponível.",
                     "A contagem CAR municipal foi omitida porque a consulta canônica excedeu a meta de desempenho."
                 ]
             return {"status": "PARTIAL", "items": rows, "page": page, "page_size": size,
@@ -2873,12 +2873,23 @@ class Wave1Repository:
         response = Wave1Repository.agro_logistica_municipios(
             uf=uf, page=1, page_size=min(max(limit, 1), MAX_PAGE_SIZE), sort="transporters", order="desc"
         )
-        items = [{key: row.get(key) for key in (
-            "municipio", "uf", "codigo_ibge", "latitude", "longitude", "transporters",
-            "geocoded", "properties", "livestock", "territorial_classification", "coverage_status",
-            "territorial_link_quality"
-        )} for row in response["items"]]
-        return {"status": response["status"], "items": items, "returned": len(items),
+        valid_items = []
+        for row in response.get("items", []):
+            lat = row.get("latitude")
+            lng = row.get("longitude")
+            if lat is not None and lng is not None:
+                try:
+                    lat_f = float(lat)
+                    lng_f = float(lng)
+                    if -33.75 <= lat_f <= 5.27 and -73.99 <= lng_f <= -34.79 and (lat_f != 0 or lng_f != 0):
+                        valid_items.append({key: row.get(key) for key in (
+                            "municipio", "uf", "codigo_ibge", "latitude", "longitude", "transporters",
+                            "geocoded", "properties", "livestock", "territorial_classification", "coverage_status",
+                            "territorial_link_quality"
+                        )})
+                except (ValueError, TypeError):
+                    continue
+        return {"status": response["status"], "items": valid_items, "returned": len(valid_items),
                 "total": response["total"], "aggregation": "MUNICIPAL", "limit": min(max(limit, 1), MAX_PAGE_SIZE)}
 
     @staticmethod

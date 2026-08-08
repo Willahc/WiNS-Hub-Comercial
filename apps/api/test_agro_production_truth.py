@@ -164,6 +164,20 @@ class TestAgroProductionTruthStatic:
         assert "IBGE PPM" in source
         assert "COBERTURA_CONHECIDA_ALTA" in source
         assert "DADOS_INSUFICIENTES" in source
+        assert "-33.75" in source
+        assert "5.27" in source
+        assert "-73.99" in source
+        assert "-34.79" in source
+
+    def test_agro_logistica_mapa_sem_coordenadas_invalidas_ou_outliers(self):
+        source = read_source("agro_logistica_mapa")
+        assert "-33.75" in source
+        assert "5.27" in source
+        assert "-73.99" in source
+        assert "-34.79" in source
+        assert "lat_f != 0 or lng_f != 0" in source
+        assert '"returned": len(valid_items)' in source
+        assert '"total": response["total"]' in source
 
     def test_agro_genetica_simulador_sem_simulador_exemplo(self):
         source = read_source("agro_genetica_simulador")
