@@ -1,138 +1,104 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Dna, AlertTriangle } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { AlertTriangle, Database, Dna, ShieldAlert } from 'lucide-react';
 import AgroPageShell from '../components/AgroPageShell';
 import { httpClient } from '../services/http/client';
 
-/**
- * Genética & Pecuária (WiNS Genetic)
- * Rota: /agro/genetica
- * Endpoint: GET /agro/genetica/simulador
- * 
- * Exibe apenas dados reais da API. Não inventa contagens, scores ou resultados.
- * Simulador só aparece quando há dados de vaca e touro + regra documentada.
- */
+const fmt = (value: unknown) => typeof value === 'number' ? value.toLocaleString('pt-BR') : '—';
+const cardStyle: React.CSSProperties = { background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 16 };
+
 export default function AgroGeneticaApproved() {
-  const [data, setData] = useState<any>(null);
+  const [summary, setSummary] = useState<any>(null);
+  const [catalog, setCatalog] = useState<any>(null);
+  const [traits, setTraits] = useState<any>(null);
+  const [readiness, setReadiness] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTouro, setSelectedTouro] = useState<any>(null);
-  const [simuladorDisponivel, setSimuladorDisponivel] = useState(false);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
-      const res = await httpClient.get('/agro/genetica/simulador');
-      const d = res.data;
-      setData(d);
-      // Verifica se há dados suficientes para o simulador
-      const reprodutores = d?.reprodutores || [];
-      if (reprodutores.length > 0) setSelectedTouro(reprodutores[0]);
-      // Simulador só disponível se houver reprodutores com DEP e dados de vaca
-      setSimuladorDisponivel(
-        reprodutores.length > 0 &&
-        reprodutores.some((t: any) => t.dep_ganho_peso || t.registro)
-      );
+      const results = await Promise.all([
+        httpClient.get('/agro/genetica/resumo'),
+        httpClient.get('/agro/genetica/reprodutores', { params: { page: 1, page_size: 25 } }),
+        httpClient.get('/agro/genetica/caracteristicas'),
+        httpClient.get('/agro/genetica/acasalamento/prontidao'),
+      ]);
+      setSummary(results[0].data); setCatalog(results[1].data);
+      setTraits(results[2].data); setReadiness(results[3].data);
     } catch (err: any) {
-      setError(err?.userMessage || err?.message || 'Falha ao carregar dados genéticos');
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
+      setError(err?.userMessage || err?.message || 'Falha ao carregar o contrato genético');
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const reprodutores: any[] = data?.reprodutores || [];
-  const totalReprodutores = data?.total_reprodutores;
+  const counts = summary?.counts || {};
+  const reprodutores = catalog?.items || [];
+  const caracteristicas = traits?.caracteristicas || [];
+  const matingAvailable = readiness?.status === 'AVAILABLE' && readiness?.eligible_matrices_count > 0;
 
   return (
     <AgroPageShell
-      title="Genética & Pecuária — WiNS Genetic"
-      subtitle={totalReprodutores ? `${totalReprodutores.toLocaleString('pt-BR')} reprodutores na base` : 'Base genética em validação'}
+      title="Genética & Pecuária"
+      subtitle="Catálogo, DEPs, pedigree e prontidão de acasalamento com evidência persistida"
       loading={loading} error={error} onRetry={loadData}
     >
-      {/* Status da base */}
-      <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-        {simuladorDisponivel ? (
-          <Dna size={24} color="#22C55E" />
-        ) : (
-          <AlertTriangle size={24} color="#F59E0B" />
-        )}
+      <div style={{ ...cardStyle, display: 'flex', gap: 12, alignItems: 'flex-start', borderColor: matingAvailable ? '#22C55E55' : '#F59E0B55' }}>
+        {matingAvailable ? <Dna size={22} color="#22C55E" /> : <ShieldAlert size={22} color="#F59E0B" />}
         <div>
-          <strong style={{ color: '#F8FAFC', display: 'block', fontSize: 14 }}>
-            {simuladorDisponivel
-              ? 'Base disponível — simulador em validação'
-              : 'Base genética em validação — simulador indisponível'}
-          </strong>
-          <span style={{ fontSize: 12, color: '#94A3B8' }}>
-            {simuladorDisponivel
-              ? 'Dados reais de reprodutores carregados. O simulador de acasalamento requer dados completos de vaca e touro com regra documentada.'
-              : 'O catálogo de reprodutores ainda não possui dados suficientes para o simulador. Nenhum resultado será inventado.'}
+          <strong style={{ color: '#F8FAFC', display: 'block' }}>Acasalamento: {matingAvailable ? 'AVAILABLE' : 'NOT_CALCULABLE'}</strong>
+          <span style={{ color: '#94A3B8', fontSize: 12 }}>
+            {matingAvailable
+              ? 'Há matriz elegível, DEP real e direção de mérito documentada para triagem.'
+              : `Nenhuma das ${fmt(readiness?.matrizes_count)} matrizes cadastradas tem hoje identidade, raça e registros exatos de pai e mãe completos.`}
           </span>
         </div>
       </div>
 
-      {/* Simulador (apenas se disponível) */}
-      {simuladorDisponivel && selectedTouro && (
-        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, padding: 16 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 700, color: '#EC4899', margin: '0 0 12px 0' }}>Simulador de Match Genético Vaca × Touro</h4>
-          <div style={{ background: '#0B132B', padding: 16, borderRadius: 6, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-            <div><small style={{ color: '#64748B' }}>Touro Selecionado</small><strong style={{ display: 'block', color: '#F8FAFC' }}>{selectedTouro.nome || '—'}</strong></div>
-            <div><small style={{ color: '#64748B' }}>RGD</small><strong style={{ display: 'block', color: '#EC4899' }}>{selectedTouro.registro || '—'}</strong></div>
-            {selectedTouro.dep_ganho_peso && <div><small style={{ color: '#64748B' }}>DEP Ganho de Peso</small><strong style={{ display: 'block', color: '#22C55E' }}>+{selectedTouro.dep_ganho_peso} kg</strong></div>}
-            <div><small style={{ color: '#64748B' }}>Consanguinidade</small><strong style={{ display: 'block', color: '#3B82F6' }}>{selectedTouro.consanguinidade || 'Em validação'}</strong></div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        {[
+          ['Reprodutores', counts.total_reprodutores, 'mercado.reprodutor'],
+          ['Avaliações / DEPs', counts.total_avaliacoes, 'mercado.avaliacao'],
+          ['Com avaliação', counts.reprodutores_com_avaliacao, 'reprodutores distintos'],
+          ['Características', counts.total_caracteristicas, `${fmt(counts.caracteristicas_densas)} com ≥ 10 mil avaliações`],
+          ['Raças com reprodutor', counts.racas_com_reprodutor, `${fmt(counts.total_racas_cadastradas)} cadastradas`],
+          ['Pedigree textual completo', counts.com_pedigree_pai_mae, 'pai e mãe declarados; não implica ID resolvido'],
+          ['Fêmeas operacionais', counts.femeas_cadastradas, 'base parcial'],
+          ['Ofertas de sêmen', counts.ofertas_semen, 'registros persistidos'],
+        ].map(([label, value, note]) => (
+          <div key={String(label)} style={cardStyle}>
+            <span style={{ color: '#94A3B8', fontSize: 11 }}>{label}</span>
+            <strong style={{ color: '#F8FAFC', fontSize: 22, display: 'block', margin: '4px 0' }}>{fmt(value)}</strong>
+            <small style={{ color: '#64748B' }}>{note}</small>
           </div>
-          <div style={{ fontSize: 10, color: '#64748B', marginTop: 8 }}>
-            Resultados do simulador dependem de dados reais dos dois animais, regra de cálculo documentada e componentes explicáveis. Resultados mostrados são provenientes da API.
-          </div>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {/* Catálogo de Reprodutores */}
-      {reprodutores.length > 0 && (
-        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 8, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: '#0B132B', color: '#94A3B8', borderBottom: '1px solid #1E293B' }}>
-                <th style={{ padding: 12 }}>RGD / Nome</th>
-                <th style={{ padding: 12 }}>Raça</th>
-                <th style={{ padding: 12 }}>Pai / Mãe</th>
-                <th style={{ padding: 12 }}>Fazenda Origem</th>
-                <th style={{ padding: 12 }}>Município / UF</th>
-                <th style={{ padding: 12 }}>Programa</th>
-                <th style={{ padding: 12 }}>Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reprodutores.map((t: any, i: number) => (
-                <tr key={i} style={{ borderBottom: '1px solid #1E293B' }}>
-                  <td style={{ padding: 12 }}>
-                    <strong style={{ color: '#F8FAFC', display: 'block' }}>{t.nome || '—'}</strong>
-                    <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#EC4899' }}>{t.registro || '—'}</span>
-                  </td>
-                  <td style={{ padding: 12, color: '#CBD5E1' }}>{t.raca || '—'}</td>
-                  <td style={{ padding: 12, color: '#94A3B8', fontSize: 11 }}>P: {t.pai_nome || '—'}<br />M: {t.mae_nome || '—'}</td>
-                  <td style={{ padding: 12, color: '#94A3B8', fontSize: 12 }}>{t.fazenda_origem || '—'}</td>
-                  <td style={{ padding: 12, color: '#CBD5E1', fontSize: 12 }}>{t.municipio || '—'} / {t.uf || '—'}</td>
-                  <td style={{ padding: 12, color: '#22C55E', fontSize: 11 }}>{t.fonte_programa || '—'}</td>
-                  <td style={{ padding: 12 }}>
-                    <button onClick={() => setSelectedTouro(t)}
-                      style={{ background: '#EC4899', color: '#FFF', border: 'none', padding: '4px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                      🧬 Selecionar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div style={{ ...cardStyle, overflowX: 'auto' }}>
+        <h3 style={{ margin: '0 0 12px', color: '#F8FAFC', fontSize: 14 }}><Database size={15} style={{ verticalAlign: 'middle', marginRight: 6 }} />Catálogo real de reprodutores</h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 760 }}>
+          <thead><tr style={{ color: '#94A3B8', borderBottom: '1px solid #334155' }}><th style={{ padding: 9, textAlign: 'left' }}>RGD / Nome</th><th>Raça</th><th>Pedigree</th><th>DEPs</th><th>Origem</th><th>Localidade</th></tr></thead>
+          <tbody>{reprodutores.map((item: any) => <tr key={item.id} style={{ borderBottom: '1px solid #1E293B', color: '#CBD5E1' }}>
+            <td style={{ padding: 9 }}><strong style={{ color: '#F8FAFC', display: 'block' }}>{item.nome || '—'}</strong><span style={{ color: '#EC4899' }}>{item.registro || '—'}</span></td>
+            <td style={{ textAlign: 'center' }}>{item.raca_nome || '—'}</td><td style={{ textAlign: 'center' }}>{item.pedigree_quality}</td><td style={{ textAlign: 'center' }}>{fmt(item.avaliacoes_count)}</td>
+            <td style={{ textAlign: 'center' }}>{item.fonte_programa || '—'}</td><td style={{ textAlign: 'center' }}>{[item.municipio, item.uf].filter(Boolean).join(' / ') || '—'}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
 
-      {/* Limitações */}
-      <div style={{ fontSize: 10, color: 'var(--text-tertiary)', borderTop: '1px solid var(--border-default)', paddingTop: 12 }}>
-        <strong>🧬 Genética:</strong> Dados provenientes da API. O simulador só produz resultado quando recebe dados reais de vaca e touro, regra documentada e componentes explicáveis.
-        {!simuladorDisponivel && ' O simulador está desabilitado até que haja dados suficientes. Nenhum resultado é inventado.'}
+      <div style={{ ...cardStyle, overflowX: 'auto' }}>
+        <h3 style={{ margin: '0 0 12px', color: '#F8FAFC', fontSize: 14 }}>Características e cobertura das avaliações</h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
+          <thead><tr style={{ color: '#94A3B8', borderBottom: '1px solid #334155' }}><th style={{ padding: 9, textAlign: 'left' }}>Característica</th><th>Avaliações</th><th>Reprodutores</th><th>Mediana</th><th>Direção documentada</th></tr></thead>
+          <tbody>{caracteristicas.filter((item: any) => item.total_avaliacoes > 0).slice(0, 20).map((item: any) => <tr key={item.id} style={{ borderBottom: '1px solid #1E293B', color: '#CBD5E1' }}>
+            <td style={{ padding: 9 }}><strong style={{ color: '#F8FAFC' }}>{item.sigla}</strong> — {item.nome}</td><td style={{ textAlign: 'center' }}>{fmt(item.total_avaliacoes)}</td><td style={{ textAlign: 'center' }}>{fmt(item.total_reprodutores)}</td><td style={{ textAlign: 'center' }}>{item.mediana_valor ?? '—'} {item.unidade || ''}</td><td style={{ textAlign: 'center' }}>{item.selection_direction}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+
+      <div style={{ ...cardStyle, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <AlertTriangle size={18} color="#F59E0B" style={{ flexShrink: 0 }} />
+        <small style={{ color: '#94A3B8' }}>Pai e mãe textuais são “pedigree imediato declarado”, não árvore genealógica resolvida. A página não calcula coeficiente formal de consanguinidade, prenhez, ganho econômico, ROI ou fenótipo previsto. Null não é convertido em zero. Atualização mais recente informada pelo banco: {summary?.updated_at || 'não disponível'}.</small>
       </div>
     </AgroPageShell>
   );
