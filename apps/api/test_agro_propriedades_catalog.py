@@ -57,7 +57,7 @@ def test_item_nao_infere_producao_proprietario_ou_status():
 
 
 def test_contexto_municipal_nao_vira_atributo_do_imovel():
-    with patch.object(repo,"_query",side_effect=[[{"total":1}],[base()],[context()]]) as query:
+    with patch.object(repo,"_query",side_effect=[[{"total":1}],[base()],[context()]]):
         result=AgroPropertiesRepository.list()
     item=result["items"][0]
     assert item["municipal_context"]["scope"]=="MUNICIPAL"
@@ -106,7 +106,7 @@ def test_mapa_limitado_bbox_e_total_nao_inventado():
 
 
 def test_contexto_municipal_contagem_real_e_ligacao_ibge():
-    with patch.object(repo,"_query",side_effect=[[context()],[{"codigo_ibge":"5103403","total":123}]]) as query:
+    with patch.object(repo,"_query",side_effect=[[context()],[{"codigo_ibge":"5103403","total":123}]]):
         result=AgroPropertiesRepository.municipal_context(uf="MT",municipio="CUIABA",limit=1)
     assert result["items"][0]["imoveis_registrados"]==123
     assert result["items"][0]["scope"]=="MUNICIPAL" and result["link_quality"]=="IBGE_CODE_EXACT"
