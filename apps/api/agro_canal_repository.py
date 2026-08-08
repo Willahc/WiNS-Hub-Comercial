@@ -15,7 +15,7 @@ GEO_MESSAGE = "A camada de proximidade técnico–fazenda está temporariamente 
 
 
 def _query(sql: str, params: list[Any] | None = None) -> list[dict]:
-    conn = get_connection("agro")
+    conn = get_connection("agro_legacy")
     try:
         conn.set_session(readonly=True, autocommit=False)
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -25,7 +25,7 @@ def _query(sql: str, params: list[Any] | None = None) -> list[dict]:
         conn.rollback()
         return rows
     finally:
-        release_connection(conn, "agro")
+        release_connection(conn, "agro_legacy")
 
 
 TECH_CTE = """

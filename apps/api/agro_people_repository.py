@@ -105,7 +105,7 @@ class AgroPeopleRepository:
           count(DISTINCT municipio)::int total_municipios,count(DISTINCT uf)::int total_ufs,
           bool_or(classificacao='HOLDING') tem_grupo,max(enriquecido_em)::text atualizacao
           FROM filtered GROUP BY cpf_socio_comum {having}"""
-        totals = _run_db("wins_agro", f"WITH filtered AS ({filtered}), people AS ({grouped}) SELECT count(*)::int total_people,COALESCE(sum(total_empresas),0)::int total_links FROM people", params, domain="agro")
+        totals = _run_db("wins_agro", f"WITH filtered AS ({filtered}), people AS ({grouped}) SELECT count(*)::int total_people,COALESCE(sum(total_empresas),0)::int total_links FROM people", params, domain="agro_legacy")
         total_people = totals[0]["total_people"] if totals else 0
         total_links = totals[0]["total_links"] if totals else 0
         sort_map = {
@@ -115,7 +115,7 @@ class AgroPeopleRepository:
         }
         column = sort_map.get(sort, "total_empresas"); direction = "ASC" if order == "asc" else "DESC"
         default_tail = ", nome ASC, person_id ASC" if sort == "total_empresas" and direction == "DESC" else ", person_id ASC"
-        people = _run_db("wins_agro", f"WITH filtered AS ({filtered}), people AS ({grouped}) SELECT * FROM people ORDER BY {column} {direction} NULLS LAST{default_tail} LIMIT %s OFFSET %s", params + [size, offset], domain="agro")
+        people = _run_db("wins_agro", f"WITH filtered AS ({filtered}), people AS ({grouped}) SELECT * FROM people ORDER BY {column} {direction} NULLS LAST{default_tail} LIMIT %s OFFSET %s", params + [size, offset], domain="agro_legacy")
         ids = [p["person_id"] for p in people]
         links = []
         if ids:
@@ -123,7 +123,7 @@ class AgroPeopleRepository:
               SELECT encode(digest(cpf_socio_comum,'sha256'),'hex') person_id,*,
               row_number() OVER (PARTITION BY cpf_socio_comum ORDER BY razao,cnpj14) link_rank
               FROM filtered WHERE encode(digest(cpf_socio_comum,'sha256'),'hex')=ANY(%s))
-              SELECT * FROM ranked WHERE link_rank<=3 ORDER BY nome_socio_comum,razao""", params + [ids], domain="agro")
+              SELECT * FROM ranked WHERE link_rank<=3 ORDER BY nome_socio_comum,razao""", params + [ids], domain="agro_legacy")
         by_person = {}
         for link in links:
             by_person.setdefault(link["person_id"], []).append(link)
@@ -177,7 +177,7 @@ class AgroPeopleRepository:
         rows = _run_db("wins_agro", """SELECT encode(digest(b.cpf_socio_comum,'sha256'),'hex') person_id,b.*,
           l.cnpj14,l.razao,l.nome_fantasia,l.uf,l.municipio,l.cnae_principal,l.situacao,l.email,l.whatsapp,l.whats_origem
           FROM prospeccao.holding_blind_spot b LEFT JOIN prospeccao.holding_lead_ui l ON l.cnpj_basico=b.cnpj_basico
-          WHERE encode(digest(b.cpf_socio_comum,'sha256'),'hex')=%s ORDER BY l.razao""", [person_id], domain="agro")
+          WHERE encode(digest(b.cpf_socio_comum,'sha256'),'hex')=%s ORDER BY l.razao""", [person_id], domain="agro_legacy")
         if not rows:
             return None
         base = {"person_id": person_id, "nome": rows[0].get("nome_socio_comum"),
@@ -207,5 +207,5 @@ class AgroPeopleRepository:
           0::int decisores_provaveis,0::int decisores_comprovados,0::int contatos_pessoais_validados,
           (SELECT institutional FROM contacts) contatos_institucionais,
           (SELECT institutional FROM contacts) contatos_nao_atribuidos,
-          count(*) FILTER(WHERE has_group)::int grupos_holdings_relacionados FROM people""", domain="agro")
+          count(*) FILTER(WHERE has_group)::int grupos_holdings_relacionados FROM people""", domain="agro_legacy")
         return {"status": "ok", **(rows[0] if rows else {}), "sources": _SOURCES, "limitations": _LIMITATIONS}

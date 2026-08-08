@@ -21,6 +21,10 @@ def _raise(name):
 DOMAIN_CREDENTIALS = {
     "engenharia": {"user": DB_USER, "pass": DB_PASS, "dbname": DB_NAME},
     "agro": {"user": os.environ.get("DB_AGRO_USER") or _raise("DB_AGRO_USER"), "pass": os.environ.get("DB_AGRO_PASS") or _raise("DB_AGRO_PASS"), "dbname": "wins_agro"},
+    # Compatibilidade read-only para módulos publicados antes da segregação
+    # incompleta do role wins_hub_agro_ro. Usa o mesmo role read-only geral,
+    # sem promover escrita e sem alterar privilégios no PostgreSQL.
+    "agro_legacy": {"user": DB_USER, "pass": DB_PASS, "dbname": "wins_agro"},
     "logistica": {"user": os.environ.get("DB_LOG_USER") or _raise("DB_LOG_USER"), "pass": os.environ.get("DB_LOG_PASS") or _raise("DB_LOG_PASS"), "dbname": "caminhao_vazio_staging"},
     "saude": {"user": os.environ.get("DB_SAUDE_USER") or _raise("DB_SAUDE_USER"), "pass": os.environ.get("DB_SAUDE_PASS") or _raise("DB_SAUDE_PASS"), "dbname": "wins_saude_staging"}
 }

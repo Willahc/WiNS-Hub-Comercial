@@ -48,7 +48,7 @@ class AgroHoldingsRepository:
              JOIN prospeccao.holding_blind_spot b USING(cnpj_basico)) pessoas_no_universo_empresas,
           0::int empresas_ligadas_grupo,(SELECT count(*)::int FROM documented) grupos_documentais,
           0::int empresas_propriedade_comprovada,
-          0::int empresas_empresa_360 FROM companies""", domain="agro")
+          0::int empresas_empresa_360 FROM companies""", domain="agro_legacy")
         return {"status": "ok", **(rows[0] if rows else {}), "sources": SOURCES, "limitations": LIMITATIONS}
 
     @staticmethod
@@ -97,13 +97,13 @@ class AgroHoldingsRepository:
           FROM prospeccao.holding_lead_ui l LEFT JOIN prospeccao.holding_blind_spot b USING(cnpj_basico)
           LEFT JOIN (SELECT cpf_socio_comum,count(*) n FROM prospeccao.holding_blind_spot GROUP BY 1) pc
           ON pc.cpf_socio_comum=b.cpf_socio_comum WHERE {where}"""
-        totals = _run_db("wins_agro", f"WITH entities AS ({base}) SELECT count(*)::int total FROM entities", params, domain="agro")
+        totals = _run_db("wins_agro", f"WITH entities AS ({base}) SELECT count(*)::int total FROM entities", params, domain="agro_legacy")
         total = totals[0]["total"] if totals else 0
         sort_map = {"razao_social": "razao", "municipio": "municipio", "uf": "uf",
                     "total_empresas": "person_companies", "evidencia_grupo": "tipo_entidade",
                     "atualizacao": "enriquecido_em"}
         column = sort_map.get(sort, "razao"); direction = "DESC" if order == "desc" else "ASC"
-        rows = _run_db("wins_agro", f"WITH entities AS ({base}) SELECT * FROM entities ORDER BY {column} {direction} NULLS LAST,cnpj14 ASC LIMIT %s OFFSET %s", params + [size, (page-1)*size], domain="agro")
+        rows = _run_db("wins_agro", f"WITH entities AS ({base}) SELECT * FROM entities ORDER BY {column} {direction} NULLS LAST,cnpj14 ASC LIMIT %s OFFSET %s", params + [size, (page-1)*size], domain="agro_legacy")
         items = [AgroHoldingsRepository._company_item(row) for row in rows]
         return AgroHoldingsRepository._response(items,total,page,size,"empresas")
 
@@ -149,17 +149,17 @@ class AgroHoldingsRepository:
             if uf: exists += " AND lx.uf=%s"; params.append(uf.upper())
             if municipio: exists += " AND lx.municipio ILIKE %s"; params.append(f"%{municipio}%")
             exists += ")"; filtered += f" AND {exists}"
-        total_rows = _run_db("wins_agro", f"WITH candidates AS ({filtered}) SELECT count(*)::int total FROM candidates", params, domain="agro")
+        total_rows = _run_db("wins_agro", f"WITH candidates AS ({filtered}) SELECT count(*)::int total FROM candidates", params, domain="agro_legacy")
         total = total_rows[0]["total"] if total_rows else 0
         sort_map = {"razao_social":"nome","total_empresas":"total_companies","municipio":"total_municipalities","uf":"total_states","atualizacao":"nome","evidencia_grupo":"nome"}
         column=sort_map.get(sort,"total_companies"); direction="DESC" if order=="desc" else "ASC"
-        rows = _run_db("wins_agro", f"WITH candidates AS ({filtered}) SELECT * FROM candidates ORDER BY {column} {direction},nome,person_id LIMIT %s OFFSET %s", params+[size,(page-1)*size], domain="agro")
+        rows = _run_db("wins_agro", f"WITH candidates AS ({filtered}) SELECT * FROM candidates ORDER BY {column} {direction},nome,person_id LIMIT %s OFFSET %s", params+[size,(page-1)*size], domain="agro_legacy")
         ids=[r["person_id"] for r in rows]; previews={}
         if ids:
             links=_run_db("wins_agro", """WITH ranked AS (SELECT encode(digest(b.cpf_socio_comum,'sha256'),'hex') person_id,
               l.cnpj14,l.razao,l.municipio,l.uf,row_number() OVER(PARTITION BY b.cpf_socio_comum ORDER BY l.razao,l.cnpj14) rn
               FROM prospeccao.holding_blind_spot b LEFT JOIN prospeccao.holding_lead_ui l USING(cnpj_basico)
-              WHERE encode(digest(b.cpf_socio_comum,'sha256'),'hex')=ANY(%s)) SELECT * FROM ranked WHERE rn<=3""",[ids],domain="agro")
+              WHERE encode(digest(b.cpf_socio_comum,'sha256'),'hex')=ANY(%s)) SELECT * FROM ranked WHERE rn<=3""",[ids],domain="agro_legacy")
             for link in links: previews.setdefault(link["person_id"],[]).append({"cnpj":link.get("cnpj14"),"razao_social":link.get("razao"),"municipio":link.get("municipio"),"uf":link.get("uf")})
         items=[{"candidate_id":r["person_id"],"classification":"CANDIDATA_A_HOLDING",
                 "connecting_person_id":r["person_id"],"connecting_person_name":r["nome"],
@@ -177,9 +177,9 @@ class AgroHoldingsRepository:
           0::int total_people,0::int total_states,max(tipo_relacao) formation_criterion,
           max(fonte_documental) evidence_source,max(verificado_em)::text evidence_date
           FROM public.relationship_edges WHERE {where} GROUP BY source_id"""
-        totals=_run_db("wins_agro",f"WITH groups AS ({grouped}) SELECT count(*)::int total FROM groups",params,domain="agro")
+        totals=_run_db("wins_agro",f"WITH groups AS ({grouped}) SELECT count(*)::int total FROM groups",params,domain="agro_legacy")
         total=totals[0]["total"] if totals else 0
-        rows=_run_db("wins_agro",f"WITH groups AS ({grouped}) SELECT * FROM groups ORDER BY group_id {'DESC' if order=='desc' else 'ASC'} LIMIT %s OFFSET %s",params+[size,(page-1)*size],domain="agro")
+        rows=_run_db("wins_agro",f"WITH groups AS ({grouped}) SELECT * FROM groups ORDER BY group_id {'DESC' if order=='desc' else 'ASC'} LIMIT %s OFFSET %s",params+[size,(page-1)*size],domain="agro_legacy")
         items=[{"group_id":r["group_id"],"group_name":f"Grupo documental {str(r['group_id'])[:8]}",
                 "classification":"GRUPO_DOCUMENTAL","formation_criterion":r.get("formation_criterion"),
                 "total_companies":r["total_companies"],"total_people":r["total_people"],"total_states":r["total_states"],
@@ -224,7 +224,7 @@ class AgroHoldingsRepository:
     def group_detail(group_id):
         rows=_run_db("wins_agro","""SELECT source_id group_id,target_id company_id,tipo_relacao formation_criterion,
           evidencia,fonte_documental,verificado_em::text evidence_date FROM public.relationship_edges
-          WHERE source_type='Grupo' AND target_type='Empresa' AND fonte_documental IS NOT NULL AND source_id=%s""",[group_id],domain="agro")
+          WHERE source_type='Grupo' AND target_type='Empresa' AND fonte_documental IS NOT NULL AND source_id=%s""",[group_id],domain="agro_legacy")
         if not rows:return None
         return {"status":"partial","group":{"group_id":group_id,"group_name":f"Grupo documental {group_id[:8]}",
           "classification":"GRUPO_DOCUMENTAL","formation_criterion":rows[0].get("formation_criterion"),
