@@ -2922,8 +2922,10 @@ class Wave1Repository:
         unavailable_objects = []
         optional_counts = {
             "femeas_cadastradas": "SELECT count(*)::int AS total FROM fazenda.animal WHERE sexo = 'F'",
+            "femeas_operacionais": "SELECT count(*)::int AS total FROM fazenda.animal WHERE sexo = 'F' AND COALESCE(status, 'ativo') <> 'descarte'",
             "doadoras_cadastradas": "SELECT count(*)::int AS total FROM mercado.doadora",
             "matrizes_catalogo": "SELECT count(*)::int AS total FROM mercado.v_matriz",
+            "pedigree_id_resolvido": "SELECT count(*)::int AS total FROM mercado.reprodutor WHERE pai_id IS NOT NULL AND mae_id IS NOT NULL",
             "cruzamentos_reais": "SELECT count(*)::int AS total FROM fazenda.cruzamento",
             "estacoes_monta": "SELECT count(*)::int AS total FROM fazenda.estacao_monta",
         }
@@ -2967,10 +2969,26 @@ class Wave1Repository:
         total_avaliacoes = int(data.get("total_avaliacoes") or 0)
         pedigree_textual = int(data.get("com_pedigree_pai_mae") or 0)
         femeas = int(data.get("femeas_cadastradas") or 0)
+        femeas_op = data.get("femeas_operacionais")
+        doadoras = data.get("doadoras_cadastradas")
+        # União usada no motor de prontidão: fêmeas operacionais + doadoras de catálogo
+        matrizes_prontidao = None
+        if femeas_op is not None and doadoras is not None:
+            matrizes_prontidao = int(femeas_op) + int(doadoras)
+            data["matrizes_prontidao_union"] = matrizes_prontidao
+        data["matrix_metric_definitions"] = {
+            "femeas_cadastradas": "fazenda.animal com sexo='F' (inclui descarte)",
+            "femeas_operacionais": "fazenda.animal sexo='F' e status <> 'descarte'",
+            "doadoras_cadastradas": "mercado.doadora (catálogo de mercado; não implica lote operacional)",
+            "matrizes_prontidao_union": "femeas_operacionais + doadoras_cadastradas — conjunto avaliado no acasalamento",
+            "matrizes_catalogo": "mercado.v_matriz (reprodutores sexo F / mães derivadas; NÃO são matrizes operacionais da fazenda)",
+        }
 
         return {
             "status": "AVAILABLE" if total_reprodutores and total_avaliacoes else "PARTIAL",
             "counts": data,
+            "mating_status": "NOT_CALCULABLE",
+            "mating_status_note": "Acasalamento permanece NOT_CALCULABLE até existir matriz elegível com identidade, raça e registros exatos de pai e mãe.",
             "breed_distribution": breed_rows,
             "pillars_status": {
                 "catalogo": "AVAILABLE" if total_reprodutores else "UNAVAILABLE",
@@ -2988,6 +3006,9 @@ class Wave1Repository:
                 "As contagens são calculadas no banco no momento da consulta; nenhuma contagem é embutida no contrato.",
                 "Pai e mãe textuais representam pedigree imediato declarado, não ancestralidade resolvida por identificador.",
                 "O cadastro operacional de fêmeas é parcial e não comprova prontidão para acasalamento.",
+                "femeas_cadastradas (todas) ≠ femeas_operacionais (sem descarte) ≠ matrizes_prontidao_union (operacionais + doadoras).",
+                "matrizes_catalogo (v_matriz) é catálogo de fêmeas/mães do mercado e não deve ser lido como rebanho operacional da fazenda.",
+                "Ofertas de sêmen são registros persistidos; não comprovam disponibilidade comercial atual.",
                 "Nenhum score sintético, ROI inventado ou valor de prenhez estimado é gerado."
             ],
             "updated_at": data.get("updated_at")
@@ -2996,7 +3017,7 @@ class Wave1Repository:
     @staticmethod
     def agro_genetica_reprodutores(page=1, page_size=25, q=None, registro=None, raca=None,
                                    central=None, uf=None, municipio=None, pedigree_status=None,
-                                   has_evaluation=None, sort="avaliacoes_count", order="desc"):
+                                   has_evaluation=None, has_semen_offer=None, sort="avaliacoes_count", order="desc"):
         size, offset = _page(page, page_size)
         where = ["1=1"]
         params = []
@@ -3029,6 +3050,10 @@ class Wave1Repository:
             where.append("COALESCE(av.cnt, 0) > 0")
         elif has_evaluation is False:
             where.append("COALESCE(av.cnt, 0) = 0")
+        if has_semen_offer is True:
+            where.append("EXISTS (SELECT 1 FROM mercado.touro_oferta tof WHERE tof.reprodutor_id = r.id)")
+        elif has_semen_offer is False:
+            where.append("NOT EXISTS (SELECT 1 FROM mercado.touro_oferta tof WHERE tof.reprodutor_id = r.id)")
 
         order_dir = "DESC" if order.lower() == "desc" else "ASC"
         sort_map = {
@@ -3053,10 +3078,14 @@ class Wave1Repository:
                    o.nome_comercial as oferta_nome_comercial,
                    cen.nome as central_nome,
                    COALESCE(av.cnt, 0)::int as avaliacoes_count,
+                   COALESCE(ofc.cnt, 0)::int as semen_offers_count,
                    (CASE WHEN r.pai_id IS NOT NULL AND r.mae_id IS NOT NULL THEN 'PEDIGREE_ID_RESOLVED'
                          WHEN r.pai_id IS NOT NULL OR r.mae_id IS NOT NULL THEN 'PEDIGREE_PARTIAL_ID'
-                         WHEN r.pai_nome IS NOT NULL OR r.mae_nome IS NOT NULL THEN 'PEDIGREE_NAME_ONLY'
-                         ELSE 'PEDIGREE_UNAVAILABLE' END) as pedigree_quality
+                         WHEN r.pai_nome IS NOT NULL AND r.mae_nome IS NOT NULL THEN 'PEDIGREE_TEXT_BOTH_PARENTS'
+                         WHEN r.pai_nome IS NOT NULL OR r.mae_nome IS NOT NULL THEN 'PEDIGREE_TEXT_PARTIAL'
+                         ELSE 'PEDIGREE_UNAVAILABLE' END) as pedigree_quality,
+                   (CASE WHEN r.pai_nome IS NOT NULL AND r.mae_nome IS NOT NULL THEN true ELSE false END) as pedigree_text_complete,
+                   (CASE WHEN r.pai_id IS NOT NULL AND r.mae_id IS NOT NULL THEN true ELSE false END) as pedigree_id_resolved
             FROM mercado.reprodutor r
             LEFT JOIN catalogo.raca c ON c.id = r.raca_id
             LEFT JOIN LATERAL (
@@ -3072,6 +3101,11 @@ class Wave1Repository:
                 FROM mercado.avaliacao
                 WHERE reprodutor_id = r.id
             ) av ON true
+            LEFT JOIN LATERAL (
+                SELECT count(*)::int as cnt
+                FROM mercado.touro_oferta
+                WHERE reprodutor_id = r.id
+            ) ofc ON true
             WHERE {clause}
             ORDER BY {sort_col} {order_dir} NULLS LAST, r.id DESC
             LIMIT %s OFFSET %s
@@ -3201,7 +3235,18 @@ class Wave1Repository:
             "total": len(rows),
             "caracteristicas": rows,
             "dense_traits_count": sum(1 for r in rows if r["total_avaliacoes"] >= 10000),
-            "updated_at": max((r.get("updated_at") for r in rows if r.get("updated_at")), default=None)
+            "updated_at": max((r.get("updated_at") for r in rows if r.get("updated_at")), default=None),
+            "median_definition": "Mediana de mercado.avaliacao.valor por característica no universo persistido (todas as raças/programas com avaliação).",
+            "direction_definition": {
+                "HIGHER_BETTER": "Maior valor geralmente desejável conforme objetivo documentado no sumário (objetivo_aumentar=true)",
+                "LOWER_BETTER": "Menor valor geralmente desejável conforme objetivo documentado (objetivo_aumentar=false)",
+                "UNKNOWN": "Direção de seleção não documentada na base",
+                "note": "A direção não é universalmente melhor para todos os rebanhos; depende do objetivo de seleção.",
+            },
+            "limitations": [
+                "DEP ≠ fenótipo de campo.",
+                "Mediana não é estratificada por raça nesta versão.",
+            ],
         }
 
     @staticmethod
@@ -3291,17 +3336,99 @@ class Wave1Repository:
         }
 
     @staticmethod
+    @staticmethod
+    def _genetica_matrix_diagnosis(row: dict) -> dict:
+        """Diagnóstico determinístico de prontidão por matriz — sem inventar vínculos."""
+        nome = (row.get("nome") or "").strip()
+        registro = (row.get("registro") or "").strip()
+        raca = (row.get("raca") or "").strip()
+        pai_nome = (row.get("pai_nome") or "").strip()
+        pai_reg = (row.get("pai_registro") or "").strip()
+        mae_nome = (row.get("mae_nome") or "").strip()
+        mae_reg = (row.get("mae_registro") or "").strip()
+        brinco = (row.get("brinco") or "").strip() if row.get("brinco") is not None else ""
+
+        flags = {
+            "IDENTITY_AVAILABLE": bool(nome or registro or brinco),
+            "IDENTITY_REGISTRATION_AVAILABLE": bool(registro),
+            "BREED_AVAILABLE": bool(raca),
+            "SIRE_TEXT_AVAILABLE": bool(pai_nome or pai_reg),
+            "DAM_TEXT_AVAILABLE": bool(mae_nome or mae_reg),
+            "SIRE_REGISTRATION_AVAILABLE": bool(pai_reg),
+            "DAM_REGISTRATION_AVAILABLE": bool(mae_reg),
+            "PEDIGREE_TEXT_BOTH_PARENTS": bool((pai_nome or pai_reg) and (mae_nome or mae_reg)),
+            "PEDIGREE_REGISTRATION_BOTH_PARENTS": bool(pai_reg and mae_reg),
+            # Perfil genético próprio da matriz: não há DEPs ligadas a fazenda.animal/doadora neste contrato
+            "GENETIC_PROFILE_AVAILABLE": False,
+        }
+        # Elegibilidade alinhada ao motor de candidatos (fail-closed):
+        # nome + registro + raça + pai_registro + mae_registro
+        flags["MATING_ELIGIBLE"] = bool(
+            nome and registro and raca and pai_reg and mae_reg
+        )
+
+        reasons = []
+        if not flags["IDENTITY_AVAILABLE"]:
+            reasons.append("MISSING_IDENTITY")
+        if not flags["IDENTITY_REGISTRATION_AVAILABLE"]:
+            reasons.append("MISSING_IDENTITY")
+        if not flags["BREED_AVAILABLE"]:
+            reasons.append("MISSING_BREED")
+        if not flags["SIRE_TEXT_AVAILABLE"] and not flags["SIRE_REGISTRATION_AVAILABLE"]:
+            reasons.append("MISSING_SIRE")
+        elif not flags["SIRE_REGISTRATION_AVAILABLE"]:
+            reasons.append("SIRE_NOT_RESOLVED")
+        if not flags["DAM_TEXT_AVAILABLE"] and not flags["DAM_REGISTRATION_AVAILABLE"]:
+            reasons.append("MISSING_DAM")
+        elif not flags["DAM_REGISTRATION_AVAILABLE"]:
+            reasons.append("DAM_NOT_RESOLVED")
+        if not flags["PEDIGREE_REGISTRATION_BOTH_PARENTS"]:
+            reasons.append("PEDIGREE_NOT_RESOLVED")
+        if not flags["GENETIC_PROFILE_AVAILABLE"]:
+            reasons.append("GENETIC_PROFILE_UNAVAILABLE")
+        # dedupe preserving order
+        seen = set()
+        reasons = [r for r in reasons if not (r in seen or seen.add(r))]
+        if not flags["MATING_ELIGIBLE"] and not reasons:
+            reasons.append("INSUFFICIENT_DATA")
+
+        pedigree_text_status = (
+            "PEDIGREE_TEXT_BOTH_PARENTS" if flags["PEDIGREE_TEXT_BOTH_PARENTS"]
+            else "PEDIGREE_TEXT_PARTIAL" if (flags["SIRE_TEXT_AVAILABLE"] or flags["DAM_TEXT_AVAILABLE"])
+            else "PEDIGREE_TEXT_UNAVAILABLE"
+        )
+        pedigree_resolved_status = (
+            "PEDIGREE_REGISTRATION_BOTH_PARENTS" if flags["PEDIGREE_REGISTRATION_BOTH_PARENTS"]
+            else "PEDIGREE_REGISTRATION_PARTIAL" if (flags["SIRE_REGISTRATION_AVAILABLE"] or flags["DAM_REGISTRATION_AVAILABLE"])
+            else "PEDIGREE_NOT_RESOLVED"
+        )
+
+        return {
+            **row,
+            "readiness_flags": flags,
+            "blockers": reasons,
+            "ineligible_reasons": reasons,  # legado
+            "eligibility": "AVAILABLE" if flags["MATING_ELIGIBLE"] else "PARTIAL",
+            "mating_eligible": flags["MATING_ELIGIBLE"],
+            "pedigree_text_status": pedigree_text_status,
+            "pedigree_resolved_status": pedigree_resolved_status,
+            "inbreeding_status": "NOT_CALCULABLE",
+            "inbreeding_reason": "INSUFFICIENT_PEDIGREE",
+            "genetic_profile_status": "UNAVAILABLE",
+        }
+
+    @staticmethod
     def agro_genetica_acasalamento_prontidao():
         unavailable_objects = []
         try:
             farm_females = _run_db("wins_agro", """
-            SELECT a.id::text, a.nome, a.brinco, a.registro_associacao, a.peso_atual_kg::float,
-                   a.escore_corporal::float, a.status, r.nome as raca,
+            SELECT a.id::text, a.nome, a.brinco, NULLIF(trim(a.registro_associacao), '') AS registro_associacao,
+                   a.peso_atual_kg::float, a.escore_corporal::float, a.status, r.nome as raca,
                    a.pai_nome_externo as pai_nome, a.pai_registro_externo as pai_registro,
                    'fazenda.animal' as origem_tabela
             FROM fazenda.animal a
             LEFT JOIN catalogo.raca r ON r.id = a.raca_id
-            WHERE a.sexo = 'F' AND COALESCE(a.status, 'ativo') <> 'descarte'
+            WHERE a.sexo = 'F'
             ORDER BY a.id ASC
             """, domain="agro")
         except Exception:
@@ -3322,13 +3449,23 @@ class Wave1Repository:
             donors = []
             unavailable_objects.append("mercado.doadora")
 
+        registered_farm = len(farm_females)
+        operational_farm_rows = [
+            f for f in farm_females
+            if (f.get("status") or "ativo") != "descarte"
+        ]
+        operational_farm = len(operational_farm_rows)
+        discarded_farm = registered_farm - operational_farm
+        donors_count = len(donors)
+
         matrices = []
-        for f in farm_females:
-            matrices.append({
+        for f in operational_farm_rows:
+            base = {
                 "id": f"fazenda_{f['id']}",
-                "raw_id": f['id'],
+                "raw_id": f["id"],
                 "tipo": "MATRIZ_FAZENDA",
-                "nome": f["nome"] or f"Brinco {f.get('brinco')}",
+                "nome": f["nome"] or (f"Brinco {f.get('brinco')}" if f.get("brinco") else None),
+                "brinco": f.get("brinco"),
                 "registro": f.get("registro_associacao"),
                 "raca": f.get("raca"),
                 "peso_kg": f.get("peso_atual_kg"),
@@ -3339,15 +3476,17 @@ class Wave1Repository:
                 "mae_registro": None,
                 "status": f.get("status") or "ativo",
                 "origem": "fazenda.animal",
-                "eligibility": "PARTIAL",
-                "ineligible_reasons": ["MOTHER_PEDIGREE_UNAVAILABLE"]
-            })
+                "operational": True,
+            }
+            matrices.append(Wave1Repository._genetica_matrix_diagnosis(base))
+
         for d in donors:
-            matrices.append({
+            base = {
                 "id": f"doadora_{d['id']}",
-                "raw_id": d['id'],
+                "raw_id": d["id"],
                 "tipo": "DOADORA_CATALOGO",
                 "nome": d["nome"],
+                "brinco": None,
                 "registro": d.get("registro"),
                 "raca": d.get("raca"),
                 "peso_kg": None,
@@ -3356,11 +3495,81 @@ class Wave1Repository:
                 "pai_registro": d.get("pai_registro"),
                 "mae_nome": d.get("mae_nome"),
                 "mae_registro": d.get("mae_registro"),
-                "status": "ativo",
+                "status": "catalogo",
                 "origem": "mercado.doadora",
-                "eligibility": "AVAILABLE" if d.get("registro") and d.get("raca") and d.get("pai_registro") and d.get("mae_registro") else "PARTIAL",
-                "ineligible_reasons": [] if d.get("registro") and d.get("raca") and d.get("pai_registro") and d.get("mae_registro") else ["IDENTITY_OR_PEDIGREE_INCOMPLETE"]
-            })
+                "operational": False,
+                "fonte_referencia": d.get("fonte_referencia"),
+            }
+            matrices.append(Wave1Repository._genetica_matrix_diagnosis(base))
+
+        def count_flag(flag):
+            return sum(1 for m in matrices if m.get("readiness_flags", {}).get(flag))
+
+        eligible_matrices = sum(1 for m in matrices if m.get("mating_eligible"))
+        identity_ready = count_flag("IDENTITY_AVAILABLE")
+        registration_ready = count_flag("IDENTITY_REGISTRATION_AVAILABLE")
+        breed_ready = count_flag("BREED_AVAILABLE")
+        pedigree_text_ready = count_flag("PEDIGREE_TEXT_BOTH_PARENTS")
+        sire_reg_ready = count_flag("SIRE_REGISTRATION_AVAILABLE")
+        dam_reg_ready = count_flag("DAM_REGISTRATION_AVAILABLE")
+        parents_reg_ready = count_flag("PEDIGREE_REGISTRATION_BOTH_PARENTS")
+        genetic_ready = count_flag("GENETIC_PROFILE_AVAILABLE")
+
+        # Blocker aggregate
+        blocker_counts = {}
+        for m in matrices:
+            for b in m.get("blockers") or []:
+                blocker_counts[b] = blocker_counts.get(b, 0) + 1
+        blocker_summary = [
+            {"reason": k, "count": v, "definition": {
+                "MISSING_IDENTITY": "Nome/registro de identificação ausente",
+                "MISSING_BREED": "Raça não informada",
+                "MISSING_SIRE": "Pai não informado (texto ou registro)",
+                "MISSING_DAM": "Mãe não informada (texto ou registro)",
+                "SIRE_NOT_RESOLVED": "Pai só textual — falta registro exato para checagem",
+                "DAM_NOT_RESOLVED": "Mãe só textual — falta registro exato para checagem",
+                "PEDIGREE_NOT_RESOLVED": "Registros exatos de pai e mãe incompletos",
+                "GENETIC_PROFILE_UNAVAILABLE": "Sem DEPs/avaliações ligadas a esta matriz no contrato atual",
+                "INSUFFICIENT_DATA": "Dados insuficientes para elegibilidade",
+            }.get(k, k)}
+            for k, v in sorted(blocker_counts.items(), key=lambda x: (-x[1], x[0]))
+        ]
+
+        funnel = [
+            {"stage": "registered_farm_females", "count": registered_farm,
+             "definition": "fazenda.animal sexo='F' (inclui descarte)", "status": "AVAILABLE" if "fazenda.animal" not in unavailable_objects else "UNAVAILABLE",
+             "limitations": ["Inclui animais com status descarte."]},
+            {"stage": "operational_farm_females", "count": operational_farm,
+             "definition": "fazenda.animal sexo='F' e status <> 'descarte'", "status": "AVAILABLE" if "fazenda.animal" not in unavailable_objects else "UNAVAILABLE",
+             "limitations": [f"{discarded_farm} fêmea(s) em descarte excluída(s) do conjunto operacional."]},
+            {"stage": "catalog_donors", "count": donors_count,
+             "definition": "mercado.doadora", "status": "AVAILABLE" if "mercado.doadora" not in unavailable_objects else "UNAVAILABLE",
+             "limitations": ["Doadoras de catálogo de mercado; não são rebanho operacional da fazenda."]},
+            {"stage": "readiness_universe", "count": len(matrices),
+             "definition": "operacionais + doadoras (universo do motor de acasalamento)", "status": "AVAILABLE",
+             "limitations": ["Este total é o 'matrizes_count' do banner (ex.: 7+6=13), distinto de femeas_cadastradas=8."]},
+            {"stage": "identity_ready", "count": identity_ready,
+             "definition": "Possui nome, brinco ou registro", "status": "PARTIAL", "limitations": []},
+            {"stage": "registration_ready", "count": registration_ready,
+             "definition": "Possui registro associativo/RGD não vazio", "status": "PARTIAL", "limitations": []},
+            {"stage": "breed_ready", "count": breed_ready,
+             "definition": "Raça preenchida", "status": "PARTIAL", "limitations": []},
+            {"stage": "pedigree_text_ready", "count": pedigree_text_ready,
+             "definition": "Pai e mãe informados em texto ou registro (não implica ID resolvido)", "status": "PARTIAL",
+             "limitations": ["Pedigree textual ≠ genealogia resolvida."]},
+            {"stage": "sire_registration_ready", "count": sire_reg_ready,
+             "definition": "Registro exato do pai disponível", "status": "PARTIAL", "limitations": []},
+            {"stage": "dam_registration_ready", "count": dam_reg_ready,
+             "definition": "Registro exato da mãe disponível", "status": "PARTIAL", "limitations": []},
+            {"stage": "parents_registration_ready", "count": parents_reg_ready,
+             "definition": "Registros exatos de pai e mãe", "status": "PARTIAL", "limitations": []},
+            {"stage": "genetic_profile_ready", "count": genetic_ready,
+             "definition": "DEPs/avaliações ligadas à própria matriz", "status": "UNAVAILABLE",
+             "limitations": ["Contrato atual não associa mercado.avaliacao a fazenda.animal/doadora."]},
+            {"stage": "mating_eligible", "count": eligible_matrices,
+             "definition": "nome + registro + raça + pai_registro + mae_registro", "status": "AVAILABLE" if eligible_matrices else "NOT_CALCULABLE",
+             "limitations": ["Sem elegíveis, candidatos de acasalamento permanecem NOT_CALCULABLE."]},
+        ]
 
         target_traits = _run_db("wins_agro", """
             SELECT c.sigla, c.nome, c.unidade, c.grupo AS categoria,
@@ -3375,12 +3584,57 @@ class Wave1Repository:
             ORDER BY count(a.id) DESC, c.sigla
         """, domain="agro")
 
-        eligible_matrices = sum(1 for matrix in matrices if matrix["eligibility"] == "AVAILABLE")
+        mating_status = "AVAILABLE" if eligible_matrices else "NOT_CALCULABLE"
+        primary_blocker = blocker_summary[0]["reason"] if blocker_summary and not eligible_matrices else None
 
         return {
             "status": "AVAILABLE" if eligible_matrices else "PARTIAL",
+            "mating_status": mating_status,
+            "MATING_STATUS_CHANGED": False,
             "matrizes_count": len(matrices),
             "eligible_matrices_count": eligible_matrices,
+            "metrics": {
+                "registered_farm_females": registered_farm,
+                "operational_farm_females": operational_farm,
+                "discarded_farm_females": discarded_farm,
+                "catalog_donors": donors_count,
+                "readiness_universe": len(matrices),
+                "eligible_matrices": eligible_matrices,
+                "explanation_13_vs_8": {
+                    "femeas_cadastradas_card": registered_farm,
+                    "femeas_operacionais": operational_farm,
+                    "doadoras": donors_count,
+                    "banner_matrizes_count": len(matrices),
+                    "formula": "banner_matrizes_count = operational_farm_females + catalog_donors",
+                    "note": "O card 'Fêmeas operacionais/cadastradas' do resumo conta só fazenda.animal (incl. descarte no campo femeas_cadastradas). O banner de acasalamento conta o universo de prontidão (operacionais + doadoras).",
+                },
+            },
+            "funnel": funnel,
+            "blocker_summary": blocker_summary,
+            "primary_blocker": primary_blocker,
+            "next_requirement": (
+                None if eligible_matrices
+                else "Informar para cada matriz: identificação com registro, raça e registros exatos de pai e mãe (não apenas nomes)."
+            ),
+            "future_input_schema": {
+                "purpose": "Campos mínimos para tornar acasalamento calculável (documental; sem persistência nesta release)",
+                "required_fields": [
+                    {"field": "animal_id", "description": "Identificador estável da matriz/lote"},
+                    {"field": "name_or_tag", "description": "Nome ou brinco legível"},
+                    {"field": "registration", "description": "RGD/registro associativo não vazio"},
+                    {"field": "breed", "description": "Raça normalizada"},
+                    {"field": "sire_registration", "description": "Registro exato do pai"},
+                    {"field": "dam_registration", "description": "Registro exato da mãe"},
+                ],
+                "optional_fields": [
+                    {"field": "sire_id", "description": "ID resolvido do pai no catálogo"},
+                    {"field": "dam_id", "description": "ID resolvido da mãe no catálogo"},
+                    {"field": "birth_date", "description": "Data de nascimento"},
+                    {"field": "genetic_evaluations", "description": "DEPs da própria matriz, se existirem"},
+                    {"field": "lot_id", "description": "Lote operacional — ainda não integrado"},
+                ],
+                "not_in_scope_this_release": ["DDL", "nova tabela", "importação de lote", "UI de upload"],
+            },
             "unavailable_objects": unavailable_objects,
             "matrizes": matrices,
             "available_target_traits": target_traits,
@@ -3391,19 +3645,73 @@ class Wave1Repository:
                 "kinship_check_status": "AVAILABLE" if eligible_matrices else "NOT_CALCULABLE",
                 "inbreeding_coefficient_status": "UNAVAILABLE",
                 "inbreeding_reason": "PEDIGREE_DEPTH_INSUFFICIENT_FOR_FORMAL_COEFFICIENT",
+                "inbreeding_status": "NOT_CALCULABLE",
                 "economic_value_status": "UNAVAILABLE",
                 "economic_value_reason": "REQUIRES_HERD_PRODUCTION_AND_COMMERCIAL_COST_PARAMETERS",
-                "predicted_calf_status": "PLANNED"
+                "predicted_calf_status": "PLANNED",
+                "lot_management_status": "PLANNED",
             },
             "blockers": [
                 "Acasalamento exige matriz com identidade, raça e registros exatos de pai e mãe.",
                 "Nomes textuais não são usados para inferir parentesco.",
-                "Não gera valores econômicos ou ROI sem parametrização de custos da fazenda."
+                "Não gera valores econômicos ou ROI sem parametrização de custos da fazenda.",
+                "Pedigree textual (pai/mãe informados em texto) ≠ pedigree resolvido por registro/ID.",
             ],
             "limitations": "Motor fail-closed: sem matriz elegível, direção de mérito persistida e DEP real, o resultado permanece NOT_CALCULABLE."
         }
 
     @staticmethod
+    def agro_genetica_matrizes():
+        """Lista de matrizes do universo de prontidão (mesmo conjunto do funil)."""
+        readiness = Wave1Repository.agro_genetica_acasalamento_prontidao()
+        return {
+            "status": readiness.get("status"),
+            "mating_status": readiness.get("mating_status"),
+            "total": readiness.get("matrizes_count"),
+            "eligible": readiness.get("eligible_matrices_count"),
+            "metrics": readiness.get("metrics"),
+            "items": readiness.get("matrizes") or [],
+            "blocker_summary": readiness.get("blocker_summary") or [],
+            "limitations": readiness.get("limitations"),
+            "sources": ["fazenda.animal", "mercado.doadora"],
+        }
+
+    @staticmethod
+    def agro_genetica_metodologia():
+        return {
+            "status": "AVAILABLE",
+            "mating_status": "NOT_CALCULABLE",
+            "MATING_STATUS_CHANGED": False,
+            "definitions": {
+                "reprodutor": "Registro em mercado.reprodutor (pode ser M ou F no catálogo de mercado).",
+                "avaliacao_dep": "Valor em mercado.avaliacao ligado a catalogo.caracteristica; não é fenótipo medido em campo nesta base.",
+                "caracteristica": "Trait de avaliação genética (sigla/nome/unidade) em catalogo.caracteristica.",
+                "selection_direction": "Derivada de catalogo.caracteristica.objetivo_aumentar; interpretação depende do objetivo de seleção do rebanho.",
+                "pedigree_textual": "pai_nome/mae_nome ou registros textuais declarados — não cria grafo genealógico.",
+                "pedigree_resolvido": "pai_id/mae_id ou registros exatos resolvidos a outro reprodutor; necessário para checagem de parentesco no motor.",
+                "matriz_operacional": "fazenda.animal sexo=F e status<>descarte.",
+                "doadora_catalogo": "mercado.doadora — oferta/listagem de mercado, não lote da fazenda.",
+                "elegibilidade_acasalamento": "nome + registro + raça + pai_registro + mae_registro (fail-closed).",
+                "consanguinidade": "Coeficiente formal NOT_CALCULABLE sem genealogia resolvida com profundidade suficiente.",
+                "oferta_semen": "Registro em mercado.touro_oferta; não comprova disponibilidade comercial atual.",
+                "mediana_caracteristica": "Mediana dos valores de mercado.avaliacao para a característica, no universo de reprodutores com avaliação persistida (todas as raças/programas presentes na tabela).",
+            },
+            "metric_explanations": {
+                "femeas_cadastradas_vs_banner": "Card resumo usa count(fazenda.animal F). Banner de acasalamento usa operacionais + doadoras.",
+                "matrizes_catalogo_v_matriz": "v_matriz expõe dezenas de milhares de fêmeas/mães do mercado; não é rebanho operacional.",
+            },
+            "sources": [
+                "mercado.reprodutor", "mercado.avaliacao", "catalogo.caracteristica", "catalogo.raca",
+                "mercado.touro_oferta", "catalogo.central", "fazenda.animal", "mercado.doadora",
+            ],
+            "limitations": [
+                "Sem recomendação zootécnica, ROI, prenhez, bezerro previsto ou ganho genético esperado.",
+                "Sem cálculo de consanguinidade formal (Wright) nesta release.",
+                "Lotes operacionais ainda não integrados.",
+            ],
+            "future_input_schema": Wave1Repository.agro_genetica_acasalamento_prontidao().get("future_input_schema"),
+        }
+
     def agro_genetica_acasalamento_candidatos(payload: dict):
         if not payload:
             return {"status": "PREREQUISITE_REQUIRED", "message": "Matriz ou dados da fêmea são obrigatórios para simulação.", "eligible_reproducers": [], "excluded_reproducers": []}

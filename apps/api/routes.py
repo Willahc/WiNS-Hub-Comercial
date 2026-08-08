@@ -1000,13 +1000,14 @@ def get_agro_genetica_reprodutores(request: Request,
                                   municipio: Optional[str] = None,
                                   pedigree_status: Optional[Literal["declared", "partial", "none"]] = None,
                                   has_evaluation: Optional[bool] = None,
+                                  has_semen_offer: Optional[bool] = None,
                                   sort: Literal["avaliacoes_count", "nome", "registro", "raca", "preco_dose", "nascimento", "id"] = "avaliacoes_count",
                                   order: Literal["asc", "desc"] = "desc",
                                   user=Depends(require_permission("agro"))):
     return Wave1Repository.agro_genetica_reprodutores(
         page=page, page_size=page_size, q=q, registro=registro, raca=raca,
         central=central, uf=uf, municipio=municipio, pedigree_status=pedigree_status,
-        has_evaluation=has_evaluation, sort=sort, order=order
+        has_evaluation=has_evaluation, has_semen_offer=has_semen_offer, sort=sort, order=order
     )
 
 @router.get("/agro/genetica/reprodutores/{id}")
@@ -1030,6 +1031,15 @@ def get_agro_genetica_pedigree(id: str, request: Request, user=Depends(require_p
 @router.get("/agro/genetica/acasalamento/prontidao")
 def get_agro_genetica_acasalamento_prontidao(request: Request, user=Depends(require_permission("agro"))):
     return Wave1Repository.agro_genetica_acasalamento_prontidao()
+
+@router.get("/agro/genetica/matrizes")
+def get_agro_genetica_matrizes(request: Request, user=Depends(require_permission("agro"))):
+    """Universo de prontidão: fêmeas operacionais + doadoras de catálogo."""
+    return Wave1Repository.agro_genetica_matrizes()
+
+@router.get("/agro/genetica/metodologia")
+def get_agro_genetica_metodologia(request: Request, user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_genetica_metodologia()
 
 @router.post("/agro/genetica/acasalamento/candidatos")
 async def post_agro_genetica_acasalamento_candidatos(request: Request, user=Depends(require_permission("agro"))):
