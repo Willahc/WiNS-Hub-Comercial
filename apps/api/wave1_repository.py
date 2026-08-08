@@ -2893,10 +2893,666 @@ class Wave1Repository:
                 "total": response["total"], "aggregation": "MUNICIPAL", "limit": min(max(limit, 1), MAX_PAGE_SIZE)}
 
     @staticmethod
+    def agro_genetica_resumo():
+        summary_rows = _run_db("wins_agro", """
+            SELECT 
+              (SELECT count(*)::int FROM mercado.reprodutor) as total_reprodutores,
+              (SELECT count(registro)::int FROM mercado.reprodutor WHERE registro IS NOT NULL) as com_registro,
+              (SELECT count(nome)::int FROM mercado.reprodutor WHERE nome IS NOT NULL) as com_nome,
+              (SELECT count(pai_nome)::int FROM mercado.reprodutor WHERE pai_nome IS NOT NULL) as com_pai_nome,
+              (SELECT count(mae_nome)::int FROM mercado.reprodutor WHERE mae_nome IS NOT NULL) as com_mae_nome,
+              (SELECT count(*)::int FROM mercado.reprodutor WHERE pai_nome IS NOT NULL AND mae_nome IS NOT NULL) as com_pedigree_pai_mae,
+              (SELECT count(*)::int FROM mercado.avaliacao) as total_avaliacoes,
+              (SELECT count(DISTINCT reprodutor_id)::int FROM mercado.avaliacao) as reprodutores_com_avaliacao,
+              (SELECT count(*)::int FROM catalogo.caracteristica) as total_caracteristicas,
+              (SELECT count(DISTINCT raca_id)::int FROM mercado.reprodutor WHERE raca_id IS NOT NULL) as racas_com_reprodutor,
+              (SELECT count(*)::int FROM catalogo.raca) as total_racas_cadastradas,
+              (SELECT count(*)::int FROM catalogo.central) as total_centrais,
+              (SELECT count(*)::int FROM mercado.touro_central) as vinculos_touro_central,
+              (SELECT count(*)::int FROM mercado.touro_oferta) as ofertas_semen,
+              (SELECT count(*)::int FROM fazenda.animal WHERE sexo = 'F' OR sexo IS NULL) + (SELECT count(*)::int FROM mercado.doadora) as matrizes_reais,
+              (SELECT count(*)::int FROM fazenda.cruzamento) as cruzamentos_reais,
+              (SELECT count(*)::int FROM fazenda.estacao_monta) as estacoes_monta,
+              (SELECT count(*)::int FROM (SELECT caracteristica_id FROM mercado.avaliacao GROUP BY caracteristica_id HAVING count(*) >= 10000) t) as caracteristicas_densas
+        """, domain="agro")
+        
+        data = summary_rows[0] if summary_rows else {}
+        
+        breed_rows = _run_db("wins_agro", """
+            SELECT r.id, r.nome as raca, count(rp.id)::int as total,
+                   count(rp.pai_nome)::int as with_pai,
+                   count(rp.mae_nome)::int as with_mae,
+                   count(CASE WHEN rp.pai_nome IS NOT NULL AND rp.mae_nome IS NOT NULL THEN 1 END)::int as with_ambos
+            FROM catalogo.raca r
+            LEFT JOIN mercado.reprodutor rp ON rp.raca_id = r.id
+            GROUP BY r.id, r.nome
+            HAVING count(rp.id) > 0
+            ORDER BY total DESC;
+        """, domain="agro")
+
+        return {
+            "status": "AVAILABLE",
+            "counts": data,
+            "breed_distribution": breed_rows,
+            "pillars_status": {
+                "catalogo": "AVAILABLE",
+                "avaliacoes_dep": "AVAILABLE",
+                "pedigree_declarado": "AVAILABLE",
+                "acasalamento_dirigido": "AVAILABLE_WITH_MATRIX",
+                "consanguinidade_formal": "UNAVAILABLE",
+                "valor_economico": "UNAVAILABLE",
+                "bezerro_previsto": "PLANNED",
+                "app_campo_telemetria": "SCHEMA_ONLY"
+            },
+            "sources": [
+                "Embrapa Geneplus",
+                "ABCZ PMGZ",
+                "ANCP Nelore Brasil",
+                "GenSys Consultores",
+                "PROMEBO",
+                "Programa Nacional do Gir Leiteiro",
+                "Centrais de Inseminação"
+            ],
+            "limitations": [
+                "Base de reprodutores possui 118.793 animais com RGD e 1,19M de DEPs registradas.",
+                "Nelore representa 86,2% do catálogo; raças taurinas e leiteiras possuem baixa densidade de pedigree.",
+                "O pedigree disponível é imediato declarado (pai e mãe). Não há matriz de parentesco pré-calculada para gerações profundas.",
+                "Não existem matrizes biológicas suficientes populadas no banco para cruzamento massivo aberto; a simulação exige a inserção ou seleção da matriz do pecuarista.",
+                "Nenhum score sintético, ROI inventado ou valor de prenhez estimado é gerado."
+            ],
+            "updated_at": "2026-08-08T12:00:00Z"
+        }
+
+    @staticmethod
+    def agro_genetica_reprodutores(page=1, page_size=25, q=None, registro=None, raca=None,
+                                   central=None, uf=None, municipio=None, pedigree_status=None,
+                                   has_evaluation=None, sort="avaliacoes_count", order="desc"):
+        size, offset = _page(page, page_size)
+        where = ["1=1"]
+        params = []
+
+        if q:
+            where.append("(r.nome ILIKE %s OR r.registro ILIKE %s OR r.fazenda_origem ILIKE %s)")
+            params += [f"%{q}%", f"%{q}%", f"%{q}%"]
+        if registro:
+            where.append("r.registro ILIKE %s")
+            params.append(f"%{registro}%")
+        if raca:
+            where.append("c.nome ILIKE %s")
+            params.append(f"%{raca}%")
+        if central:
+            where.append("(cen.nome ILIKE %s OR o.nome_comercial ILIKE %s)")
+            params += [f"%{central}%", f"%{central}%"]
+        if uf:
+            where.append("r.uf = %s")
+            params.append(uf.upper())
+        if municipio:
+            where.append("r.municipio ILIKE %s")
+            params.append(f"%{municipio}%")
+        if pedigree_status == "declared":
+            where.append("r.pai_nome IS NOT NULL AND r.mae_nome IS NOT NULL")
+        elif pedigree_status == "partial":
+            where.append("((r.pai_nome IS NOT NULL AND r.mae_nome IS NULL) OR (r.pai_nome IS NULL AND r.mae_nome IS NOT NULL))")
+        elif pedigree_status == "none":
+            where.append("r.pai_nome IS NULL AND r.mae_nome IS NULL")
+        if has_evaluation is True:
+            where.append("COALESCE(av.cnt, 0) > 0")
+        elif has_evaluation is False:
+            where.append("COALESCE(av.cnt, 0) = 0")
+
+        order_dir = "DESC" if order.lower() == "desc" else "ASC"
+        sort_map = {
+            "avaliacoes_count": "COALESCE(av.cnt, 0)",
+            "nome": "r.nome",
+            "registro": "r.registro",
+            "raca": "c.nome",
+            "preco_dose": "o.preco_dose_brl",
+            "nascimento": "r.data_nascimento",
+            "id": "r.id"
+        }
+        sort_col = sort_map.get(sort, "COALESCE(av.cnt, 0)")
+        clause = " AND ".join(where)
+
+        sql = f"""
+            SELECT r.id::text, r.registro, r.nome, r.sexo, r.data_nascimento::text,
+                   r.pai_registro, r.pai_nome, r.mae_registro, r.mae_nome,
+                   r.avo_materno_registro, r.avo_materno_nome,
+                   r.fazenda_origem, r.uf, r.municipio, r.fonte_programa, r.em_central,
+                   c.nome as raca_nome,
+                   o.preco_dose_brl::float as preco_dose_brl,
+                   o.nome_comercial as oferta_nome_comercial,
+                   cen.nome as central_nome,
+                   COALESCE(av.cnt, 0)::int as avaliacoes_count,
+                   (CASE WHEN r.pai_nome IS NOT NULL AND r.mae_nome IS NOT NULL THEN 'PEDIGREE_DECLARED_IMMEDIATE'
+                         WHEN r.pai_nome IS NOT NULL OR r.mae_nome IS NOT NULL THEN 'PEDIGREE_PARTIAL'
+                         ELSE 'PEDIGREE_UNAVAILABLE' END) as pedigree_quality
+            FROM mercado.reprodutor r
+            LEFT JOIN catalogo.raca c ON c.id = r.raca_id
+            LEFT JOIN LATERAL (
+                SELECT preco_dose_brl, nome_comercial, central_id
+                FROM mercado.touro_oferta
+                WHERE reprodutor_id = r.id
+                ORDER BY preco_dose_brl DESC NULLS LAST
+                LIMIT 1
+            ) o ON true
+            LEFT JOIN catalogo.central cen ON cen.id = COALESCE(o.central_id, r.central_id)
+            LEFT JOIN LATERAL (
+                SELECT count(*)::int as cnt
+                FROM mercado.avaliacao
+                WHERE reprodutor_id = r.id
+            ) av ON true
+            WHERE {clause}
+            ORDER BY {sort_col} {order_dir} NULLS LAST, r.id DESC
+            LIMIT %s OFFSET %s
+        """
+        rows = _run_db("wins_agro", sql, params + [size, offset], domain="agro")
+
+        count_sql = f"""
+            SELECT count(*)::int as total
+            FROM mercado.reprodutor r
+            LEFT JOIN catalogo.raca c ON c.id = r.raca_id
+            LEFT JOIN LATERAL (
+                SELECT preco_dose_brl, nome_comercial, central_id
+                FROM mercado.touro_oferta
+                WHERE reprodutor_id = r.id
+                ORDER BY preco_dose_brl DESC NULLS LAST
+                LIMIT 1
+            ) o ON true
+            LEFT JOIN catalogo.central cen ON cen.id = COALESCE(o.central_id, r.central_id)
+            LEFT JOIN LATERAL (
+                SELECT count(*)::int as cnt
+                FROM mercado.avaliacao
+                WHERE reprodutor_id = r.id
+            ) av ON true
+            WHERE {clause}
+        """
+        total_rows = _run_db("wins_agro", count_sql, params, domain="agro")
+        total = total_rows[0]["total"] if total_rows else len(rows)
+
+        return {
+            "items": rows,
+            "meta": _meta(page, size, total, rows, "wins_agro.mercado.reprodutor")
+        }
+
+    @staticmethod
+    def agro_genetica_reprodutor_detail(rep_id: str):
+        is_num = str(rep_id).isdigit()
+        where_cond = "r.id = %s::integer" if is_num else "r.registro ILIKE %s"
+        param = int(rep_id) if is_num else str(rep_id)
+
+        rows = _run_db("wins_agro", f"""
+            SELECT r.id::text, r.registro, r.nome, r.sexo, r.data_nascimento::text,
+                   r.pai_registro, r.pai_nome, r.mae_registro, r.mae_nome,
+                   r.avo_materno_registro, r.avo_materno_nome,
+                   r.fazenda_origem, r.uf, r.municipio, r.fonte_programa, r.fonte_url,
+                   r.em_central, r.filhos_avaliacao, r.rebanhos_avaliacao,
+                   c.nome as raca_nome, r.raca_id,
+                   cen.nome as central_nome, r.central_id,
+                   o.preco_dose_brl::float as preco_dose_brl,
+                   o.url_oferta, o.nome_comercial as oferta_nome_comercial,
+                   (CASE WHEN r.pai_nome IS NOT NULL AND r.mae_nome IS NOT NULL THEN 'PEDIGREE_DECLARED_IMMEDIATE'
+                         WHEN r.pai_nome IS NOT NULL OR r.mae_nome IS NOT NULL THEN 'PEDIGREE_PARTIAL'
+                         ELSE 'PEDIGREE_UNAVAILABLE' END) as pedigree_quality
+            FROM mercado.reprodutor r
+            LEFT JOIN catalogo.raca c ON c.id = r.raca_id
+            LEFT JOIN LATERAL (
+                SELECT preco_dose_brl, url_oferta, nome_comercial, central_id
+                FROM mercado.touro_oferta
+                WHERE reprodutor_id = r.id
+                ORDER BY preco_dose_brl DESC NULLS LAST
+                LIMIT 1
+            ) o ON true
+            LEFT JOIN catalogo.central cen ON cen.id = COALESCE(o.central_id, r.central_id)
+            WHERE {where_cond}
+            LIMIT 1
+        """, [param], domain="agro")
+
+        if not rows:
+            return None
+
+        rep = rows[0]
+        actual_id = int(rep["id"])
+
+        deps = _run_db("wins_agro", """
+            SELECT av.id::text as avaliacao_id,
+                   ca.id as caracteristica_id, ca.sigla, ca.nome as caracteristica_nome,
+                   COALESCE(ca.unidade, '') as unidade, COALESCE(ca.descricao, '') as descricao,
+                   av.valor::float as valor,
+                   av.percentil::float as percentil,
+                   av.acuracia::float as acuracia,
+                   av.classe, av.eh_genomica,
+                   COALESCE(prog.nome, 'Embrapa Geneplus') as programa_nome,
+                   (CASE WHEN ca.sigla IN ('IPP', 'PN', 'CAR') THEN 'LOWER_BETTER'
+                         WHEN ca.sigla IN ('GPD', 'PD', 'PS', 'PES', 'TMD', 'TMM', 'PM', 'PSF', 'RD', 'AOL', 'EGS', 'CFD', 'CFS', 'MAR', 'HP', 'IQGg', 'MGTe', 'PTA_LEITE') THEN 'HIGHER_BETTER'
+                         ELSE 'UNKNOWN' END) as selection_direction
+            FROM mercado.avaliacao av
+            JOIN catalogo.caracteristica ca ON ca.id = av.caracteristica_id
+            LEFT JOIN catalogo.sumario_edicao se ON se.id = av.sumario_edicao_id
+            LEFT JOIN catalogo.programa prog ON prog.id = se.programa_id
+            WHERE av.reprodutor_id = %s
+            ORDER BY (CASE WHEN ca.sigla = 'IQGg' THEN 1
+                           WHEN ca.sigla IN ('GPD','PD','PS','PES') THEN 2
+                           WHEN ca.sigla IN ('AOL','EGS','CFD','CFS','MAR','CAR') THEN 3
+                           WHEN ca.sigla IN ('TMD','TMM','PM','HP','IPP','PSF','RD') THEN 4
+                           ELSE 5 END), ca.sigla
+        """, [actual_id], domain="agro")
+
+        rep["avaliacoes"] = deps
+        rep["total_avaliacoes"] = len(deps)
+        return rep
+
+    @staticmethod
+    def agro_genetica_caracteristicas():
+        rows = _run_db("wins_agro", """
+            SELECT c.id, c.sigla, c.nome, COALESCE(c.unidade, '') as unidade,
+                   COALESCE(c.descricao, '') as descricao,
+                   count(av.id)::int as total_avaliacoes,
+                   count(DISTINCT av.reprodutor_id)::int as total_reprodutores,
+                   min(av.valor)::float as min_valor,
+                   (percentile_cont(0.5) WITHIN GROUP (ORDER BY av.valor))::float as mediana_valor,
+                   max(av.valor)::float as max_valor,
+                   (count(av.percentil) > 0) as has_percentil,
+                   (count(av.acuracia) > 0) as has_acuracia,
+                   (CASE WHEN c.sigla IN ('IPP', 'PN', 'CAR') THEN 'LOWER_BETTER'
+                         WHEN c.sigla IN ('GPD', 'PD', 'PS', 'PES', 'TMD', 'TMM', 'PM', 'PSF', 'RD', 'AOL', 'EGS', 'CFD', 'CFS', 'MAR', 'HP', 'IQGg', 'MGTe', 'PTA_LEITE') THEN 'HIGHER_BETTER'
+                         ELSE 'UNKNOWN' END) as selection_direction,
+                   (CASE WHEN c.sigla IN ('PN', 'PD', 'PS', 'GPD', 'P120', 'PM', 'PSF', 'RD', 'WAG_PVIV') THEN 'Crescimento & Peso'
+                         WHEN c.sigla IN ('AOL', 'EGS', 'CFD', 'CFS', 'MAR', 'WAG_REND', 'WAG_PCAR', 'IDX_CARC_PROMEBO') THEN 'Carcaça & Frigorífico'
+                         WHEN c.sigla IN ('TMD', 'TMM', 'PES', 'HP', 'IPP', 'PP30', 'PTA_LEITE', 'PTA_GORDURA', 'PTA_PROTEINA', 'PTA_SOLIDOS') THEN 'Fertilidade & Maternal'
+                         WHEN c.sigla IN ('CAR') THEN 'Eficiência Alimentar'
+                         WHEN c.sigla IN ('IQGg', 'MGTe', 'IDX_FINAL_CDG', 'IND_DELTA', 'IND_NAT', 'IND_CIA', 'IND_PAINT', 'IND_ALI') THEN 'Índice Geral & Compostos'
+                         ELSE 'Morfologia & Específicas' END) as categoria
+            FROM catalogo.caracteristica c
+            LEFT JOIN mercado.avaliacao av ON av.caracteristica_id = c.id
+            GROUP BY c.id, c.sigla, c.nome, c.unidade, c.descricao
+            ORDER BY count(av.id) DESC, c.sigla ASC
+        """, domain="agro")
+
+        return {
+            "total": len(rows),
+            "caracteristicas": rows,
+            "dense_traits_count": sum(1 for r in rows if r["total_avaliacoes"] >= 10000),
+            "updated_at": "2026-08-08T12:00:00Z"
+        }
+
+    @staticmethod
+    def agro_genetica_pedigree(rep_id: str):
+        is_num = str(rep_id).isdigit()
+        where_cond = "r.id = %s::integer" if is_num else "r.registro ILIKE %s"
+        param = int(rep_id) if is_num else str(rep_id)
+
+        rows = _run_db("wins_agro", f"""
+            SELECT r.id::text, r.registro, r.nome, c.nome as raca, r.fazenda_origem, r.fonte_programa,
+                   r.pai_registro, r.pai_nome, r.mae_registro, r.mae_nome,
+                   r.avo_materno_registro, r.avo_materno_nome
+            FROM mercado.reprodutor r
+            LEFT JOIN catalogo.raca c ON c.id = r.raca_id
+            WHERE {where_cond}
+            LIMIT 1
+        """, [param], domain="agro")
+
+        if not rows:
+            return None
+
+        rep = rows[0]
+        pai_reg = rep.get("pai_registro")
+        pai_nome = rep.get("pai_nome")
+        mae_reg = rep.get("mae_registro")
+        mae_nome = rep.get("mae_nome")
+
+        resolved_pai = None
+        if pai_reg or pai_nome:
+            p_rows = _run_db("wins_agro", """
+                SELECT id::text, registro, nome, fazenda_origem
+                FROM mercado.reprodutor
+                WHERE (%s IS NOT NULL AND registro = %s) OR (%s IS NOT NULL AND nome = %s)
+                LIMIT 1
+            """, [pai_reg, pai_reg, pai_nome, pai_nome], domain="agro")
+            if p_rows:
+                resolved_pai = p_rows[0]
+
+        resolved_mae = None
+        if mae_reg or mae_nome:
+            m_rows = _run_db("wins_agro", """
+                SELECT id::text, registro, nome, fazenda_origem
+                FROM mercado.reprodutor
+                WHERE (%s IS NOT NULL AND registro = %s) OR (%s IS NOT NULL AND nome = %s)
+                LIMIT 1
+            """, [mae_reg, mae_reg, mae_nome, mae_nome], domain="agro")
+            if m_rows:
+                resolved_mae = m_rows[0]
+
+        has_both = bool(pai_nome and mae_nome)
+        has_any = bool(pai_nome or mae_nome)
+
+        quality = "PEDIGREE_DECLARED_IMMEDIATE" if has_both else ("PEDIGREE_PARTIAL" if has_any else "PEDIGREE_UNAVAILABLE")
+        depth = 2 if (rep.get("avo_materno_nome") or rep.get("avo_materno_registro")) else (1 if has_any else 0)
+
+        return {
+            "status": "AVAILABLE" if has_any else "UNAVAILABLE",
+            "quality": quality,
+            "depth_available": depth,
+            "subject": {
+                "id": rep["id"],
+                "registro": rep["registro"],
+                "nome": rep["nome"],
+                "raca": rep["raca"],
+                "fazenda_origem": rep["fazenda_origem"],
+                "fonte_programa": rep["fonte_programa"]
+            },
+            "father": {
+                "registro": pai_reg,
+                "nome": pai_nome,
+                "resolved_id": resolved_pai["id"] if resolved_pai else None,
+                "fazenda_origem": resolved_pai["fazenda_origem"] if resolved_pai else None
+            },
+            "mother": {
+                "registro": mae_reg,
+                "nome": mae_nome,
+                "resolved_id": resolved_mae["id"] if resolved_mae else None,
+                "fazenda_origem": resolved_mae["fazenda_origem"] if resolved_mae else None
+            },
+            "maternal_grandfather": {
+                "registro": rep.get("avo_materno_registro"),
+                "nome": rep.get("avo_materno_nome")
+            },
+            "limitations": "Genealogia declarada pelo programa zootécnico com RGD e nomes dos genitores. Não realiza inferência artificial de parentesco além dos vínculos cadastrais comprovados."
+        }
+
+    @staticmethod
+    def agro_genetica_acasalamento_prontidao():
+        farm_females = _run_db("wins_agro", """
+            SELECT a.id::text, a.nome, a.brinco, a.registro_associacao, a.peso_atual_kg::float,
+                   a.escore_corporal::float, a.status, r.nome as raca,
+                   a.pai_nome_externo as pai_nome, a.pai_registro_externo as pai_registro,
+                   'fazenda.animal' as origem_tabela
+            FROM fazenda.animal a
+            LEFT JOIN catalogo.raca r ON r.id = a.raca_id
+            WHERE a.sexo = 'F' OR a.sexo IS NULL
+            ORDER BY a.id ASC
+        """, domain="agro")
+
+        donors = _run_db("wins_agro", """
+            SELECT d.id::text, d.nome, d.registro, d.fazenda_origem, r.nome as raca,
+                   d.fonte_referencia, 'mercado.doadora' as origem_tabela
+            FROM mercado.doadora d
+            LEFT JOIN catalogo.raca r ON r.id = d.raca_id
+            ORDER BY d.id ASC
+        """, domain="agro")
+
+        matrices = []
+        for f in farm_females:
+            matrices.append({
+                "id": f"fazenda_{f['id']}",
+                "raw_id": f['id'],
+                "tipo": "MATRIZ_FAZENDA",
+                "nome": f["nome"] or f"Brinco {f.get('brinco')}",
+                "registro": f.get("registro_associacao") or f.get("brinco") or "S/RGD",
+                "raca": f.get("raca") or "Nelore",
+                "peso_kg": f.get("peso_atual_kg"),
+                "escore_corporal": f.get("escore_corporal"),
+                "pai_nome": f.get("pai_nome"),
+                "pai_registro": f.get("pai_registro"),
+                "mae_nome": None,
+                "mae_registro": None,
+                "status": f.get("status") or "ativo",
+                "origem": "Rebanho Piloto Fazenda"
+            })
+        for d in donors:
+            matrices.append({
+                "id": f"doadora_{d['id']}",
+                "raw_id": d['id'],
+                "tipo": "DOADORA_CATALOGO",
+                "nome": d["nome"],
+                "registro": d.get("registro") or "S/RGD",
+                "raca": d.get("raca") or "Nelore",
+                "peso_kg": None,
+                "escore_corporal": None,
+                "pai_nome": None,
+                "pai_registro": None,
+                "mae_nome": None,
+                "mae_registro": None,
+                "status": "ativo",
+                "origem": d.get("fazenda_origem") or "Catálogo CRV"
+            })
+
+        target_traits = [
+            {"sigla": "GPD", "nome": "Ganho Pós-Desmama", "unidade": "kg", "categoria": "Crescimento & Peso", "selection_direction": "HIGHER_BETTER"},
+            {"sigla": "PD", "nome": "Peso à Desmama (210d)", "unidade": "kg", "categoria": "Crescimento & Peso", "selection_direction": "HIGHER_BETTER"},
+            {"sigla": "PS", "nome": "Peso ao Sobreano (450d)", "unidade": "kg", "categoria": "Crescimento & Peso", "selection_direction": "HIGHER_BETTER"},
+            {"sigla": "AOL", "nome": "Área de Olho de Lombo", "unidade": "cm²", "categoria": "Carcaça & Frigorífico", "selection_direction": "HIGHER_BETTER"},
+            {"sigla": "EGS", "nome": "Espessura de Gordura Subcutânea", "unidade": "0,1mm", "categoria": "Carcaça & Frigorífico", "selection_direction": "HIGHER_BETTER"},
+            {"sigla": "MAR", "nome": "Marmoreio", "unidade": "%", "categoria": "Carcaça & Frigorífico", "selection_direction": "HIGHER_BETTER"},
+            {"sigla": "CFS", "nome": "Conformação Frigorífica Sobreano", "unidade": "pontos", "categoria": "Carcaça & Frigorífico", "selection_direction": "HIGHER_BETTER"},
+            {"sigla": "CFD", "nome": "Conformação Frigorífica Desmama", "unidade": "pontos", "categoria": "Carcaça & Frigorífico", "selection_direction": "HIGHER_BETTER"},
+            {"sigla": "CAR", "nome": "Consumo Alimentar Residual", "unidade": "kg/dia", "categoria": "Eficiência Alimentar", "selection_direction": "LOWER_BETTER"},
+            {"sigla": "TMD", "nome": "Total Materno à Desmama", "unidade": "kg", "categoria": "Fertilidade & Maternal", "selection_direction": "HIGHER_BETTER"},
+            {"sigla": "PM", "nome": "Peso Materno aos 120d", "unidade": "kg", "categoria": "Fertilidade & Maternal", "selection_direction": "HIGHER_BETTER"},
+            {"sigla": "HP", "nome": "Habilidade de Permanência (Stayability)", "unidade": "%", "categoria": "Fertilidade & Maternal", "selection_direction": "HIGHER_BETTER"},
+            {"sigla": "PES", "nome": "Perímetro Escrotal ao Sobreano", "unidade": "cm", "categoria": "Fertilidade & Maternal", "selection_direction": "HIGHER_BETTER"},
+            {"sigla": "IPP", "nome": "Idade ao Primeiro Parto", "unidade": "dias", "categoria": "Fertilidade & Maternal", "selection_direction": "LOWER_BETTER"},
+            {"sigla": "PN", "nome": "Peso ao Nascer", "unidade": "kg", "categoria": "Crescimento & Peso", "selection_direction": "LOWER_BETTER"},
+            {"sigla": "IQGg", "nome": "Índice de Qualificação Genética Genômica", "unidade": "pontos", "categoria": "Índice Geral", "selection_direction": "HIGHER_BETTER"}
+        ]
+
+        return {
+            "status": "READY_WITH_CONSTRAINTS",
+            "matrizes_count": len(matrices),
+            "matrizes": matrices,
+            "available_target_traits": target_traits,
+            "contracts": {
+                "pedigree_status": "AVAILABLE_FOR_DECLARED_PEDIGREE",
+                "dep_status": "AVAILABLE_FOR_19_CORE_TRAITS",
+                "multi_trait_ranking_status": "PLANNED",
+                "kinship_check_status": "AVAILABLE_FOR_IMMEDIATE_PARENTS",
+                "inbreeding_coefficient_status": "UNAVAILABLE",
+                "inbreeding_reason": "PEDIGREE_DEPTH_INSUFFICIENT_FOR_FORMAL_COEFFICIENT",
+                "economic_value_status": "UNAVAILABLE",
+                "economic_value_reason": "REQUIRES_HERD_PRODUCTION_AND_COMMERCIAL_COST_PARAMETERS",
+                "predicted_calf_status": "PLANNED"
+            },
+            "blockers": [
+                "Acasalamento exige seleção de uma matriz real ou preenchimento dos dados do lote da fazenda.",
+                "Bloqueio de consanguinidade atua sobre parentesco direto (pai, mãe, meio-irmãos com base nos registros declarados).",
+                "Não gera valores econômicos ou ROI sem parametrização de custos da fazenda."
+            ],
+            "limitations": "Motor fail-closed: nenhum touro é recomendado sem compatibilidade racial, bloqueio de parentesco e DEP real persistida."
+        }
+
+    @staticmethod
+    def agro_genetica_acasalamento_candidatos(payload: dict):
+        if not payload:
+            return {"status": "PREREQUISITE_REQUIRED", "message": "Matriz ou dados da fêmea são obrigatórios para simulação.", "eligible_reproducers": [], "excluded_reproducers": []}
+
+        matrix_id = payload.get("matrix_id")
+        custom_matrix = payload.get("custom_matrix")
+        target_sigla = (payload.get("target_characteristic") or "GPD").upper()
+        min_accuracy = payload.get("min_accuracy")
+        limit = min(max(int(payload.get("limit") or 10), 1), 50)
+
+        matrix = None
+        if matrix_id:
+            if str(matrix_id).startswith("fazenda_") or str(matrix_id).isdigit():
+                raw_id = str(matrix_id).replace("fazenda_", "")
+                if raw_id.isdigit():
+                    f_rows = _run_db("wins_agro", """
+                        SELECT a.id::text, a.nome, a.brinco, a.registro_associacao as registro,
+                               r.nome as raca, a.pai_nome_externo as pai_nome, a.pai_registro_externo as pai_registro,
+                               a.peso_atual_kg::float, a.escore_corporal::float
+                        FROM fazenda.animal a
+                        LEFT JOIN catalogo.raca r ON r.id = a.raca_id
+                        WHERE a.id = %s::integer
+                    """, [int(raw_id)], domain="agro")
+                    if f_rows:
+                        m = f_rows[0]
+                        matrix = {
+                            "id": f"fazenda_{m['id']}", "nome": m["nome"] or f"Brinco {m.get('brinco')}",
+                            "registro": m.get("registro") or "S/RGD", "raca": m.get("raca") or "Nelore",
+                            "pai_nome": m.get("pai_nome"), "pai_registro": m.get("pai_registro"),
+                            "mae_nome": None, "mae_registro": None, "peso_kg": m.get("peso_atual_kg"),
+                            "escore_corporal": m.get("escore_corporal")
+                        }
+            elif str(matrix_id).startswith("doadora_"):
+                raw_id = str(matrix_id).replace("doadora_", "")
+                if raw_id.isdigit():
+                    d_rows = _run_db("wins_agro", """
+                        SELECT d.id::text, d.nome, d.registro, r.nome as raca, d.fazenda_origem
+                        FROM mercado.doadora d
+                        LEFT JOIN catalogo.raca r ON r.id = d.raca_id
+                        WHERE d.id = %s::integer
+                    """, [int(raw_id)], domain="agro")
+                    if d_rows:
+                        m = d_rows[0]
+                        matrix = {
+                            "id": f"doadora_{m['id']}", "nome": m["nome"],
+                            "registro": m.get("registro") or "S/RGD", "raca": m.get("raca") or "Nelore",
+                            "pai_nome": None, "pai_registro": None, "mae_nome": None, "mae_registro": None,
+                            "peso_kg": None, "escore_corporal": None
+                        }
+
+        if not matrix and custom_matrix and isinstance(custom_matrix, dict):
+            matrix = {
+                "id": "custom",
+                "nome": custom_matrix.get("nome") or "Matriz da Fazenda",
+                "registro": custom_matrix.get("registro") or "S/RGD",
+                "raca": custom_matrix.get("raca") or "Nelore",
+                "pai_nome": custom_matrix.get("pai_nome"),
+                "pai_registro": custom_matrix.get("pai_registro"),
+                "mae_nome": custom_matrix.get("mae_nome"),
+                "mae_registro": custom_matrix.get("mae_registro"),
+                "peso_kg": custom_matrix.get("peso_kg"),
+                "escore_corporal": custom_matrix.get("escore_corporal")
+            }
+
+        if not matrix:
+            return {
+                "status": "PREREQUISITE_REQUIRED",
+                "message": "Selecione uma matriz cadastrada ou informe os dados da fêmea para executar o acasalamento.",
+                "eligible_reproducers": [],
+                "excluded_reproducers": [],
+                "limitations": "Motor fail-closed: exige matriz comprovada para ranqueamento."
+            }
+
+        lower_better_traits = {"IPP", "PN", "CAR"}
+        is_lower_better = target_sigla in lower_better_traits
+        order_dir = "ASC" if is_lower_better else "DESC"
+
+        raca_nome = matrix.get("raca") or "Nelore"
+        
+        where_candidates = ["c.nome ILIKE %s", "ca.sigla = %s"]
+        params_candidates = [f"%{raca_nome}%", target_sigla]
+
+        if min_accuracy is not None:
+            where_candidates.append("av.acuracia >= %s")
+            params_candidates.append(float(min_accuracy))
+
+        clause_cand = " AND ".join(where_candidates)
+
+        sql_candidates = f"""
+            SELECT r.id::text, r.registro, r.nome, r.pai_nome, r.mae_nome, r.pai_registro, r.mae_registro,
+                   r.fazenda_origem, r.uf, r.municipio, c.nome as raca_nome,
+                   av.valor::float as valor, av.percentil::float as percentil, av.acuracia::float as acuracia,
+                   o.preco_dose_brl::float as preco_dose_brl,
+                   cen.nome as central_nome
+            FROM mercado.reprodutor r
+            JOIN catalogo.raca c ON c.id = r.raca_id
+            JOIN mercado.avaliacao av ON av.reprodutor_id = r.id
+            JOIN catalogo.caracteristica ca ON ca.id = av.caracteristica_id
+            LEFT JOIN LATERAL (
+                SELECT preco_dose_brl, central_id
+                FROM mercado.touro_oferta
+                WHERE reprodutor_id = r.id
+                ORDER BY preco_dose_brl DESC NULLS LAST
+                LIMIT 1
+            ) o ON true
+            LEFT JOIN catalogo.central cen ON cen.id = COALESCE(o.central_id, r.central_id)
+            WHERE {clause_cand}
+            ORDER BY av.valor {order_dir} NULLS LAST, r.id DESC
+            LIMIT %s
+        """
+        raw_candidates = _run_db("wins_agro", sql_candidates, params_candidates + [limit * 3], domain="agro")
+
+        m_pai_nome = (matrix.get("pai_nome") or "").strip().upper()
+        m_pai_reg = (matrix.get("pai_registro") or "").strip().upper()
+        m_mae_nome = (matrix.get("mae_nome") or "").strip().upper()
+        m_mae_reg = (matrix.get("mae_registro") or "").strip().upper()
+        m_reg = (matrix.get("registro") or "").strip().upper()
+        m_nome = (matrix.get("nome") or "").strip().upper()
+
+        eligible = []
+        excluded = []
+
+        for cand in raw_candidates:
+            c_nome = (cand.get("nome") or "").strip().upper()
+            c_reg = (cand.get("registro") or "").strip().upper()
+            c_pai_nome = (cand.get("pai_nome") or "").strip().upper()
+            c_pai_reg = (cand.get("pai_registro") or "").strip().upper()
+            c_mae_nome = (cand.get("mae_nome") or "").strip().upper()
+            c_mae_reg = (cand.get("mae_registro") or "").strip().upper()
+
+            is_father = bool((m_pai_reg and c_reg and m_pai_reg == c_reg) or (m_pai_nome and c_nome and m_pai_nome == c_nome))
+            is_same_father = bool((m_pai_reg and c_pai_reg and m_pai_reg == c_pai_reg) or (m_pai_nome and c_pai_nome and m_pai_nome == c_pai_nome))
+            is_same_mother = bool((m_mae_reg and c_mae_reg and m_mae_reg == c_mae_reg) or (m_mae_nome and c_mae_nome and m_mae_nome == c_mae_nome))
+            is_son = bool((m_reg and c_mae_reg and m_reg == c_mae_reg) or (m_nome and c_mae_nome and m_nome == c_mae_nome))
+
+            if is_father:
+                excluded.append({
+                    "id": cand["id"], "nome": cand["nome"], "registro": cand["registro"],
+                    "reason": "PARENT_CHILD", "details": f"Touro identificado como genitor (pai) da matriz ({matrix.get('pai_nome') or matrix.get('pai_registro')})."
+                })
+            elif is_son:
+                excluded.append({
+                    "id": cand["id"], "nome": cand["nome"], "registro": cand["registro"],
+                    "reason": "PARENT_CHILD", "details": "Touro identificado como filho direto da matriz."
+                })
+            elif is_same_father:
+                excluded.append({
+                    "id": cand["id"], "nome": cand["nome"], "registro": cand["registro"],
+                    "reason": "HALF_SIBLING_PATERNAL", "details": f"Mesmo pai declarado ({cand.get('pai_nome') or cand.get('pai_registro')})."
+                })
+            elif is_same_mother:
+                excluded.append({
+                    "id": cand["id"], "nome": cand["nome"], "registro": cand["registro"],
+                    "reason": "HALF_SIBLING_MATERNAL", "details": f"Mesma mãe declarada ({cand.get('mae_nome') or cand.get('mae_registro')})."
+                })
+            else:
+                if len(eligible) < limit:
+                    eligible.append({
+                        "id": cand["id"],
+                        "registro": cand["registro"],
+                        "nome": cand["nome"],
+                        "raca": cand["raca_nome"],
+                        "fazenda_origem": cand["fazenda_origem"],
+                        "uf": cand["uf"],
+                        "municipio": cand["municipio"],
+                        "pai_nome": cand["pai_nome"],
+                        "mae_nome": cand["mae_nome"],
+                        "central_nome": cand["central_nome"],
+                        "preco_dose_brl": cand["preco_dose_brl"],
+                        "dep_valor": cand["valor"],
+                        "dep_percentil": cand["percentil"],
+                        "dep_acuracia": cand["acuracia"],
+                        "kinship_verdict": "NO_IMMEDIATE_RELATIONSHIP_FOUND"
+                    })
+
+        return {
+            "status": "AVAILABLE",
+            "matrix": matrix,
+            "target_characteristic": {
+                "sigla": target_sigla,
+                "selection_direction": "LOWER_BETTER" if is_lower_better else "HIGHER_BETTER"
+            },
+            "eligible_reproducers": eligible,
+            "excluded_reproducers": excluded,
+            "total_eligible": len(eligible),
+            "total_excluded": len(excluded),
+            "genetic_evidence": f"Ranqueamento determinístico por mérito real na DEP {target_sigla} com exclusão de parentesco imediato.",
+            "limitations": "Acasalamento baseado em pedigree imediato declarado e DEP real individual. Não gera coeficiente formal de consanguinidade de Wright nem garantia fenotípica de bezerro."
+        }
+
+    @staticmethod
     def agro_genetica_simulador(touro_id=None, raca=None):
-        # Simulador fail-closed: apenas reprodutores com raça declarada, pedigree
-        # mínimo (pai e mãe) e DEP real persistida (mercado.avaliacao) podem ser
-        # selecionados. O bloco ilustrativo "simulador_exemplo" foi removido.
+        # Facade fail-closed para compatibilidade retroativa
         rows = _run_db("wins_agro", """
             SELECT r.id, r.registro, r.nome, r.pai_nome, r.mae_nome, r.fazenda_origem,
                    r.uf, r.municipio, r.fonte_programa, c.nome AS raca,

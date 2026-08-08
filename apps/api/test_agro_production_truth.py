@@ -344,6 +344,67 @@ class TestAgroProductionTruthStatic:
         assert "GPD" in source or "PD" in source
         assert "catalogo.raca" in source
 
+    def test_agro_genetica_resumo_sem_hardcode(self):
+        source = read_source("agro_genetica_resumo")
+        assert "mercado.reprodutor" in source
+        assert "mercado.avaliacao" in source
+        assert "catalogo.caracteristica" in source
+        assert "catalogo.raca" in source
+        assert "fazenda.animal" in source
+        assert "mercado.doadora" in source
+        assert "AVAILABLE" in source
+        assert "UNAVAILABLE" in source
+        assert "PLANNED" in source
+        assert "SCHEMA_ONLY" in source
+
+    def test_agro_genetica_reprodutores_paginacao(self):
+        source = read_source("agro_genetica_reprodutores")
+        assert "mercado.reprodutor" in source
+        assert "catalogo.raca" in source
+        assert "_page" in source
+        assert "LIMIT" in source
+        assert "OFFSET" in source
+        assert "pedigree_quality" in source
+
+    def test_agro_genetica_reprodutor_detail_com_deps(self):
+        source = read_source("agro_genetica_reprodutor_detail")
+        assert "mercado.reprodutor" in source
+        assert "mercado.avaliacao" in source
+        assert "catalogo.caracteristica" in source
+        assert "selection_direction" in source
+
+    def test_agro_genetica_caracteristicas_cobertura(self):
+        source = read_source("agro_genetica_caracteristicas")
+        assert "catalogo.caracteristica" in source
+        assert "total_avaliacoes" in source
+        assert "selection_direction" in source
+        assert "Crescimento & Peso" in source
+        assert "Carcaça & Frigorífico" in source
+
+    def test_agro_genetica_pedigree_declarado(self):
+        source = read_source("agro_genetica_pedigree")
+        assert "mercado.reprodutor" in source
+        assert "pai_registro" in source
+        assert "mae_registro" in source
+        assert "PEDIGREE_DECLARED_IMMEDIATE" in source
+
+    def test_agro_genetica_acasalamento_prontidao_fail_closed(self):
+        source = read_source("agro_genetica_acasalamento_prontidao")
+        assert "fazenda.animal" in source
+        assert "mercado.doadora" in source
+        assert "READY_WITH_CONSTRAINTS" in source
+        assert "PEDIGREE_DEPTH_INSUFFICIENT_FOR_FORMAL_COEFFICIENT" in source
+        assert "REQUIRES_HERD_PRODUCTION_AND_COMMERCIAL_COST_PARAMETERS" in source
+
+    def test_agro_genetica_acasalamento_candidatos_bloqueio_parentesco(self):
+        source = read_source("agro_genetica_acasalamento_candidatos")
+        assert "PARENT_CHILD" in source
+        assert "HALF_SIBLING_PATERNAL" in source
+        assert "HALF_SIBLING_MATERNAL" in source
+        assert "PREREQUISITE_REQUIRED" in source
+        assert "eligible_reproducers" in source
+        assert "excluded_reproducers" in source
+
 
 class TestNoUnintendedChanges:
     """Valida que autenticação, Nginx, Docker, CI e outras verticais NÃO foram alteradas na missão."""

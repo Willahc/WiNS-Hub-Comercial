@@ -883,6 +883,61 @@ def get_agro_logistica_mapa(request: Request, uf: Optional[str] = None,
                             limit: int = Query(100, ge=1, le=100), user=Depends(require_permission("agro"))):
     return Wave1Repository.agro_logistica_mapa(uf=uf, limit=limit)
 
+@router.get("/agro/genetica/resumo")
+def get_agro_genetica_resumo(request: Request, user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_genetica_resumo()
+
+@router.get("/agro/genetica/reprodutores")
+def get_agro_genetica_reprodutores(request: Request,
+                                  page: int = Query(1, ge=1),
+                                  page_size: int = Query(25, ge=1, le=100),
+                                  q: Optional[str] = None,
+                                  registro: Optional[str] = None,
+                                  raca: Optional[str] = None,
+                                  central: Optional[str] = None,
+                                  uf: Optional[str] = None,
+                                  municipio: Optional[str] = None,
+                                  pedigree_status: Optional[Literal["declared", "partial", "none"]] = None,
+                                  has_evaluation: Optional[bool] = None,
+                                  sort: Literal["avaliacoes_count", "nome", "registro", "raca", "preco_dose", "nascimento", "id"] = "avaliacoes_count",
+                                  order: Literal["asc", "desc"] = "desc",
+                                  user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_genetica_reprodutores(
+        page=page, page_size=page_size, q=q, registro=registro, raca=raca,
+        central=central, uf=uf, municipio=municipio, pedigree_status=pedigree_status,
+        has_evaluation=has_evaluation, sort=sort, order=order
+    )
+
+@router.get("/agro/genetica/reprodutores/{id}")
+def get_agro_genetica_reprodutor_detail(id: str, request: Request, user=Depends(require_permission("agro"))):
+    item = Wave1Repository.agro_genetica_reprodutor_detail(id)
+    if not item:
+        raise HTTPException(404, "Reprodutor não encontrado")
+    return item
+
+@router.get("/agro/genetica/caracteristicas")
+def get_agro_genetica_caracteristicas(request: Request, user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_genetica_caracteristicas()
+
+@router.get("/agro/genetica/reprodutores/{id}/pedigree")
+def get_agro_genetica_pedigree(id: str, request: Request, user=Depends(require_permission("agro"))):
+    item = Wave1Repository.agro_genetica_pedigree(id)
+    if not item:
+        raise HTTPException(404, "Reprodutor não encontrado")
+    return item
+
+@router.get("/agro/genetica/acasalamento/prontidao")
+def get_agro_genetica_acasalamento_prontidao(request: Request, user=Depends(require_permission("agro"))):
+    return Wave1Repository.agro_genetica_acasalamento_prontidao()
+
+@router.post("/agro/genetica/acasalamento/candidatos")
+async def post_agro_genetica_acasalamento_candidatos(request: Request, user=Depends(require_permission("agro"))):
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    return Wave1Repository.agro_genetica_acasalamento_candidatos(payload)
+
 @router.get("/agro/genetica/simulador")
 def get_agro_genetica_simulador(request: Request, touro_id: Optional[str] = None, raca: Optional[str] = None,
                                 user=Depends(require_permission("agro"))):
