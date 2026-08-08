@@ -553,14 +553,23 @@ def get_agro_tecnicos(request: Request, page: int = Query(1, ge=1), page_size: i
                       profissao: Optional[str] = None, origem: Optional[str] = None, confianca: Optional[str] = None,
                       com_crmv: Optional[bool] = None, com_telefone: Optional[bool] = None,
                       com_email: Optional[bool] = None, atividade: Optional[str] = None,
+                      entidade_tipo: Optional[str] = None, grupo: Optional[str] = None,
+                      evidencia: Optional[str] = None,
+                      contact_status: Literal["ANY","PHONE","EMAIL","BOTH","NONE"] = "ANY",
                       sort: str = "nome", order: str = "asc", user=Depends(require_permission("agro"))):
     return AgroCanalRepository.tecnicos(page=page,page_size=page_size,q=q,uf=uf,municipio=municipio,
         profissao=profissao,origem=origem,confianca=confianca,com_crmv=com_crmv,
-        com_telefone=com_telefone,com_email=com_email,atividade=atividade,sort=sort,order=order)
+        com_telefone=com_telefone,com_email=com_email,atividade=atividade,entidade_tipo=entidade_tipo,
+        grupo=grupo,evidencia=evidencia,contact_status=contact_status,sort=sort,order=order)
 
 @router.get("/agro/tecnicos/stats")
 def get_agro_tecnicos_stats(request: Request, user=Depends(require_permission("agro"))):
     return AgroCanalRepository.tecnicos_stats()
+
+@router.get("/agro/tecnicos/mapa")
+def get_agro_tecnicos_mapa(request: Request, uf: Optional[str] = Query(None,min_length=2,max_length=2),
+                           limit: int = Query(5570,ge=1,le=5570), user=Depends(require_permission("agro"))):
+    return AgroCanalRepository.tecnicos_mapa(uf=uf,limit=limit)
 
 @router.get("/agro/tecnicos/{id}")
 def get_agro_tecnico(id: str, request: Request, user=Depends(require_permission("agro"))):

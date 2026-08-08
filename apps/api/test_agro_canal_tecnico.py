@@ -1,4 +1,5 @@
 from unittest.mock import patch
+import pytest
 import os
 
 os.environ.setdefault("DB_PASS", "test-only")
@@ -68,14 +69,41 @@ def test_detalhe_geografia_indisponivel_sem_lista_fabricada():
 def test_estatisticas_reais():
     expected={"total":10,"profissionais_nominais":2,"estabelecimentos_veterinarios":3,"veterinarios":1,
       "zootecnistas":1,"reproducao_manejo":1,"provaveis_por_cnae":2,"com_crmv_informado":1,
-      "com_telefone":4,"com_email":5,"origem_crea":1,"origem_abcz":1}
+      "com_telefone":4,"com_email":5,"com_contato":7,"com_telefone_e_email":2,
+      "origem_crea":1,"origem_abcz":1}
     with patch.object(repo,"_query",return_value=[expected]): result=repo.AgroCanalRepository.tecnicos_stats()
     assert result==expected
 
 
-def test_erro_banco_controlado_sem_dados_fabricados():
-    with patch.object(repo,"_query",side_effect=RuntimeError("db")): result=repo.AgroCanalRepository.tecnicos()
-    assert result["status"]=="partial" and result["items"]==[] and result["total"]==0
+def test_erro_banco_nao_e_mascarado_como_lista_vazia():
+    with patch.object(repo,"_query",side_effect=RuntimeError("permission denied")):
+        with pytest.raises(RuntimeError,match="permission denied"):
+            repo.AgroCanalRepository.tecnicos()
+
+
+def test_contato_deduplicado_e_filtros_sem_quebrar_legado():
+    where,params=repo._tech_filters(contact_status="BOTH",com_telefone=True)
+    assert "telefone IS NOT NULL AND email IS NOT NULL" in where
+    assert "telefone IS NOT NULL" in where and params==[]
+    sql=" ".join(x for x in repo.AgroCanalRepository.tecnicos_stats.__code__.co_consts if isinstance(x,str))
+    assert "telefone IS NOT NULL OR email IS NOT NULL" in sql
+
+
+def test_item_publico_crmv_nao_validado_contato_e_fonte_explicavel():
+    item=repo._public_item(nominal(telefone="11999999999",email="A@EXAMPLE.COM"))
+    assert item["crmv_informado"] is True and item["crmv_validation_status"]=="NOT_VALIDATED"
+    assert item["contact_status"]=="BOTH" and item["contact_attribution"]=="UNATTRIBUTED"
+    assert item["source_metadata"][0]["object"]=="prospeccao.v_tecnico_full"
+    assert "cpf" not in item
+
+
+def test_mapa_municipal_bounds_link_exato_e_sem_fuzzy():
+    with patch.object(repo,"_query",side_effect=[[{"codigo_ibge":1,"latitude":-15,"longitude":-48}],[{"total":1}]]) as query:
+        result=repo.AgroCanalRepository.tecnicos_mapa(uf="DF",limit=10)
+    sql=query.call_args_list[0].args[0]
+    assert result["returned"]==1 and result["territorial_link_quality"]=="MUNICIPAL_NAME_NORMALIZED"
+    assert "BETWEEN -33.75 AND 5.27" in sql and "BETWEEN -73.99 AND -34.79" in sql
+    assert "similarity" not in sql.lower() and "levenshtein" not in sql.lower()
 
 
 def test_deserto_lista_classes_regra_75km_e_null_preservado():
