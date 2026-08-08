@@ -38,7 +38,9 @@ def _query(sql: str, params: list[Any] | None = None) -> list[dict]:
 
 TECH_CTE = """
 WITH canal AS (
- SELECT 'CNPJ:' || t.cnpj14 AS id, t.cnpj14 AS cnpj, t.nome,
+ SELECT 'CNPJ:' || t.cnpj14 AS id, t.cnpj14 AS cnpj,
+   CASE WHEN lower(trim(t.nome)) IN ('(sem nome fantasia)','sem nome fantasia')
+        THEN 'Estabelecimento sem nome disponível' ELSE t.nome END AS nome,
    CASE WHEN NULLIF(t.profissao,'') IS NOT NULL OR t.crmv IS NOT NULL
         THEN 'PROFISSIONAL_NOMINAL'
         WHEN t.categoria IN ('inseminacao','apoio_pecuaria','repro_secundario')

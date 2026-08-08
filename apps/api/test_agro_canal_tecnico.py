@@ -48,6 +48,7 @@ def test_crea_nao_e_contado_como_crmv():
 
 def test_estabelecimento_tem_confianca_empresarial():
     assert "WHEN t.categoria='veterinaria' THEN 'ESTABELECIMENTO_EMPRESARIAL'" in repo.TECH_CTE
+    assert "THEN 'Estabelecimento sem nome disponível'" in repo.TECH_CTE
 
 
 def test_semantica_nominal_estabelecimento_cnae_e_crmv_nao_oficial():
