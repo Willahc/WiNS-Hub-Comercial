@@ -40,4 +40,10 @@ export const AGRO_API = {
   tecnico: (id: string) => `/agro/tecnicos/${encodeURIComponent(id)}`,
   desertoVeterinario: '/agro/deserto-veterinario',
   desertoVeterinarioStats: '/agro/deserto-veterinario/stats',
+  desertoVeterinarioResumo: '/agro/deserto-veterinario/resumo',
+  desertoVeterinarioMunicipios: '/agro/deserto-veterinario/municipios',
+  desertoVeterinarioMapa: '/agro/deserto-veterinario/mapa',
+  desertoVeterinarioMetodologia: '/agro/deserto-veterinario/metodologia',
+  desertoVeterinarioDetalhe: (codigoIbge: string) =>
+    `/agro/deserto-veterinario/${encodeURIComponent(codigoIbge)}`,
 } as const;
