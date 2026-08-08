@@ -2910,21 +2910,30 @@ class Wave1Repository:
               (SELECT count(*)::int FROM catalogo.central) as total_centrais,
               (SELECT count(*)::int FROM mercado.touro_central) as vinculos_touro_central,
               (SELECT count(*)::int FROM mercado.touro_oferta) as ofertas_semen,
-              (SELECT count(*)::int FROM fazenda.animal WHERE sexo = 'F') as femeas_cadastradas,
-              (SELECT count(*)::int FROM mercado.doadora) as doadoras_cadastradas,
-              (SELECT count(*)::int FROM mercado.v_matriz) as matrizes_catalogo,
-              (SELECT count(*)::int FROM fazenda.cruzamento) as cruzamentos_reais,
-              (SELECT count(*)::int FROM fazenda.estacao_monta) as estacoes_monta,
               (SELECT count(*)::int FROM (SELECT caracteristica_id FROM mercado.avaliacao GROUP BY caracteristica_id HAVING count(*) >= 10000) t) as caracteristicas_densas,
               GREATEST(
                 (SELECT max(coletado_em) FROM mercado.reprodutor),
-                (SELECT max(coletado_em) FROM mercado.avaliacao),
-                (SELECT max(coletado_em) FROM fazenda.animal),
-                (SELECT max(coletado_em) FROM mercado.doadora)
+                (SELECT max(coletado_em) FROM mercado.avaliacao)
               )::text as updated_at
         """, domain="agro")
         
         data = summary_rows[0] if summary_rows else {}
+
+        unavailable_objects = []
+        optional_counts = {
+            "femeas_cadastradas": "SELECT count(*)::int AS total FROM fazenda.animal WHERE sexo = 'F'",
+            "doadoras_cadastradas": "SELECT count(*)::int AS total FROM mercado.doadora",
+            "matrizes_catalogo": "SELECT count(*)::int AS total FROM mercado.v_matriz",
+            "cruzamentos_reais": "SELECT count(*)::int AS total FROM fazenda.cruzamento",
+            "estacoes_monta": "SELECT count(*)::int AS total FROM fazenda.estacao_monta",
+        }
+        for key, sql in optional_counts.items():
+            try:
+                result = _run_db("wins_agro", sql, domain="agro")
+                data[key] = result[0]["total"] if result else None
+            except Exception:
+                data[key] = None
+                unavailable_objects.append(key)
         
         breed_rows = _run_db("wins_agro", """
             SELECT r.id, r.nome as raca, count(rp.id)::int as total,
@@ -2974,6 +2983,7 @@ class Wave1Repository:
                 "app_campo_telemetria": "PARTIAL" if femeas else "PLANNED"
             },
             "sources": source_rows,
+            "unavailable_objects": unavailable_objects,
             "limitations": [
                 "As contagens são calculadas no banco no momento da consulta; nenhuma contagem é embutida no contrato.",
                 "Pai e mãe textuais representam pedigree imediato declarado, não ancestralidade resolvida por identificador.",
@@ -3282,7 +3292,9 @@ class Wave1Repository:
 
     @staticmethod
     def agro_genetica_acasalamento_prontidao():
-        farm_females = _run_db("wins_agro", """
+        unavailable_objects = []
+        try:
+            farm_females = _run_db("wins_agro", """
             SELECT a.id::text, a.nome, a.brinco, a.registro_associacao, a.peso_atual_kg::float,
                    a.escore_corporal::float, a.status, r.nome as raca,
                    a.pai_nome_externo as pai_nome, a.pai_registro_externo as pai_registro,
@@ -3291,9 +3303,13 @@ class Wave1Repository:
             LEFT JOIN catalogo.raca r ON r.id = a.raca_id
             WHERE a.sexo = 'F' AND COALESCE(a.status, 'ativo') <> 'descarte'
             ORDER BY a.id ASC
-        """, domain="agro")
+            """, domain="agro")
+        except Exception:
+            farm_females = []
+            unavailable_objects.append("fazenda.animal")
 
-        donors = _run_db("wins_agro", """
+        try:
+            donors = _run_db("wins_agro", """
             SELECT d.id::text, d.nome, d.registro, d.fazenda_origem, r.nome as raca,
                    rp.pai_registro, rp.pai_nome, rp.mae_registro, rp.mae_nome,
                    d.fonte_referencia, 'mercado.doadora' as origem_tabela
@@ -3301,7 +3317,10 @@ class Wave1Repository:
             LEFT JOIN catalogo.raca r ON r.id = d.raca_id
             LEFT JOIN mercado.reprodutor rp ON rp.id = d.reprodutor_id
             ORDER BY d.id ASC
-        """, domain="agro")
+            """, domain="agro")
+        except Exception:
+            donors = []
+            unavailable_objects.append("mercado.doadora")
 
         matrices = []
         for f in farm_females:
@@ -3362,6 +3381,7 @@ class Wave1Repository:
             "status": "AVAILABLE" if eligible_matrices else "PARTIAL",
             "matrizes_count": len(matrices),
             "eligible_matrices_count": eligible_matrices,
+            "unavailable_objects": unavailable_objects,
             "matrizes": matrices,
             "available_target_traits": target_traits,
             "contracts": {
