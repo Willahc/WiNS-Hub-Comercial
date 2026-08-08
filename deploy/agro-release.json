@@ -2,7 +2,7 @@
   "release_id": "agro-genetica-canonica-v1",
   "repository": "Willahc/WiNS-Hub-Comercial",
   "backend": {
-    "commit": "80dcf77ff3095f174a1532a21a02e4cea99b18d8",
+    "commit": "c8edb01186413556276f6671884c3acbee7f8c25",
     "source_path": "apps/api"
   },
   "frontend": {
